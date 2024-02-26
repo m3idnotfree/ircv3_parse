@@ -37,10 +37,10 @@ impl<'a> Ircv3Parse<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Ircv3Prefix<'a> {
     prefix: Option<(&'a str, Option<&'a str>)>,
-    msg: &'a str,
+    pub msg: &'a str,
 }
 
 impl<'a> Ircv3Prefix<'a> {
@@ -53,12 +53,9 @@ impl<'a> Ircv3Prefix<'a> {
         match self.prefix {
             Some(value) => {
                 let (server_nick, host) = value;
-                (
-                    self.msg,
-                    Some((server_nick.to_string(), host.map(str::to_string))),
-                )
+                Some((server_nick.to_string(), host.map(str::to_string)))
             }
-            None => (self.msg, None),
+            None => None,
         }
     }
 
@@ -99,7 +96,7 @@ pub fn channel_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
     let mut map = HashMap::new();
     map.insert("channel".to_string(), channel.to_string());
     map.insert("message".to_string(), message.to_string());
-    // Ok((remain, (message.to_string(), channel.to_string())))
+
     Ok((remain, map))
 }
 

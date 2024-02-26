@@ -11,17 +11,18 @@ use nom::{
 
 #[derive(Debug)]
 pub struct Ircv3Parse<'a> {
-    pub tags: Option<HashMap<String, String>>,
-    pub prefix: Option<(String, Option<String>)>,
+    pub tags: Ircv3TagsParse<'a>,
+    pub prefix: Ircv3Prefix<'a>,
+
     pub command: String,
     pub message: &'a str,
 }
 
 impl<'a> Ircv3Parse<'a> {
     pub fn new(msg: &str) -> Ircv3Parse {
-        let (msg, tags) = Ircv3TagsParse::new(msg).hashmap_string();
-        let (msg, prefix) = Ircv3Prefix::new(msg).string();
-        let (message, command) = Ircv3Parse::command_parse(msg).unwrap();
+        let tags = Ircv3TagsParse::new(msg);
+        let prefix = Ircv3Prefix::new(tags.msg);
+        let (message, command) = Ircv3Parse::command_parse(prefix.msg).unwrap();
 
         Ircv3Parse {
             tags,

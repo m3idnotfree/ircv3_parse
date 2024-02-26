@@ -49,7 +49,7 @@ impl<'a> Ircv3Prefix<'a> {
         Ircv3Prefix { prefix, msg }
     }
 
-    pub fn string(self) -> (&'a str, Option<(String, Option<String>)>) {
+    pub fn to_string(self) -> Option<(String, Option<String>)> {
         match self.prefix {
             Some(value) => {
                 let (server_nick, host) = value;
@@ -62,8 +62,8 @@ impl<'a> Ircv3Prefix<'a> {
         }
     }
 
-    pub fn str(self) -> (&'a str, Option<(&'a str, Option<&'a str>)>) {
-        (self.msg, self.prefix)
+    pub fn to_str(self) -> Option<(&'a str, Option<&'a str>)> {
+        self.prefix
     }
 
     pub fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>)>> {

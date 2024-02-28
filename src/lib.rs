@@ -13,7 +13,6 @@ use nom::{
 pub struct Ircv3Parse<'a> {
     pub tags: Ircv3TagsParse<'a>,
     pub prefix: Ircv3Prefix<'a>,
-
     pub command: String,
     pub message: &'a str,
 }
@@ -76,7 +75,6 @@ impl<'a> Ircv3Prefix<'a> {
     }
 
     pub fn opts_user(msg: &str) -> IResult<&str, Option<&str>> {
-        println!("msd = {:#?}", msg);
         opt(preceded(
             tag("!"),
             // take_while(|c: char| !c.is_whitespace() && c != '@'),

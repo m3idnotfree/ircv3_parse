@@ -3,7 +3,7 @@
 //! # Example
 //! ```no_run
 //! use std::collections::HashMap;
-//! use ircv3_parse::{Ircv3Parse, channel_message};
+//! use ircv3_parse::{Ircv3Parse, Ircv3Params, ChannelNMsg};
 //! let msg = "@badge-info=;badges=broadcaster/1;client-nonce=997dcf443c31e258c1d32a8da47b6936;color=#0000FF;display-name=abc;emotes=;first-msg=0;flags=0-6:S.7;id=eb24e920-8065-492a-8aea-266a00fc5126;mod=0;room-id=713936733;subscriber=0;tmi-sent-ts=1642786203573;turbo=0;user-id=713936733;user-type= :abc!abc@abc.tmi.twitch.tv PRIVMSG #xyz :HeyGuys\r\n";
 //! let result = Ircv3Parse::new(msg);
 //! let expeced_tags= HashMap::from([
@@ -24,20 +24,16 @@
 //!     ("first-msg", "0"),
 //!     ("user-type", "")]);
 //!
-//! let expeced_c_m = HashMap::from([
-//!    ("channel", "#xyz"),
-//!    ("message", "HeyGuys")
-//! ]);
+//!
+//! let binding = ChannelNMsg::new("#xyz", "HeyGuys");
+//!
 //! assert_eq!(result.prefix.to_str(), Some(("abc", Some("abc@abc.tmi.twitch.tv"))));
 //! assert_eq!(result.command, "PRIVMSG");
-//! assert_eq!(result.message, " #xyz :HeyGuys\r\n");
+//! assert_eq!(result.params.channel_n_message(), Ok(("\r\n", binding)));
 //!
-//! let c_m = channel_message(result.message);
-//! assert_eq!(c_m, Ok(("\r\n", expeced_c_m)));
 //!```
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
-use ircv3_tags::Ircv3TagsParse;
 use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{not_line_ending, space1},
@@ -46,12 +42,14 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug)]
+pub use ircv3_tags::Ircv3TagsParse;
+
+#[derive(Debug, PartialEq)]
 pub struct Ircv3Parse<'a> {
     pub tags: Ircv3TagsParse<'a>,
     pub prefix: Ircv3Prefix<'a>,
     pub command: &'a str,
-    pub message: &'a str,
+    pub params: Ircv3Params<'a>,
 }
 
 impl<'a> Ircv3Parse<'a> {
@@ -59,12 +57,13 @@ impl<'a> Ircv3Parse<'a> {
         let tags = Ircv3TagsParse::new(msg);
         let prefix = Ircv3Prefix::new(tags.msg);
         let (message, command) = Ircv3Parse::command_parse(prefix.msg).unwrap();
+        let message = Ircv3Params::new(message);
 
         Ircv3Parse {
             tags,
             prefix,
             command,
-            message,
+            params: message,
         }
     }
 
@@ -86,13 +85,10 @@ impl<'a> Ircv3Prefix<'a> {
     }
 
     pub fn to_string(self) -> Option<(String, Option<String>)> {
-        match self.prefix {
-            Some(value) => {
-                let (server_nick, host) = value;
-                Some((server_nick.to_string(), host.map(str::to_string)))
-            }
-            None => None,
-        }
+        self.prefix.map(|value| {
+            let (server_nick, host) = value;
+            Some((server_nick.to_string(), host.map(str::to_string)))
+        })?
     }
 
     pub fn to_str(self) -> Option<(&'a str, Option<&'a str>)> {
@@ -124,44 +120,50 @@ impl<'a> Ircv3Prefix<'a> {
     // }
 }
 
-pub fn channel_message_string(msg: &str) -> IResult<&str, HashMap<String, String>> {
-    let (msg, channel) = delimited(space1, take_until(" "), space1)(msg)?;
-    let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
-
-    let mut map = HashMap::new();
-    map.insert("channel".to_string(), channel.to_string());
-    map.insert("message".to_string(), message.to_string());
-
-    Ok((remain, map))
+#[derive(Debug, PartialEq)]
+pub struct Ircv3Params<'a> {
+    pub msg: &'a str,
 }
 
-pub fn channel_message(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
-    let (msg, channel) = delimited(space1, take_until(" "), space1)(msg)?;
-    let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
+impl<'a> Ircv3Params<'a> {
+    pub fn new(msg: &'a str) -> Ircv3Params<'a> {
+        Ircv3Params { msg }
+    }
 
-    let mut map = HashMap::new();
-    map.insert("channel", channel);
-    map.insert("message", message);
+    pub fn channel_n_message(&self) -> IResult<&str, ChannelNMsg> {
+        let (msg, channel) = delimited(space1, take_until(" "), space1)(self.msg)?;
+        let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
 
-    Ok((remain, map))
+        Ok((remain, ChannelNMsg::new(channel, message)))
+    }
+
+    pub fn middle_n_message(&self) -> IResult<&str, MiddleNMsg> {
+        let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(self.msg)?;
+        let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
+
+        Ok((message, MiddleNMsg::new(middle, message)))
+    }
+}
+#[derive(Debug, PartialEq)]
+pub struct ChannelNMsg<'a> {
+    pub channel: &'a str,
+    pub message: &'a str,
 }
 
-pub fn middle_message_string(msg: &str) -> IResult<&str, HashMap<String, String>> {
-    let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
-    let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
-    let mut map = HashMap::new();
-    map.insert("middle".to_string(), middle.to_string());
-    map.insert("message".to_string(), message.to_string());
-
-    Ok((message, map))
+impl<'a> ChannelNMsg<'a> {
+    pub fn new(channel: &'a str, message: &'a str) -> ChannelNMsg<'a> {
+        ChannelNMsg { channel, message }
+    }
 }
 
-pub fn middle_message(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
-    let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
-    let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
-    let mut map = HashMap::new();
-    map.insert("middle", middle);
-    map.insert("message", message);
+#[derive(Debug, PartialEq)]
+pub struct MiddleNMsg<'a> {
+    pub middle: &'a str,
+    pub message: &'a str,
+}
 
-    Ok((message, map))
+impl<'a> MiddleNMsg<'a> {
+    pub fn new(middle: &'a str, message: &'a str) -> MiddleNMsg<'a> {
+        MiddleNMsg { middle, message }
+    }
 }

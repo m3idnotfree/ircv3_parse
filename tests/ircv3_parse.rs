@@ -7,25 +7,31 @@ use pretty_assertions::assert_eq;
 fn ircv3_parse_base() {
     let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG #bar :bleedPurple";
     let result = Ircv3Parse::new(msg);
+    let (remain, c_m) = result.params.channel_n_message().unwrap();
 
     let expect_tags = None;
     let expect_prefix = Some(("foo".to_string(), Some("foo@foo.tmi.twitch.tv".to_string())));
     assert_eq!(result.tags.hashmap_str(), expect_tags);
     assert_eq!(result.prefix.to_string(), expect_prefix);
-    assert_eq!(result.command, "PRIVMSG".to_string());
-    assert_eq!(result.message, " #bar :bleedPurple".to_string());
+    assert_eq!(result.command, "PRIVMSG");
+    assert_eq!(c_m.channel, "#bar");
+    assert_eq!(c_m.message, "bleedPurple");
+    assert_eq!(remain, "");
 }
 #[test]
 fn ircv3_parse_base_rn() {
     let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG #bar :bleedPurple\r\n";
     let result = Ircv3Parse::new(msg);
+    let (remain, c_m) = result.params.channel_n_message().unwrap();
 
     let expect_tags = None;
     let expect_prefix = Some(("foo".to_string(), Some("foo@foo.tmi.twitch.tv".to_string())));
     assert_eq!(result.tags.hashmap_string(), expect_tags);
     assert_eq!(result.prefix.to_string(), expect_prefix);
-    assert_eq!(result.command, "PRIVMSG".to_string());
-    assert_eq!(result.message, " #bar :bleedPurple\r\n".to_string());
+    assert_eq!(result.command, "PRIVMSG");
+    assert_eq!(c_m.channel, "#bar");
+    assert_eq!(c_m.message, "bleedPurple");
+    assert_eq!(remain, "\r\n");
 }
 
 #[test]
@@ -39,8 +45,11 @@ fn ircv3_parse_with_tags() {
         Some("ronni@ronni.tmi.twitch.tv".to_string()),
     ));
 
+    let (remain, c_m) = result.params.channel_n_message().unwrap();
     assert_eq!(result.tags.hashmap_string(), tags);
     assert_eq!(result.prefix.to_string(), expect_prefix);
-    assert_eq!(result.command, "PRIVMSG".to_string());
-    assert_eq!(result.message, " #ronni :Kappa Keepo Kappa".to_string());
+    assert_eq!(result.command, "PRIVMSG");
+    assert_eq!(c_m.channel, "#ronni");
+    assert_eq!(c_m.message, "Kappa Keepo Kappa");
+    assert_eq!(remain, "");
 }

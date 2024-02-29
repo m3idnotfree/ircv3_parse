@@ -144,7 +144,7 @@ impl<'a> Ircv3Params<'a> {
         Ok((message, MiddleNMsg::new(middle, message)))
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChannelNMsg<'a> {
     pub channel: &'a str,
     pub message: &'a str,
@@ -156,7 +156,7 @@ impl<'a> ChannelNMsg<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MiddleNMsg<'a> {
     pub middle: &'a str,
     pub message: &'a str,

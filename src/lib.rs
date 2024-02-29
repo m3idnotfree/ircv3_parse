@@ -13,7 +13,7 @@ use nom::{
 pub struct Ircv3Parse<'a> {
     pub tags: Ircv3TagsParse<'a>,
     pub prefix: Ircv3Prefix<'a>,
-    pub command: String,
+    pub command: &'a str,
     pub message: &'a str,
 }
 
@@ -26,7 +26,7 @@ impl<'a> Ircv3Parse<'a> {
         Ircv3Parse {
             tags,
             prefix,
-            command: command.to_string(),
+            command,
             message,
         }
     }
@@ -98,12 +98,33 @@ pub fn channel_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
     Ok((remain, map))
 }
 
+pub fn channel_message_str(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
+    let (msg, channel) = delimited(space1, take_until(" "), space1)(msg)?;
+    let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
+
+    let mut map = HashMap::new();
+    map.insert("channel", channel);
+    map.insert("message", message);
+
+    Ok((remain, map))
+}
+
 pub fn middle_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
     let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
     let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
     let mut map = HashMap::new();
     map.insert("middle".to_string(), middle.to_string());
     map.insert("message".to_string(), message.to_string());
+
+    Ok((message, map))
+}
+
+pub fn middle_message_str(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
+    let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
+    let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
+    let mut map = HashMap::new();
+    map.insert("middle", middle);
+    map.insert("message", message);
 
     Ok((message, map))
 }

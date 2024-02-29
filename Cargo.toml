@@ -1,11 +1,16 @@
 [package]
 name = "ircv3_parse"
-version = "0.1.0"
+version = "0.0.2"
+authors = ["m3id"]
 edition = "2021"
+description = "IRCv3 parse"
+repository = "https://github.com/m3idnotfree/ircv3_parse.git"
+license = "MIT OR Apache-2.0"
+keywords = ["ircv3", "twitch"]
 
 [dependencies]
+ircv3_tags = "0.0.2"
 nom = "7.1.3"
-ircv3_tags = { git = 'https://github.com/m3idnotfree/ircv3_tags.git' }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

@@ -1,3 +1,40 @@
+//! IRCv3 parse
+//!
+//! # Example
+//! ```no_run
+//! use std::collections::HashMap;
+//! use ircv3_parse::{Ircv3Parse, channel_message};
+//! let msg = "@badge-info=;badges=broadcaster/1;client-nonce=997dcf443c31e258c1d32a8da47b6936;color=#0000FF;display-name=abc;emotes=;first-msg=0;flags=0-6:S.7;id=eb24e920-8065-492a-8aea-266a00fc5126;mod=0;room-id=713936733;subscriber=0;tmi-sent-ts=1642786203573;turbo=0;user-id=713936733;user-type= :abc!abc@abc.tmi.twitch.tv PRIVMSG #xyz :HeyGuys\r\n";
+//! let result = Ircv3Parse::new(msg);
+//! let expeced_tags= HashMap::from([
+//!     ("badge-info", ""),
+//!     ("subscriber", "0"),
+//!     ("id", "eb24e920-8065-492a-8aea-266a00fc5126"),
+//!     ("user-id", "713936733"),
+//!     ("emotes", ""),
+//!     ("tmi-sent-ts", "1642786203573"),
+//!     ("client-nonce", "997dcf443c31e258c1d32a8da47b6936"),
+//!     ("mod", "0"),
+//!     ("badges", "broadcaster/1"),
+//!     ("room-id", "713936733"),
+//!     ("flags", "0-6:S.7"),
+//!     ("color", "#0000FF"),
+//!     ("turbo", "0"),
+//!     ("display-name", "abc"),
+//!     ("first-msg", "0"),
+//!     ("user-type", "")]);
+//!
+//! let expeced_c_m = HashMap::from([
+//!    ("channel", "#xyz"),
+//!    ("message", "HeyGuys")
+//! ]);
+//! assert_eq!(result.prefix.to_str(), Some(("abc", Some("abc@abc.tmi.twitch.tv"))));
+//! assert_eq!(result.command, "PRIVMSG");
+//! assert_eq!(result.message, " #xyz :HeyGuys\r\n");
+//!
+//! let c_m = channel_message(result.message);
+//! assert_eq!(c_m, Ok(("\r\n", expeced_c_m)));
+//!```
 use std::collections::HashMap;
 
 use ircv3_tags::Ircv3TagsParse;
@@ -87,7 +124,7 @@ impl<'a> Ircv3Prefix<'a> {
     // }
 }
 
-pub fn channel_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
+pub fn channel_message_string(msg: &str) -> IResult<&str, HashMap<String, String>> {
     let (msg, channel) = delimited(space1, take_until(" "), space1)(msg)?;
     let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
 
@@ -98,7 +135,7 @@ pub fn channel_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
     Ok((remain, map))
 }
 
-pub fn channel_message_str(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
+pub fn channel_message(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
     let (msg, channel) = delimited(space1, take_until(" "), space1)(msg)?;
     let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
 
@@ -109,7 +146,7 @@ pub fn channel_message_str(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
     Ok((remain, map))
 }
 
-pub fn middle_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
+pub fn middle_message_string(msg: &str) -> IResult<&str, HashMap<String, String>> {
     let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
     let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
     let mut map = HashMap::new();
@@ -119,7 +156,7 @@ pub fn middle_message(msg: &str) -> IResult<&str, HashMap<String, String>> {
     Ok((message, map))
 }
 
-pub fn middle_message_str(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
+pub fn middle_message(msg: &str) -> IResult<&str, HashMap<&str, &str>> {
     let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(msg)?;
     let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
     let mut map = HashMap::new();

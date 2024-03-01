@@ -130,6 +130,10 @@ impl<'a> Ircv3Params<'a> {
         Ircv3Params { msg }
     }
 
+    pub fn channel(&self) -> IResult<&str, &str> {
+        preceded(tag(" "), not_line_ending)(self.msg)
+    }
+
     pub fn channel_n_message(&self) -> IResult<&str, ChannelNMsg> {
         let (msg, channel) = delimited(space1, take_until(" "), space1)(self.msg)?;
         let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;

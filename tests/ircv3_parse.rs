@@ -1,4 +1,4 @@
-use ircv3_parse::{self, Ircv3Parse};
+use ircv3_parse::{self, Ircv3Params, Ircv3Parse};
 use ircv3_tags::Ircv3TagsParse;
 
 use pretty_assertions::assert_eq;

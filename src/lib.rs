@@ -145,25 +145,31 @@ impl<'a> Ircv3Params<'a> {
     }
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChannelNMsg<'a> {
-    pub channel: &'a str,
-    pub message: &'a str,
+pub struct ChannelNMsg {
+    pub channel: String,
+    pub message: String,
 }
 
-impl<'a> ChannelNMsg<'a> {
-    pub fn new(channel: &'a str, message: &'a str) -> ChannelNMsg<'a> {
-        ChannelNMsg { channel, message }
+impl ChannelNMsg {
+    pub fn new<T: Into<String>>(channel: T, message: T) -> ChannelNMsg {
+        ChannelNMsg {
+            channel: channel.into(),
+            message: message.into(),
+        }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MiddleNMsg<'a> {
-    pub middle: &'a str,
-    pub message: &'a str,
+pub struct MiddleNMsg {
+    pub middle: String,
+    pub message: String,
 }
 
-impl<'a> MiddleNMsg<'a> {
-    pub fn new(middle: &'a str, message: &'a str) -> MiddleNMsg<'a> {
-        MiddleNMsg { middle, message }
+impl MiddleNMsg {
+    pub fn new<T: Into<String>>(middle: T, message: T) -> MiddleNMsg {
+        MiddleNMsg {
+            middle: middle.into(),
+            message: message.into(),
+        }
     }
 }

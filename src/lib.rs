@@ -72,7 +72,7 @@ impl<'a> Ircv3Parse<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Ircv3Prefix<'a> {
     prefix: Option<(&'a str, Option<&'a str>)>,
     pub msg: &'a str,
@@ -120,7 +120,7 @@ impl<'a> Ircv3Prefix<'a> {
     // }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ircv3Params<'a> {
     pub msg: &'a str,
 }

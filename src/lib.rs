@@ -54,21 +54,32 @@ pub struct Ircv3Parse<'a> {
 
 impl<'a> Ircv3Parse<'a> {
     pub fn new(msg: &str) -> Ircv3Parse {
-        let tags = Ircv3TagsParse::new(msg);
-        let prefix = Ircv3Prefix::new(tags.msg);
-        let (message, command) = Ircv3Parse::command_parse(prefix.msg).unwrap();
-        let message = Ircv3Params::new(message);
+        let (_, result) = Ircv3Parse::parse(msg).unwrap();
 
-        Ircv3Parse {
-            tags,
-            prefix,
-            command,
-            params: message,
-        }
+        result
     }
 
-    pub fn command_parse(msg: &str) -> IResult<&str, &str> {
-        take_until(" ")(msg)
+    pub fn parse_lists(msg: &str) -> IResult<&str, Vec<Ircv3Parse>> {
+        separated_list1(crlf, Ircv3Parse::parse)(msg)
+    }
+
+    pub fn parse(msg: &str) -> IResult<&str, Ircv3Parse> {
+        let (remain, (tags, prefix, command, params)) = tuple((
+            Ircv3TagsParse::parse,
+            Ircv3Prefix::parse,
+            take_until(" "),
+            Ircv3Params::parse,
+        ))(msg)?;
+
+        Ok((
+            remain,
+            Ircv3Parse {
+                tags,
+                prefix,
+                command,
+                params,
+            },
+        ))
     }
 }
 

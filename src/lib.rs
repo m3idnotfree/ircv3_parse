@@ -134,29 +134,32 @@ impl<'a> Ircv3Params<'a> {
         preceded(tag(" "), not_line_ending)(self.msg)
     }
 
-    pub fn channel_n_message(&self) -> IResult<&str, ChannelNMsg> {
-        let (msg, channel) = delimited(space1, take_until(" "), space1)(self.msg)?;
-        let (remain, (_, message)) = tuple((tag(":"), not_line_ending))(msg)?;
+    pub fn channel_n_message(&self) -> IResult<&str, ChannelnMsg> {
+        let (remain, (channel, _, message)) = tuple((
+            terminated(take_until(" "), space1),
+            tag(":"),
+            not_line_ending,
+        ))(self.data)?;
 
-        Ok((remain, ChannelNMsg::new(channel, message)))
+        Ok((remain, ChannelnMsg::new(channel, message)))
     }
 
-    pub fn middle_n_message(&self) -> IResult<&str, MiddleNMsg> {
-        let (msg, middle) = delimited(space1, take_until(":"), tag(":"))(self.msg)?;
-        let (_, message) = preceded(tag(":"), not_line_ending)(msg)?;
+    pub fn middle_n_message(&self) -> IResult<&str, MiddlenMsg> {
+        let (remain, (middle, message)) =
+            tuple((terminated(take_until(":"), tag(":")), not_line_ending))(self.data)?;
 
-        Ok((message, MiddleNMsg::new(middle, message)))
+        Ok((remain, MiddlenMsg::new(middle.trim(), message)))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChannelNMsg {
+pub struct ChannelnMsg {
     pub channel: String,
     pub message: String,
 }
 
-impl ChannelNMsg {
-    pub fn new<T: Into<String>>(channel: T, message: T) -> ChannelNMsg {
-        ChannelNMsg {
+impl ChannelnMsg {
+    pub fn new<T: Into<String>>(channel: T, message: T) -> ChannelnMsg {
+        ChannelnMsg {
             channel: channel.into(),
             message: message.into(),
         }
@@ -164,14 +167,14 @@ impl ChannelNMsg {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MiddleNMsg {
+pub struct MiddlenMsg {
     pub middle: String,
     pub message: String,
 }
 
-impl MiddleNMsg {
-    pub fn new<T: Into<String>>(middle: T, message: T) -> MiddleNMsg {
-        MiddleNMsg {
+impl MiddlenMsg {
+    pub fn new<T: Into<String>>(middle: T, message: T) -> MiddlenMsg {
+        MiddlenMsg {
             middle: middle.into(),
             message: message.into(),
         }

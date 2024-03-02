@@ -1,2 +1,4 @@
 /target
 Cargo.lock
+/tests/loop.rs
+/src/main.rs

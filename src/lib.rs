@@ -3,7 +3,7 @@
 //! # Example
 //! ```no_run
 //! use std::collections::HashMap;
-//! use ircv3_parse::{Ircv3Parse, Ircv3Params, ChannelNMsg};
+//! use ircv3_parse::{Ircv3Parse, Ircv3Params, ChannelnMsg};
 //! let msg = "@badge-info=;badges=broadcaster/1;client-nonce=997dcf443c31e258c1d32a8da47b6936;color=#0000FF;display-name=abc;emotes=;first-msg=0;flags=0-6:S.7;id=eb24e920-8065-492a-8aea-266a00fc5126;mod=0;room-id=713936733;subscriber=0;tmi-sent-ts=1642786203573;turbo=0;user-id=713936733;user-type= :abc!abc@abc.tmi.twitch.tv PRIVMSG #xyz :HeyGuys\r\n";
 //! let result = Ircv3Parse::new(msg);
 //! let expeced_tags= HashMap::from([
@@ -25,7 +25,7 @@
 //!     ("user-type", "")]);
 //!
 //!
-//! let binding = ChannelNMsg::new("#xyz", "HeyGuys");
+//! let binding = ChannelnMsg::new("#xyz", "HeyGuys");
 //!
 //! assert_eq!(result.prefix.to_str(), Some(("abc", Some("abc@abc.tmi.twitch.tv"))));
 //! assert_eq!(result.command, "PRIVMSG");
@@ -35,10 +35,12 @@
 // use std::collections::HashMap;
 
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{not_line_ending, space1},
-    combinator::opt,
-    sequence::{delimited, preceded, tuple},
+    character::complete::{crlf, not_line_ending, space1},
+    combinator::{eof, opt},
+    multi::separated_list1,
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
@@ -102,17 +104,17 @@ impl<'a> Ircv3Prefix<'a> {
     }
 
     pub fn to_string(self) -> Option<(String, Option<String>)> {
-        self.prefix.map(|value| {
+        self.data.map(|value| {
             let (server_nick, host) = value;
             Some((server_nick.to_string(), host.map(str::to_string)))
         })?
     }
 
     pub fn to_str(self) -> Option<(&'a str, Option<&'a str>)> {
-        self.prefix
+        self.data
     }
 
-    pub fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>)>> {
+    fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>)>> {
         opt(delimited(
             tag(":"),
             tuple((Ircv3Prefix::server_nick, Ircv3Prefix::opts_user)),
@@ -120,11 +122,11 @@ impl<'a> Ircv3Prefix<'a> {
         ))(msg)
     }
 
-    pub fn server_nick(msg: &str) -> IResult<&str, &str> {
+    fn server_nick(msg: &str) -> IResult<&str, &str> {
         take_while(|c: char| !c.is_whitespace() && c != '!')(msg)
     }
 
-    pub fn opts_user(msg: &str) -> IResult<&str, Option<&str>> {
+    fn opts_user(msg: &str) -> IResult<&str, Option<&str>> {
         opt(preceded(
             tag("!"),
             // take_while(|c: char| !c.is_whitespace() && c != '@'),
@@ -174,6 +176,7 @@ impl<'a> Ircv3Params<'a> {
         Ok((remain, MiddlenMsg::new(middle.trim(), message)))
     }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChannelnMsg {
     pub channel: String,

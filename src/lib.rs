@@ -122,16 +122,22 @@ impl<'a> Ircv3Prefix<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ircv3Params<'a> {
-    pub msg: &'a str,
+    data: &'a str,
 }
 
 impl<'a> Ircv3Params<'a> {
     pub fn new(msg: &'a str) -> Ircv3Params<'a> {
-        Ircv3Params { msg }
+        Ircv3Params { data: msg }
+    }
+
+    pub fn parse(msg: &'a str) -> IResult<&str, Ircv3Params> {
+        let (remain, data) = delimited(space1, not_line_ending, alt((crlf, eof)))(msg)?;
+
+        Ok((remain, Ircv3Params { data }))
     }
 
     pub fn channel(&self) -> IResult<&str, &str> {
-        preceded(tag(" "), not_line_ending)(self.msg)
+        terminated(not_line_ending, alt((crlf, eof)))(self.data)
     }
 
     pub fn channel_n_message(&self) -> IResult<&str, ChannelnMsg> {

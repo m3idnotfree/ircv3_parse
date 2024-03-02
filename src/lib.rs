@@ -74,14 +74,20 @@ impl<'a> Ircv3Parse<'a> {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Ircv3Prefix<'a> {
-    prefix: Option<(&'a str, Option<&'a str>)>,
-    pub msg: &'a str,
+    data: Option<(&'a str, Option<&'a str>)>,
 }
 
 impl<'a> Ircv3Prefix<'a> {
     pub fn new(msg: &str) -> Ircv3Prefix {
-        let (msg, prefix) = Ircv3Prefix::prefix_parse(msg).unwrap();
-        Ircv3Prefix { prefix, msg }
+        let (_, data) = Ircv3Prefix::prefix_parse(msg).unwrap();
+
+        Ircv3Prefix { data }
+    }
+
+    pub fn parse(msg: &'a str) -> IResult<&str, Ircv3Prefix<'a>> {
+        let (msg, data) = Ircv3Prefix::prefix_parse(msg)?;
+
+        Ok((msg, Ircv3Prefix { data }))
     }
 
     pub fn to_string(self) -> Option<(String, Option<String>)> {

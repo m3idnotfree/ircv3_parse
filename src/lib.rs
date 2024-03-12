@@ -32,10 +32,10 @@
 //! assert_eq!(params.message(), "HeyGuys");
 //!
 //!```
-use ircv3_tags::{tags_parse, IRCv3Tags};
 
 use nom::{bytes::complete::take_until, sequence::tuple, IResult};
 
+pub use ircv3_tags::{tags_parse, IRCv3Tags};
 mod prefix;
 pub use prefix::*;
 mod params;

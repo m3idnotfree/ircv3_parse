@@ -10,8 +10,8 @@ fn ircv3_parse_base() {
     assert_eq!(prefix.server_nick(), Some("foo"));
     assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv"));
     assert_eq!(command, "PRIVMSG");
-    assert_eq!(params.channel(), "#bar");
-    assert_eq!(params.message(), "bleedPurple");
+    assert_eq!(params.channel(), Some("#bar"));
+    assert_eq!(params.message(), Some("bleedPurple"));
 }
 
 #[test]
@@ -24,8 +24,8 @@ fn ircv3_parse_base_rn() {
     assert_eq!(prefix.server_nick(), Some("foo"));
     assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv"));
     assert_eq!(command, "PRIVMSG");
-    assert_eq!(params.channel(), "#bar");
-    assert_eq!(params.message(), "bleedPurple");
+    assert_eq!(params.channel(), Some("#bar"));
+    assert_eq!(params.message(), Some("bleedPurple"));
 }
 
 #[test]
@@ -39,6 +39,6 @@ fn ircv3_parse_with_tags() {
     assert_eq!(prefix.server_nick(), Some("ronni"));
     assert_eq!(prefix.user(), Some("ronni@ronni.tmi.twitch.tv"));
     assert_eq!(command, "PRIVMSG");
-    assert_eq!(params.channel(), "#ronni");
-    assert_eq!(params.message(), "Kappa Keepo Kappa");
+    assert_eq!(params.channel(), Some("#ronni"));
+    assert_eq!(params.message(), Some("Kappa Keepo Kappa"));
 }

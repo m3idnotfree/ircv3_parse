@@ -6,8 +6,8 @@ fn channel_message_base() {
     let msg = " #ronni :Kappa Keepo Kappa";
     let (remain, params) = params_parse(msg).unwrap();
 
-    assert_eq!(params.channel(), "#ronni");
-    assert_eq!(params.message(), "Kappa Keepo Kappa");
+    assert_eq!(params.channel(), Some("#ronni"));
+    assert_eq!(params.message(), Some("Kappa Keepo Kappa"));
     assert_eq!(remain, "");
 }
 #[test]
@@ -15,7 +15,7 @@ fn channel_message_rn() {
     let msg = " #ronni :Kappa Keepo Kappa\r\n";
     let (remain, params) = params_parse(msg).unwrap();
 
-    assert_eq!(params.channel(), "#ronni");
-    assert_eq!(params.message(), "Kappa Keepo Kappa");
+    assert_eq!(params.channel(), Some("#ronni"));
+    assert_eq!(params.message(), Some("Kappa Keepo Kappa"));
     assert_eq!(remain, "");
 }

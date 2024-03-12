@@ -28,8 +28,8 @@
 //!
 //! assert_eq!(prefix.as_ref(), &Some(("abc", Some("abc@abc.tmi.twitch.tv"))));
 //! assert_eq!(command, "PRIVMSG");
-//! assert_eq!(params.channel(), "#xyz");
-//! assert_eq!(params.message(), "HeyGuys");
+//! assert_eq!(params.channel(), Some("#xyz"));
+//! assert_eq!(params.message(), Some("HeyGuys"));
 //!
 //!```
 

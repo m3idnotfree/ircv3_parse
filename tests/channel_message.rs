@@ -1,24 +1,21 @@
-use ircv3_parse::{self, ChannelnMsg, Ircv3Params};
+use ircv3_parse::params_parse;
 use pretty_assertions::assert_eq;
 
 #[test]
 fn channel_message_base() {
     let msg = " #ronni :Kappa Keepo Kappa";
-    let (remain, binding) = Ircv3Params::parse(msg).unwrap();
-    let (_, c_m) = binding.channel_n_message().unwrap();
+    let (remain, params) = params_parse(msg).unwrap();
 
-    let expected_c_m = ChannelnMsg::new("#ronni", "Kappa Keepo Kappa");
-
-    assert_eq!(c_m, expected_c_m);
+    assert_eq!(params.channel(), "#ronni");
+    assert_eq!(params.message(), "Kappa Keepo Kappa");
     assert_eq!(remain, "");
 }
 #[test]
 fn channel_message_rn() {
     let msg = " #ronni :Kappa Keepo Kappa\r\n";
-    let (_, binding) = Ircv3Params::parse(msg).unwrap();
-    let (remain, c_m) = binding.channel_n_message().unwrap();
-    let expected_c_m = ChannelnMsg::new("#ronni", "Kappa Keepo Kappa");
+    let (remain, params) = params_parse(msg).unwrap();
 
-    assert_eq!(c_m, expected_c_m);
+    assert_eq!(params.channel(), "#ronni");
+    assert_eq!(params.message(), "Kappa Keepo Kappa");
     assert_eq!(remain, "");
 }

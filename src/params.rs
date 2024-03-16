@@ -7,16 +7,28 @@ use nom::{
     IResult,
 };
 
-pub fn params_parse(msg: &str) -> IResult<&str, IRCv3Params> {
-    Ircv3Params::parse(msg)
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct IRCv3Params<'a>(Option<(&'a str, Option<&'a str>)>);
 
 impl<'a> IRCv3Params<'a> {
-    pub fn new(params: Option<(&'a str, Option<&'a str>)>) -> Self {
-        Self(params)
+    pub fn parse(msg: &str) -> IResult<&str, IRCv3Params> {
+        let (remain, data) = opt(preceded(
+            space1,
+            terminated(
+                alt((
+                    IRCv3Params::channel_and_message,
+                    IRCv3Params::middle_and_message,
+                    IRCv3Params::only_channel,
+                )),
+                alt((crlf, eof)),
+            ),
+        ))(msg)?;
+
+        Ok((remain, IRCv3Params(data)))
+    }
+
+    pub fn get(&self) -> Option<(&'a str, Option<&'a str>)> {
+        self.0
     }
 
     pub fn channel(&self) -> Option<&str> {
@@ -28,27 +40,6 @@ impl<'a> IRCv3Params<'a> {
             None => None,
             Some(value) => value.1,
         }
-    }
-}
-
-struct Ircv3Params;
-
-impl Ircv3Params {
-    pub fn parse(msg: &str) -> IResult<&str, IRCv3Params> {
-        let (remain, data) = opt(preceded(space1, Ircv3Params::pars))(msg)?;
-
-        Ok((remain, IRCv3Params(data)))
-    }
-
-    pub fn pars(msg: &str) -> IResult<&str, (&str, Option<&str>)> {
-        terminated(
-            alt((
-                Ircv3Params::channel_and_message,
-                Ircv3Params::middle_and_message,
-                Ircv3Params::only_channel,
-            )),
-            alt((crlf, eof)),
-        )(msg)
     }
 
     fn channel_and_message(msg: &str) -> IResult<&str, (&str, Option<&str>)> {
@@ -73,5 +64,11 @@ impl Ircv3Params {
 
         let (msg, channel) = not_line_ending(msg)?;
         Ok((msg, (channel, None)))
+    }
+}
+
+impl<'a> AsRef<Option<(&'a str, Option<&'a str>)>> for IRCv3Params<'a> {
+    fn as_ref(&self) -> &Option<(&'a str, Option<&'a str>)> {
+        &self.0
     }
 }

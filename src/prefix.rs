@@ -6,16 +6,14 @@ use nom::{
     IResult,
 };
 
-pub fn prefix_parse(msg: &str) -> IResult<&str, IRCv3Prefix> {
-    Ircv3Prefix::parse(msg)
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct IRCv3Prefix<'a>(Option<(&'a str, Option<&'a str>)>);
 
 impl<'a> IRCv3Prefix<'a> {
-    pub fn new(prefix: Option<(&'a str, Option<&'a str>)>) -> Self {
-        Self(prefix)
+    pub fn parse(msg: &str) -> IResult<&str, IRCv3Prefix> {
+        let (msg, data) = IRCv3Prefix::prefix_parse(msg)?;
+
+        Ok((msg, IRCv3Prefix(data)))
     }
 
     pub fn server_nick(&self) -> Option<&str> {
@@ -30,34 +28,18 @@ impl<'a> IRCv3Prefix<'a> {
     }
 
     pub fn get(&self) -> Option<(&'a str, Option<&'a str>)> {
-        self.0.as_ref().copied()
-    }
-}
-
-impl<'a> AsRef<Option<(&'a str, Option<&'a str>)>> for IRCv3Prefix<'a> {
-    fn as_ref(&self) -> &Option<(&'a str, Option<&'a str>)> {
-        &self.0
-    }
-}
-
-struct Ircv3Prefix;
-
-impl Ircv3Prefix {
-    pub fn parse(msg: &str) -> IResult<&str, IRCv3Prefix> {
-        let (msg, data) = Ircv3Prefix::prefix_parse(msg)?;
-
-        Ok((msg, IRCv3Prefix(data)))
+        self.0
     }
 
     fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>)>> {
         opt(delimited(
             tag(":"),
-            tuple((Ircv3Prefix::server_nick, Ircv3Prefix::opts_user)),
+            tuple((IRCv3Prefix::server_nic, IRCv3Prefix::opts_user)),
             space1,
         ))(msg)
     }
 
-    fn server_nick(msg: &str) -> IResult<&str, &str> {
+    fn server_nic(msg: &str) -> IResult<&str, &str> {
         take_while(|c: char| !c.is_whitespace() && c != '!')(msg)
     }
 
@@ -72,4 +54,10 @@ impl Ircv3Prefix {
     // fn opts_host(msg: &str) -> IResult<&str, Option<&str>> {
     //     opt(preceded(tag("@"), take_until(" ")))(msg)
     // }
+}
+
+impl<'a> AsRef<Option<(&'a str, Option<&'a str>)>> for IRCv3Prefix<'a> {
+    fn as_ref(&self) -> &Option<(&'a str, Option<&'a str>)> {
+        &self.0
+    }
 }

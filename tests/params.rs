@@ -1,10 +1,11 @@
-use ircv3_parse::{params_parse, IRCv3Params};
+use ircv3_parse::IRCv3Params;
+use nom::IResult;
 // use pretty_assertions::assert_eq;
 
 #[test]
 fn only_channel() {
     let msg = " #<channel>";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
     assert_eq!(remain, "");
     assert_eq!(result.channel(), Some("#<channel>"));
@@ -14,7 +15,7 @@ fn only_channel() {
 #[test]
 fn only_channel_rn() {
     let msg = " #<channel>\r\n";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
     assert_eq!(remain, "");
     assert_eq!(result.channel(), Some("#<channel>"));
@@ -24,7 +25,7 @@ fn only_channel_rn() {
 #[test]
 fn middle() {
     let msg = " bar = #twitchdev :bar";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
     assert_eq!(result.channel(), Some("bar = #twitchdev"));
     assert_eq!(result.message(), Some("bar"));
@@ -33,7 +34,7 @@ fn middle() {
 #[test]
 fn channel_message() {
     let msg = " #barbar :This room is already in unique-chat mode.";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
     assert_eq!(result.channel(), Some("#barbar"));
     assert_eq!(
@@ -46,9 +47,9 @@ fn channel_message() {
 #[test]
 fn space_empty() {
     let msg = " ";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
-    // assert_eq!(result, IRCv3Params::new(None));
+    assert_eq!(result.get(), None);
     assert_eq!(result.channel(), None);
     assert_eq!(result.message(), None);
     assert_eq!(remain, " ");
@@ -57,9 +58,9 @@ fn space_empty() {
 #[test]
 fn space_empty_rn() {
     let msg = " \r\n";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
-    assert_eq!(result, IRCv3Params::new(None));
+    assert_eq!(result.get(), None);
     assert_eq!(result.channel(), None);
     assert_eq!(result.message(), None);
     assert_eq!(remain, " \r\n");
@@ -68,9 +69,9 @@ fn space_empty_rn() {
 #[test]
 fn empty() {
     let msg = "";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
-    assert_eq!(result, IRCv3Params::new(None));
+    assert_eq!(result.get(), None);
     assert_eq!(result.channel(), None);
     assert_eq!(result.message(), None);
     assert_eq!(remain, "");
@@ -79,10 +80,14 @@ fn empty() {
 #[test]
 fn empty_rn() {
     let msg = "\r\n";
-    let (remain, result) = params_parse(msg).unwrap();
+    let (remain, result) = parse(msg).unwrap();
 
-    assert_eq!(result, IRCv3Params::new(None));
+    assert_eq!(result.get(), None);
     assert_eq!(result.channel(), None);
     assert_eq!(result.message(), None);
     assert_eq!(remain, "\r\n");
+}
+
+fn parse(msg: &str) -> IResult<&str, IRCv3Params> {
+    IRCv3Params::parse(msg)
 }

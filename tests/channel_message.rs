@@ -1,10 +1,10 @@
-use ircv3_parse::params_parse;
+use ircv3_parse::IRCv3Params;
 use pretty_assertions::assert_eq;
 
 #[test]
 fn channel_message_base() {
     let msg = " #ronni :Kappa Keepo Kappa";
-    let (remain, params) = params_parse(msg).unwrap();
+    let (remain, params) = IRCv3Params::parse(msg).unwrap();
 
     assert_eq!(params.channel(), Some("#ronni"));
     assert_eq!(params.message(), Some("Kappa Keepo Kappa"));
@@ -13,7 +13,7 @@ fn channel_message_base() {
 #[test]
 fn channel_message_rn() {
     let msg = " #ronni :Kappa Keepo Kappa\r\n";
-    let (remain, params) = params_parse(msg).unwrap();
+    let (remain, params) = IRCv3Params::parse(msg).unwrap();
 
     assert_eq!(params.channel(), Some("#ronni"));
     assert_eq!(params.message(), Some("Kappa Keepo Kappa"));

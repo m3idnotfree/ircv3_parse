@@ -42,6 +42,7 @@ mod params;
 pub use params::*;
 
 struct Ircv3Parse;
+
 impl Ircv3Parse {
     pub fn parse(msg: &str) -> IResult<&str, (IRCv3Tags, IRCv3Prefix, &str, IRCv3Params)> {
         let (remain, (tags, prefix, command, params)) = tuple((

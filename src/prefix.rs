@@ -7,40 +7,29 @@ use nom::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IRCv3Prefix<'a>((&'a str, Option<&'a str>));
+pub struct IRCv3Prefix((String, Option<String>));
 
-impl<'a> IRCv3Prefix<'a> {
+impl IRCv3Prefix {
     pub fn parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
         let (msg, data) = prefix_parse(msg)?;
 
-        // Ok((msg, IRCv3Prefix(data)))
-        Ok((msg, data.map(|x| IRCv3Prefix(x))))
+        Ok((
+            msg,
+            data.map(|x| IRCv3Prefix((x.0.to_string(), x.1.map(|x| x.to_string())))),
+        ))
     }
 
-    pub fn server_nick(&self) -> Option<&str> {
-        self.0.as_ref().map(|value| value.0)
+    pub fn server_nick(&self) -> String {
+        self.0 .0.clone()
     }
 
-    pub fn user(&self) -> Option<&str> {
-        match self.0.as_ref() {
-            None => None,
-            Some(value) => value.1,
-        }
-    }
-
-    pub fn get(&self) -> Option<(&'a str, Option<&'a str>)> {
-        self.0
+    pub fn user(&self) -> Option<String> {
+        self.0 .1.clone()
     }
 
     // fn opts_host(msg: &str) -> IResult<&str, Option<&str>> {
     //     opt(preceded(tag("@"), take_until(" ")))(msg)
     // }
-}
-
-impl<'a> AsRef<Option<(&'a str, Option<&'a str>)>> for IRCv3Prefix<'a> {
-    fn as_ref(&self) -> &Option<(&'a str, Option<&'a str>)> {
-        &self.0
-    }
 }
 
 fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>)>> {

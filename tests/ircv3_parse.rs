@@ -7,8 +7,11 @@ fn ircv3_parse_base() {
     let (tags, prefix, command, params) = ircv3_parse(msg);
 
     assert!(tags.is_none());
-    assert_eq!(prefix.server_nick(), Some("foo"));
-    assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv"));
+    assert!(prefix.is_some());
+
+    let prefix = prefix.unwrap();
+    assert_eq!(prefix.server_nick(), "foo");
+    assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv".into()));
     assert_eq!(command, "PRIVMSG");
     assert_eq!(params.channel(), Some("#bar"));
     assert_eq!(params.message(), Some("bleedPurple"));
@@ -20,8 +23,11 @@ fn ircv3_parse_base_rn() {
     let (tags, prefix, command, params) = ircv3_parse(msg);
 
     assert!(tags.is_none());
-    assert_eq!(prefix.server_nick(), Some("foo"));
-    assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv"));
+    assert!(prefix.is_some());
+
+    let prefix = prefix.unwrap();
+    assert_eq!(prefix.server_nick(), "foo");
+    assert_eq!(prefix.user(), Some("foo@foo.tmi.twitch.tv".into()));
     assert_eq!(command, "PRIVMSG");
     assert_eq!(params.channel(), Some("#bar"));
     assert_eq!(params.message(), Some("bleedPurple"));
@@ -41,8 +47,12 @@ fn ircv3_parse_with_tags() {
         tags.get("id"),
         Some("b34ccfc7-4977-403a-8a94-33c6bac34fb8".to_string())
     );
-    assert_eq!(prefix.server_nick(), Some("ronni"));
-    assert_eq!(prefix.user(), Some("ronni@ronni.tmi.twitch.tv"));
+
+    assert!(prefix.is_some());
+
+    let prefix = prefix.unwrap();
+    assert_eq!(prefix.server_nick(), "ronni");
+    assert_eq!(prefix.user(), Some("ronni@ronni.tmi.twitch.tv".into()));
     assert_eq!(command, "PRIVMSG");
     assert_eq!(params.channel(), Some("#ronni"));
     assert_eq!(params.message(), Some("Kappa Keepo Kappa"));

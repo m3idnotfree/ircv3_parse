@@ -26,7 +26,11 @@
 //!
 //!
 //!
-//! assert_eq!(prefix.as_ref(), &Some(("abc", Some("abc@abc.tmi.twitch.tv"))));
+//! assert!(prefix.is_some());
+//! let prefix = prefix.unwrap();
+//! assert_eq!(prefix.server_nick(), "abc");
+//! assert_eq!(prefix.user(), Some("abc@abc.tmi.twitch.tv".into()));
+//!
 //! assert_eq!(command, "PRIVMSG");
 //! assert_eq!(params.channel(), Some("#xyz"));
 //! assert_eq!(params.message(), Some("HeyGuys"));

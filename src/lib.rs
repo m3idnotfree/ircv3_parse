@@ -33,9 +33,9 @@
 //!
 //!```
 
+use ircv3_tags::IRCv3Tags;
 use nom::{bytes::complete::take_until, sequence::tuple, IResult};
 
-pub use ircv3_tags::IRCv3Tags;
 mod prefix;
 pub use prefix::*;
 mod params;
@@ -44,9 +44,9 @@ pub use params::*;
 struct Ircv3Parse;
 
 impl Ircv3Parse {
-    pub fn parse(msg: &str) -> IResult<&str, (IRCv3Tags, IRCv3Prefix, &str, IRCv3Params)> {
+    pub fn parse(msg: &str) -> IResult<&str, (Option<IRCv3Tags>, IRCv3Prefix, &str, IRCv3Params)> {
         let (remain, (tags, prefix, command, params)) = tuple((
-            IRCv3Tags::parse,
+            ircv3_tags::parse_nom,
             IRCv3Prefix::parse,
             take_until(" "),
             IRCv3Params::parse,
@@ -60,7 +60,7 @@ impl Ircv3Parse {
 }
 
 /// tags, prefix, command, params
-pub fn ircv3_parse(msg: &str) -> (IRCv3Tags, IRCv3Prefix, &str, IRCv3Params) {
+pub fn ircv3_parse(msg: &str) -> (Option<IRCv3Tags>, IRCv3Prefix, &str, IRCv3Params) {
     let (_, result) = Ircv3Parse::parse(msg).unwrap();
 
     result

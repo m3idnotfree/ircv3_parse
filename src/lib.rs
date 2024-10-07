@@ -5,7 +5,7 @@
 //! use std::collections::HashMap;
 //! use ircv3_parse::ircv3_parse;
 //! let msg = "@badge-info=;badges=broadcaster/1;client-nonce=997dcf443c31e258c1d32a8da47b6936;color=#0000FF;display-name=abc;emotes=;first-msg=0;flags=0-6:S.7;id=eb24e920-8065-492a-8aea-266a00fc5126;mod=0;room-id=713936733;subscriber=0;tmi-sent-ts=1642786203573;turbo=0;user-id=713936733;user-type= :abc!abc@abc.tmi.twitch.tv PRIVMSG #xyz :HeyGuys\r\n";
-//! let (tags, prefix, command, params) = ircv3_parse(msg);
+//! let ircv3_message = ircv3_parse(msg);
 //! let expeced_tags= HashMap::from([
 //!     ("badge-info", ""),
 //!     ("subscriber", "0"),
@@ -26,48 +26,81 @@
 //!
 //!
 //!
-//! assert!(prefix.is_some());
-//! let prefix = prefix.unwrap();
-//! assert_eq!(prefix.server_nick(), "abc");
-//! assert_eq!(prefix.user(), Some("abc@abc.tmi.twitch.tv".into()));
+//! assert!(ircv3_message.prefix.is_some());
+//! let prefix = ircv3_message.prefix.unwrap();
+//! assert_eq!(prefix.servername_nick, "abc");
+//! assert_eq!(prefix.user, Some("abc".to_string()));
+//! assert_eq!(prefix.host, Some("abc.tmi.twitch.tv".to_string()));
 //!
-//! assert_eq!(command, "PRIVMSG");
-//! assert_eq!(params.channel(), Some("#xyz"));
-//! assert_eq!(params.message(), Some("HeyGuys"));
+//! let params = ircv3_message.params;
+//! assert_eq!(ircv3_message.command, "PRIVMSG".to_string());
+//! assert_eq!(params.channel, Some("xyz".to_string()));
+//! assert_eq!(params.message, Some("HeyGuys".to_string()));
 //!
 //!```
 
+use std::collections::VecDeque;
+
 use ircv3_tags::IRCv3Tags;
-use nom::{bytes::complete::take_until, sequence::tuple, IResult};
+use nom::{character::complete::crlf, sequence::tuple};
 
 mod prefix;
 pub use prefix::*;
+mod command;
+pub use command::*;
 mod params;
 pub use params::*;
 
-struct Ircv3Parse;
-
-impl Ircv3Parse {
-    pub fn parse(
-        msg: &str,
-    ) -> IResult<&str, (Option<IRCv3Tags>, Option<IRCv3Prefix>, &str, IRCv3Params)> {
-        let (remain, (tags, prefix, command, params)) = tuple((
-            ircv3_tags::parse_nom,
-            IRCv3Prefix::parse,
-            take_until(" "),
-            IRCv3Params::parse,
-        ))(msg)?;
-
-        Ok((
-            remain,
-            (tags, prefix, command, params), // },
-        ))
-    }
+#[derive(Debug)]
+pub struct IRCv3Message {
+    pub tags: Option<IRCv3Tags>,
+    pub prefix: Option<IRCv3Prefix>,
+    pub command: String,
+    pub params: IRCv3Params,
 }
 
 /// tags, prefix, command, params
-pub fn ircv3_parse(msg: &str) -> (Option<IRCv3Tags>, Option<IRCv3Prefix>, &str, IRCv3Params) {
-    let (_, result) = Ircv3Parse::parse(msg).unwrap();
+pub fn ircv3_parse(msg: &str) -> IRCv3Message {
+    let (_, (tags, prefix, command, params)) = tuple((
+        ircv3_tags::parse_nom,
+        prefix_parse,
+        command_parse,
+        params_parse, // IRCv3Params::parse,
+    ))(msg)
+    .unwrap();
 
-    result
+    IRCv3Message {
+        tags,
+        prefix,
+        command: command.to_string(),
+        params,
+    }
+}
+
+pub fn ircv3_parses(msg: &str) -> VecDeque<IRCv3Message> {
+    ircv3_parse_inner(msg, VecDeque::new())
+}
+
+fn ircv3_parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3Message> {
+    println!("before if: {msg}");
+    if msg.is_empty() {
+        result
+    } else {
+        let (msg, (tags, prefix, command, params)) = tuple((
+            ircv3_tags::parse_nom,
+            prefix_parse,
+            command_parse,
+            params_parse, // IRCv3Params::parse,
+        ))(msg)
+        .unwrap();
+
+        result.push_back(IRCv3Message {
+            tags,
+            prefix,
+            command: command.to_string(),
+            params,
+        });
+
+        ircv3_parse_inner(msg, result)
+    }
 }

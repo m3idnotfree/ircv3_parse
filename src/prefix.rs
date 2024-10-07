@@ -13,27 +13,20 @@ pub struct IRCv3Prefix {
     pub host: Option<String>,
 }
 
-impl IRCv3Prefix {
-    pub fn parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
-        let (msg, data) = prefix_parse(msg)?;
-
-        Ok((
-            msg,
-            data.map(|x| IRCv3Prefix {
-                servername_nick: x.0.to_string(),
-                user: x.1.map(String::from),
-                host: x.2.map(String::from),
-            }),
-        ))
-    }
-}
-
-fn prefix_parse(msg: &str) -> IResult<&str, Option<(&str, Option<&str>, Option<&str>)>> {
-    opt(delimited(
+pub fn prefix_parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
+    let (remain, data) = opt(delimited(
         tag(":"),
         tuple((server_nick, opts_user, opts_host)),
         space1,
-    ))(msg)
+    ))(msg)?;
+    Ok((
+        remain,
+        data.map(|x| IRCv3Prefix {
+            servername_nick: x.0.to_string(),
+            user: x.1.map(String::from),
+            host: x.2.map(String::from),
+        }),
+    ))
 }
 
 fn server_nick(msg: &str) -> IResult<&str, &str> {

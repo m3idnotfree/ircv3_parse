@@ -1,4 +1,4 @@
-use ircv3_parse::IRCv3Prefix;
+use ircv3_parse::{prefix_parse, IRCv3Prefix};
 use nom::IResult;
 use pretty_assertions::assert_eq;
 
@@ -42,5 +42,5 @@ fn prefix_not_exist() {
 }
 
 fn parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
-    IRCv3Prefix::parse(msg)
+    prefix_parse(msg)
 }

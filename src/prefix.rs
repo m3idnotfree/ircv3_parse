@@ -37,13 +37,8 @@ fn opts_user(msg: &str) -> IResult<&str, Option<&str>> {
     opt(preceded(
         tag("!"),
         take_while(|c: char| !c.is_whitespace() && c != '@'),
-        // take_while(|c: char| !c.is_whitespace()),
     ))(msg)
 }
 fn opts_host(msg: &str) -> IResult<&str, Option<&str>> {
-    opt(preceded(
-        tag("@"),
-        // take_while(|c: char| !c.is_whitespace() && c != '@'),
-        take_while(|c: char| !c.is_whitespace()),
-    ))(msg)
+    opt(preceded(tag("@"), take_while(|c: char| !c.is_whitespace())))(msg)
 }

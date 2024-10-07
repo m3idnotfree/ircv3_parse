@@ -42,7 +42,7 @@
 use std::collections::VecDeque;
 
 use ircv3_tags::IRCv3Tags;
-use nom::{character::complete::crlf, sequence::tuple};
+use nom::sequence::tuple;
 
 mod prefix;
 pub use prefix::*;
@@ -59,13 +59,12 @@ pub struct IRCv3Message {
     pub params: IRCv3Params,
 }
 
-/// tags, prefix, command, params
 pub fn ircv3_parse(msg: &str) -> IRCv3Message {
     let (_, (tags, prefix, command, params)) = tuple((
         ircv3_tags::parse_nom,
         prefix_parse,
         command_parse,
-        params_parse, // IRCv3Params::parse,
+        params_parse,
     ))(msg)
     .unwrap();
 
@@ -82,7 +81,6 @@ pub fn ircv3_parses(msg: &str) -> VecDeque<IRCv3Message> {
 }
 
 fn ircv3_parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3Message> {
-    println!("before if: {msg}");
     if msg.is_empty() {
         result
     } else {
@@ -90,7 +88,7 @@ fn ircv3_parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<
             ircv3_tags::parse_nom,
             prefix_parse,
             command_parse,
-            params_parse, // IRCv3Params::parse,
+            params_parse,
         ))(msg)
         .unwrap();
 

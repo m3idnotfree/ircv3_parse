@@ -54,15 +54,15 @@ pub use params::*;
 #[derive(Debug)]
 pub struct IRCv3Message {
     pub tags: Option<IRCv3Tags>,
-    pub prefix: Option<IRCv3Source>,
+    pub source: Option<IRCv3Source>,
     pub command: String,
     pub params: IRCv3Params,
 }
 
 pub fn parse(msg: &str) -> IRCv3Message {
-    let (_, (tags, prefix, command, params)) = tuple((
+    let (_, (tags, source, command, params)) = tuple((
         ircv3_tags::parse_nom,
-        prefix_parse,
+        source_parse,
         command_parse,
         params_parse,
     ))(msg)
@@ -70,7 +70,7 @@ pub fn parse(msg: &str) -> IRCv3Message {
 
     IRCv3Message {
         tags,
-        prefix,
+        source,
         command: command.to_string(),
         params,
     }
@@ -84,9 +84,9 @@ fn parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3M
     if msg.is_empty() {
         result
     } else {
-        let (msg, (tags, prefix, command, params)) = tuple((
+        let (msg, (tags, source, command, params)) = tuple((
             ircv3_tags::parse_nom,
-            prefix_parse,
+            source_parse,
             command_parse,
             params_parse,
         ))(msg)
@@ -94,7 +94,7 @@ fn parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3M
 
         result.push_back(IRCv3Message {
             tags,
-            prefix,
+            source,
             command: command.to_string(),
             params,
         });

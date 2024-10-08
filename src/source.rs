@@ -13,7 +13,7 @@ pub struct IRCv3Source {
     pub host: Option<String>,
 }
 
-pub fn prefix_parse(msg: &str) -> IResult<&str, Option<IRCv3Source>> {
+pub fn source_parse(msg: &str) -> IResult<&str, Option<IRCv3Source>> {
     let (remain, data) = opt(delimited(
         tag(":"),
         tuple((server_nick, opts_user, opts_host)),

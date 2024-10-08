@@ -7,13 +7,13 @@ use nom::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IRCv3Prefix {
+pub struct IRCv3Source {
     pub servername_nick: String,
     pub user: Option<String>,
     pub host: Option<String>,
 }
 
-pub fn prefix_parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
+pub fn prefix_parse(msg: &str) -> IResult<&str, Option<IRCv3Source>> {
     let (remain, data) = opt(delimited(
         tag(":"),
         tuple((server_nick, opts_user, opts_host)),
@@ -21,7 +21,7 @@ pub fn prefix_parse(msg: &str) -> IResult<&str, Option<IRCv3Prefix>> {
     ))(msg)?;
     Ok((
         remain,
-        data.map(|x| IRCv3Prefix {
+        data.map(|x| IRCv3Source {
             servername_nick: x.0.to_string(),
             user: x.1.map(String::from),
             host: x.2.map(String::from),

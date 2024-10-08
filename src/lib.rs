@@ -3,9 +3,9 @@
 //! # Example
 //! ```no_run
 //! use std::collections::HashMap;
-//! use ircv3_parse::ircv3_parse;
+//!
 //! let msg = "@badge-info=;badges=broadcaster/1;client-nonce=997dcf443c31e258c1d32a8da47b6936;color=#0000FF;display-name=abc;emotes=;first-msg=0;flags=0-6:S.7;id=eb24e920-8065-492a-8aea-266a00fc5126;mod=0;room-id=713936733;subscriber=0;tmi-sent-ts=1642786203573;turbo=0;user-id=713936733;user-type= :abc!abc@abc.tmi.twitch.tv PRIVMSG #xyz :HeyGuys\r\n";
-//! let ircv3_message = ircv3_parse(msg);
+//! let ircv3_message = ircv3_parse::parse(msg);
 //! let expeced_tags= HashMap::from([
 //!     ("badge-info", ""),
 //!     ("subscriber", "0"),
@@ -44,8 +44,8 @@ use std::collections::VecDeque;
 use ircv3_tags::IRCv3Tags;
 use nom::sequence::tuple;
 
-mod prefix;
-pub use prefix::*;
+mod source;
+pub use source::*;
 mod command;
 pub use command::*;
 mod params;
@@ -54,12 +54,12 @@ pub use params::*;
 #[derive(Debug)]
 pub struct IRCv3Message {
     pub tags: Option<IRCv3Tags>,
-    pub prefix: Option<IRCv3Prefix>,
+    pub prefix: Option<IRCv3Source>,
     pub command: String,
     pub params: IRCv3Params,
 }
 
-pub fn ircv3_parse(msg: &str) -> IRCv3Message {
+pub fn parse(msg: &str) -> IRCv3Message {
     let (_, (tags, prefix, command, params)) = tuple((
         ircv3_tags::parse_nom,
         prefix_parse,
@@ -76,11 +76,11 @@ pub fn ircv3_parse(msg: &str) -> IRCv3Message {
     }
 }
 
-pub fn ircv3_parses(msg: &str) -> VecDeque<IRCv3Message> {
-    ircv3_parse_inner(msg, VecDeque::new())
+pub fn parse_vecdeque(msg: &str) -> VecDeque<IRCv3Message> {
+    parse_inner(msg, VecDeque::new())
 }
 
-fn ircv3_parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3Message> {
+fn parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<IRCv3Message> {
     if msg.is_empty() {
         result
     } else {
@@ -99,6 +99,6 @@ fn ircv3_parse_inner(msg: &str, mut result: VecDeque<IRCv3Message>) -> VecDeque<
             params,
         });
 
-        ircv3_parse_inner(msg, result)
+        parse_inner(msg, result)
     }
 }

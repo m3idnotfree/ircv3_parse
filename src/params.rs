@@ -11,7 +11,6 @@ use nom::{
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct IRCv3Params {
-    pub channel: Option<String>,
     pub middle: VecDeque<String>,
     pub message: Option<String>,
 }
@@ -31,22 +30,10 @@ pub fn params_inner(msg: &str, mut ircv3_params: IRCv3Params) -> ParamsReturn {
         if empty_crlf.is_some() {
             Ok((remain, ircv3_params))
         } else {
-            let (remain, (message, channel, middle)) =
-                preceded(space1, alt((message, channel, middle)))(remain)?;
+            let (remain, (message, _, middle)) = preceded(space1, alt((message, middle)))(remain)?;
+
             if message.is_some() {
                 ircv3_params.message = message.map(String::from);
-            }
-
-            if channel.is_some() && ircv3_params.channel.is_none() {
-                let is_eq = ircv3_params.middle.pop_back();
-
-                let c = if is_eq.is_some() && is_eq.unwrap() == "=" {
-                    let rename = ircv3_params.middle.pop_back().unwrap();
-                    Some(format!("{rename} = {}", channel.unwrap()))
-                } else {
-                    channel.map(String::from)
-                };
-                ircv3_params.channel = c;
             }
 
             if let Some(middle) = middle {
@@ -57,7 +44,8 @@ pub fn params_inner(msg: &str, mut ircv3_params: IRCv3Params) -> ParamsReturn {
     }
 }
 
-type ParamsNomReturn<'a> = IResult<&'a str, (Option<&'a str>, Option<&'a str>, Option<&'a str>)>;
+/// (remain, (message, channel ,middle))
+type ParamsNomReturn<'a> = IResult<&'a str, (Option<&'a str>, Option<String>, Option<&'a str>)>;
 
 fn msg_crlf(msg: &str) -> IResult<&str, &str> {
     crlf(msg)
@@ -68,13 +56,6 @@ fn message(msg: &str) -> ParamsNomReturn {
     let (remain, message) = preceded(tag(":"), not_line_ending)(msg)?;
 
     Ok((remain, (Some(message), None, None)))
-}
-
-/// (remain, (message, channel ,middle))
-fn channel(msg: &str) -> ParamsNomReturn {
-    let (remain, channel) = preceded(tag("#"), alt((take_until(" "), not_line_ending)))(msg)?;
-
-    Ok((remain, (None, Some(channel), None)))
 }
 
 /// (remain, (message, channel, middle))

@@ -1,6 +1,6 @@
 [package]
 name = "ircv3_parse"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["m3id"]
 edition = "2021"
 description = "IRCv3 parse"

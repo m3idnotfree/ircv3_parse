@@ -1,77 +1,94 @@
-use ircv3_parse::ircv3_parse;
+use ircv3_parse::IRCv3;
 use pretty_assertions::assert_eq;
 
 #[test]
 fn ircv3_parse_base() {
     let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG #bar :bleedPurple";
-    let ircvd = ircv3_parse(msg);
+    let ircv3 = IRCv3::parse(msg);
 
-    assert!(ircvd.tags.is_none());
-    assert!(ircvd.prefix.is_some());
+    assert!(ircv3.tags.is_none());
+    assert!(ircv3.source.is_some());
 
-    let prefix = ircvd.prefix.unwrap();
-    assert_eq!(prefix.servername_nick, "foo");
-    assert_eq!(prefix.user, Some("foo".into()));
-    assert_eq!(prefix.host, Some("foo.tmi.twitch.tv".into()));
-    assert_eq!(ircvd.command, "PRIVMSG");
+    let source = ircv3.source.unwrap();
+    assert_eq!("foo", source.servername_nick);
+    assert_eq!(Some("foo".into()), source.user);
+    assert_eq!(Some("foo.tmi.twitch.tv".into()), source.host,);
+    assert_eq!("PRIVMSG", ircv3.command,);
 
-    let params = ircvd.params;
-    assert_eq!(params.channel, Some("bar".to_string()));
-    assert_eq!(params.message, Some("bleedPurple".to_string()));
+    let params = ircv3.params;
+    assert_eq!("#bar".to_string(), params.channel.unwrap().name);
+    assert_eq!(Some("bleedPurple".to_string()), params.message,);
 }
 
 #[test]
 fn ircv3_parse_base_rn() {
     let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG #bar :bleedPurple\r\n";
-    let ircvd = ircv3_parse(msg);
+    let ircv3 = IRCv3::parse(msg);
 
-    assert!(ircvd.tags.is_none());
-    assert!(ircvd.prefix.is_some());
+    assert!(ircv3.tags.is_none());
+    assert!(ircv3.source.is_some());
 
-    let prefix = ircvd.prefix.unwrap();
-    assert_eq!(prefix.servername_nick, "foo");
-    assert_eq!(prefix.user, Some("foo".into()));
-    assert_eq!(prefix.host, Some("foo.tmi.twitch.tv".into()));
-    assert_eq!(ircvd.command, "PRIVMSG");
+    let source = ircv3.source.unwrap();
+    assert_eq!("foo", source.servername_nick);
+    assert_eq!(Some("foo".into()), source.user);
+    assert_eq!(Some("foo.tmi.twitch.tv".into()), source.host);
+    assert_eq!("PRIVMSG", ircv3.command,);
 
-    assert_eq!(ircvd.params.channel, Some("bar".into()));
-    assert_eq!(ircvd.params.message, Some("bleedPurple".to_string()));
+    let params = ircv3.params;
+
+    assert_eq!("#bar".to_string(), params.channel.unwrap().name);
+    assert_eq!(Some("bleedPurple".to_string()), params.message,);
 }
 
 #[test]
 fn ircv3_parse_with_tags() {
     let msg = "@badge-info=;badges=turbo/1;color=#0D4200;display-name=ronni;emotes=25:0-4,12-16/1902:6-10;id=b34ccfc7-4977-403a-8a94-33c6bac34fb8;mod=0;room-id=1337;subscriber=0;tmi-sent-ts=1507246572675;turbo=1;user-id=1337;user-type=global_mod :ronni!ronni@ronni.tmi.twitch.tv PRIVMSG #ronni :Kappa Keepo Kappa";
-    let ircvd = ircv3_parse(msg);
+    let ircv3 = IRCv3::parse(msg);
 
-    assert!(ircvd.tags.is_some());
-    let tags = ircvd.tags.unwrap();
+    assert!(ircv3.tags.is_some());
+    let tags = ircv3.tags.unwrap();
 
-    assert_eq!(tags.get("display-name"), Some("ronni".to_string()));
-    assert_eq!(tags.get("none"), None);
+    assert_eq!(Some("ronni".to_string()), tags.get("display-name"));
+    assert_eq!(None, tags.get("none"));
     assert_eq!(
-        tags.get("id"),
-        Some("b34ccfc7-4977-403a-8a94-33c6bac34fb8".to_string())
+        Some("b34ccfc7-4977-403a-8a94-33c6bac34fb8".to_string()),
+        tags.get("id")
     );
 
-    assert!(ircvd.prefix.is_some());
+    assert!(ircv3.source.is_some());
 
-    let prefix = ircvd.prefix.unwrap();
-    assert_eq!(prefix.servername_nick, "ronni".to_string());
-    assert_eq!(prefix.user, Some("ronni".into()));
-    assert_eq!(prefix.host, Some("ronni.tmi.twitch.tv".into()));
-    assert_eq!(ircvd.command, "PRIVMSG");
+    let source = ircv3.source.unwrap();
+    assert_eq!("ronni".to_string(), source.servername_nick);
+    assert_eq!(Some("ronni".into()), source.user);
+    assert_eq!(Some("ronni.tmi.twitch.tv".into()), source.host);
+    assert_eq!("PRIVMSG", ircv3.command);
 
-    assert_eq!(ircvd.params.channel, Some("ronni".to_string()));
-    assert_eq!(ircvd.params.message, Some("Kappa Keepo Kappa".to_string()));
+    let params = ircv3.params;
+    assert_eq!("#ronni".to_string(), params.channel.unwrap().name);
+    assert_eq!(Some("Kappa Keepo Kappa".to_string()), params.message,);
 }
 
-fn ircv3_parse_twitch() {
-    let msg = ":tmi.twitch.tv 001 <user> :Welcome, GLHF!\r\n:tmi.twitch.tv 002 <user> :Your host is tmi.twitch.tv\r\n:tmi.twitch.tv 003 <user> :This server is rather new\r\n:tmi.twitch.tv 004 <user> :-\r\n:tmi.twitch.tv 375 <user> :-\r\n:tmi.twitch.tv 372 <user> :You are in a maze of twisty passages, all alike.\r\n:tmi.twitch.tv 376 <user> :>\r\n@badge-info=;badges=;color=;display-name=<user>;emote-sets=0,300374282;user-id=12345678;user-type= :tmi.twitch.tv GLOBALUSERSTATE\r\n";
-    let ircvd = ircv3_parse(msg);
+#[test]
+fn ircv3_params_parse() {
+    let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG bar = #bar :bleedPurple";
+    let ircv3 = IRCv3::parse(msg);
 
-    assert!(ircvd.prefix.is_some());
+    let channel = ircv3.params.channel.unwrap();
+    assert_eq!("#bar".to_string(), channel.name);
+    assert_eq!(Some("bar".to_string()), channel.alt);
 
-    let prefix = ircvd.prefix.unwrap();
-    assert_eq!("tmi.wtich.tv", prefix.servername_nick);
-    assert_eq!("001".to_string(), ircvd.command)
+    let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG bar #bar :bleedPurple";
+    let ircv3 = IRCv3::parse(msg);
+
+    let channel = ircv3.params.channel.unwrap();
+    assert_eq!("#bar".to_string(), channel.name);
+    assert_eq!(Some("bar".to_string()), channel.alt);
+}
+
+#[test]
+fn unknown_params_test() {
+    let msg = ":foo!foo@foo.tmi.twitch.tv PRIVMSG guest w :bleedPurple";
+    let result = IRCv3::parse(msg);
+
+    assert_eq!("guest w".to_string(), result.params.unknwon)
 }

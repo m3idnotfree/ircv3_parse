@@ -21,10 +21,10 @@ pub fn source_parse(msg: &str) -> IResult<&str, Option<IRCv3Source>> {
     ))(msg)?;
     Ok((
         remain,
-        data.map(|x| IRCv3Source {
-            servername_nick: x.0.to_string(),
-            user: x.1.map(String::from),
-            host: x.2.map(String::from),
+        data.map(|sources| IRCv3Source {
+            servername_nick: sources.0.to_string(),
+            user: sources.1.map(String::from),
+            host: sources.2.map(String::from),
         }),
     ))
 }

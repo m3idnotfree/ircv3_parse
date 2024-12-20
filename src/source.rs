@@ -55,9 +55,9 @@ mod tests {
             ":foo!foo@foo.tmi.twitch.tv JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
         let (remain, source) = source_parse(msg).unwrap();
 
-        let expect_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
+        let expected_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
 
-        assert_eq!(remain, expect_remain);
+        assert_eq!(remain, expected_remain);
         let source = source.unwrap();
         assert_eq!("foo", source.servername_nick);
         assert_eq!(Some("foo".into()), source.user);
@@ -69,8 +69,8 @@ mod tests {
         let msg = ":foo.tmi.twitch.tv JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
         let (remain, source) = source_parse(msg).unwrap();
 
-        let expect_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
-        assert_eq!(remain, expect_remain);
+        let expected_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
+        assert_eq!(remain, expected_remain);
 
         assert!(source.is_some());
 
@@ -84,8 +84,8 @@ mod tests {
         let msg = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
         let (remain, source) = source_parse(msg).unwrap();
 
-        let expect_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
-        assert_eq!(expect_remain, remain);
+        let expected_remain = "JOIN #bar\r\n:foo.tmi.twitch.tv 353 foo = #bar :foo\r\n";
+        assert_eq!(expected_remain, remain);
         assert!(source.is_none());
     }
 }

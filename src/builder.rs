@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use nom::sequence::tuple;
 
 use crate::{
-    command_parse, params_parse, source_parse, IRCv3Message, IRCv3MessageBase, IRCv3Params,
-    ParamsParse,
+    command::command_parse, params::params_parse, source::source_parse, IRCv3Message,
+    IRCv3MessageBase, IRCv3Params, ParamsParse,
 };
 
 #[derive(Debug)]

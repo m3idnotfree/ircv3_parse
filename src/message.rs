@@ -1,6 +1,6 @@
 use ircv3_tags::IRCv3Tags;
 
-use crate::{IRCv3ParamsBase, IRCv3Source, ParamsParse};
+use crate::{params::IRCv3ParamsBase, IRCv3Source, ParamsParse};
 
 #[derive(Debug)]
 pub struct IRCv3Message<T> {

@@ -1,7 +1,7 @@
 //! IRCv3 parse
 //!
 //! # Example
-//! ```no_run
+//! ```
 //! use std::collections::HashMap;
 //! use ircv3_parse::IRCv3;
 //!
@@ -29,7 +29,7 @@
 //!
 //! assert!(ircv3_message.tags.is_some());
 //! let tags = ircv3_message.tags.clone().unwrap();
-//! assert_eq!(Some("id".to_string()), tags.get("id"));
+//! assert_eq!(Some("eb24e920-8065-492a-8aea-266a00fc5126".to_string()), tags.get("id"));
 //! assert_eq!(None, tags.get("n"));
 //!
 //! assert!(ircv3_message.source.is_some());
@@ -50,7 +50,7 @@
 //!```
 //!
 //! # Custom params middle parse
-//!```no_run
+//!```
 //! use ircv3_parse::{IRCv3Builder, ParamsParse};
 //! use nom::{
 //!     branch::alt,
@@ -114,15 +114,14 @@
 mod source;
 use std::collections::VecDeque;
 
-pub use source::*;
-mod command;
-pub use command::*;
+pub use source::IRCv3Source;
+pub(crate) mod command;
 mod params;
-pub use params::*;
+pub use params::{IRCv3Params, IRCv3ParamsBase, ParamsParse};
 mod builder;
-pub use builder::*;
+pub use builder::IRCv3Builder;
 mod message;
-pub use message::*;
+pub use message::{IRCv3Message, IRCv3MessageBase};
 
 #[derive(Debug)]
 pub struct IRCv3;

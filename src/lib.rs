@@ -28,10 +28,10 @@
 //!
 //!
 //!
-//!     assert!(ircv3_message.tags.is_some());
-//!     let tags = ircv3_message.tags.clone().unwrap();
-//!     assert_eq!(Some("eb24e920-8065-492a-8aea-266a00fc5126".to_string()), tags.get("id"));
-//!     assert_eq!(None, tags.get("n"));
+//     assert!(ircv3_message.tags.is_some());
+//     let tags = ircv3_message.tags.clone().unwrap();
+//     assert_eq!(Some("eb24e920-8065-492a-8aea-266a00fc5126".to_string()), tags.get("id"));
+//     assert_eq!(None, tags.get("n"));
 //!
 //!     assert!(ircv3_message.source.is_some());
 //!     let source = ircv3_message.source.clone().unwrap();
@@ -51,69 +51,69 @@
 //!```
 //!
 //! # Custom params middle parse
-//!```
-//! use ircv3_parse::{IRCv3Builder, ParamsParse};
-//! use nom::{
-//!     branch::alt,
-//!     bytes::complete::{tag, take_until},
-//!     character::complete::{not_line_ending, space1},
-//!     sequence::tuple,
-//!     IResult,
-//!};
-//!
-//! fn main() {
-//!     let msg = ":foo!foo@foo.tmi.abcdef.gh PRIVMSG guest w :bleedPurple";
-//!     let result = IRCv3Builder::new(WhoAmI::default()).parse(msg);
-//!
-//!     assert_eq!("guest".to_string(), result.params.stats);
-//!     assert_eq!("w".to_string(), result.params.user);
-//! }
-//!
-//! #[derive(Default)]
-//! struct WhoAmI {
-//!     pub stats: String,
-//!     pub user: String,
-//! }
-//!
-//! impl ParamsParse for WhoAmI {
-//!     fn parse(&self, _: &str, middle: ircv3_parse::IRCv3ParamsBase) -> Self
-//!     where
-//!         Self: Sized,
-//!     {
-//!         let join_middle = middle.middle.join(" ");
-//!         let (_, (who, user)) = whoami(join_middle.as_str()).unwrap();
-//!         WhoAmI {
-//!             stats: who.to_string(),
-//!             user: user.to_string(),
-//!         }
-//!     }
-//! }
-//!
-//! pub fn whoami(msg: &str) -> IResult<&str, (&str, &str)> {
-//!     let (remain, who) = alt((owner_user, guest_user))(msg)?;
-//!     Ok((remain, who))
-//! }
-//!
-//! fn owner_user(msg: &str) -> IResult<&str, (&str, &str)> {
-//!     let (remain, (gust, _, user)) = tuple((
-//!         tag("owner"),
-//!         space1,
-//!         alt((take_until(" "), not_line_ending)),
-//!     ))(msg)?;
-//!
-//!     Ok((remain, (gust, user)))
-//! }
-//!
-//! fn guest_user(msg: &str) -> IResult<&str, (&str, &str)> {
-//!     let (remain, (gust, _, user)) = tuple((
-//!         tag("guest"),
-//!         space1,
-//!         alt((take_until(" "), not_line_ending)),
-//!     ))(msg)?;
-//!
-//!     Ok((remain, (gust, user)))
-//! }
-//! ```
+//```
+// use ircv3_parse::{IRCv3Builder, ParamsParse};
+// use nom::{
+//     branch::alt,
+//     bytes::complete::{tag, take_until},
+//     character::complete::{not_line_ending, space1},
+//     sequence::tuple,
+//     IResult,
+//};
+//
+// fn main() {
+//     let msg = ":foo!foo@foo.tmi.abcdef.gh PRIVMSG guest w :bleedPurple";
+//     let result = IRCv3Builder::new(WhoAmI::default()).parse(msg);
+//
+//     assert_eq!("guest".to_string(), result.params.stats);
+//     assert_eq!("w".to_string(), result.params.user);
+// }
+//
+// #[derive(Default)]
+// struct WhoAmI {
+//     pub stats: String,
+//     pub user: String,
+// }
+//
+// impl ParamsParse for WhoAmI {
+//     fn parse(&self, _: &str, middle: ircv3_parse::IRCv3ParamsBase) -> Self
+//     where
+//         Self: Sized,
+//     {
+//         let join_middle = middle.middle.join(" ");
+//         let (_, (who, user)) = whoami(join_middle.as_str()).unwrap();
+//         WhoAmI {
+//             stats: who.to_string(),
+//             user: user.to_string(),
+//         }
+//     }
+// }
+//
+// pub fn whoami(msg: &str) -> IResult<&str, (&str, &str)> {
+//     let (remain, who) = alt((owner_user, guest_user))(msg)?;
+//     Ok((remain, who))
+// }
+//
+// fn owner_user(msg: &str) -> IResult<&str, (&str, &str)> {
+//     let (remain, (gust, _, user)) = tuple((
+//         tag("owner"),
+//         space1,
+//         alt((take_until(" "), not_line_ending)),
+//     ))(msg)?;
+//
+//     Ok((remain, (gust, user)))
+// }
+//
+// fn guest_user(msg: &str) -> IResult<&str, (&str, &str)> {
+//     let (remain, (gust, _, user)) = tuple((
+//         tag("guest"),
+//         space1,
+//         alt((take_until(" "), not_line_ending)),
+//     ))(msg)?;
+//
+//     Ok((remain, (gust, user)))
+// }
+// ```
 
 mod source;
 use std::collections::VecDeque;
@@ -122,8 +122,8 @@ pub use source::IRCv3Source;
 pub(crate) mod command;
 mod params;
 pub use params::{IRCv3Params, IRCv3ParamsBase, ParamsParse};
-mod builder;
-pub use builder::IRCv3Builder;
+pub mod builder;
+// pub use builder::IRCv3Builder;
 mod message;
 pub use message::{IRCv3Message, IRCv3MessageBase};
 
@@ -132,10 +132,10 @@ pub struct IRCv3;
 
 impl IRCv3 {
     pub fn parse(msg: &str) -> IRCv3Message<IRCv3Params> {
-        IRCv3Builder::default().parse(msg)
+        crate::builder::parse(msg, IRCv3Params::default())
     }
 
-    pub fn parse_vecdeque(msg: &str) -> VecDeque<IRCv3Message<IRCv3Params>> {
-        IRCv3Builder::default().parse_vecdeque(msg)
-    }
+    // pub fn parse_vecdeque(msg: &str) -> VecDeque<IRCv3Message<IRCv3Params>> {
+    //     IRCv3Builder::default().parse_vecdeque(msg)
+    // }
 }

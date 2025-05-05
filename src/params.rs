@@ -4,7 +4,7 @@ use nom::{
     character::complete::{crlf, not_line_ending, space1},
     combinator::opt,
     sequence::{preceded, tuple},
-    IResult,
+    IResult, Parser,
 };
 
 pub trait ParamsParse {
@@ -55,11 +55,12 @@ pub fn params_inner(msg: &str, mut ircv3_params: IRCv3ParamsBase) -> ParamsRetur
     if msg.is_empty() {
         Ok((msg, ircv3_params))
     } else {
-        let (remain, empty_crlf) = opt(msg_crlf)(msg)?;
+        let (remain, empty_crlf) = opt(msg_crlf).parse(msg)?;
         if empty_crlf.is_some() {
             Ok((remain, ircv3_params))
         } else {
-            let (remain, (message, middle)) = preceded(space1, alt((message, middle)))(remain)?;
+            let (remain, (message, middle)) =
+                preceded(space1, alt((message, middle))).parse(remain)?;
 
             if message.is_some() {
                 ircv3_params.message = message.map(String::from);
@@ -83,7 +84,7 @@ fn msg_crlf(msg: &str) -> IResult<&str, &str> {
 
 /// (remain, (message, middle))
 fn message(msg: &str) -> ParamsNomReturn {
-    let (remain, message) = preceded(tag(":"), not_line_ending)(msg)?;
+    let (remain, message) = preceded(tag(":"), not_line_ending).parse(msg)?;
 
     Ok((remain, (Some(message), None)))
 }
@@ -97,13 +98,14 @@ fn middle(msg: &str) -> ParamsNomReturn {
 
 /// (remain, channel)
 pub fn channel(msg: &str) -> IResult<&str, Option<(String, Option<String>)>> {
-    let (remain, channel) = opt(alt((only_channel, alt_eq_channel, alt_spc_channel)))(msg)?;
+    let (remain, channel) = opt(alt((only_channel, alt_eq_channel, alt_spc_channel))).parse(msg)?;
     Ok((remain, channel))
 }
 
 /// (remain, (channel, alt))
 fn only_channel(msg: &str) -> IResult<&str, (String, Option<String>)> {
-    let (remain, channel) = preceded(tag("#"), alt((take_until(" "), not_line_ending)))(msg)?;
+    let (remain, channel) =
+        preceded(tag("#"), alt((take_until(" "), not_line_ending))).parse(msg)?;
     Ok((remain, (format!("#{channel}"), None)))
 }
 

@@ -1,11 +1,11 @@
 use nom::{
     branch::alt,
     character::complete::{alpha1, digit1},
-    IResult,
+    IResult, Parser,
 };
 
 pub fn command_parse(msg: &str) -> IResult<&str, &str> {
-    alt((alpha1, digit1))(msg)
+    alt((alpha1, digit1)).parse(msg)
 }
 
 #[cfg(test)]

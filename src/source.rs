@@ -3,7 +3,7 @@ use nom::{
     character::complete::space1,
     combinator::opt,
     sequence::{delimited, preceded, tuple},
-    IResult,
+    IResult, Parser,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,7 +18,8 @@ pub fn source_parse(msg: &str) -> IResult<&str, Option<IRCv3Source>> {
         tag(":"),
         tuple((server_nick, opts_user, opts_host)),
         space1,
-    ))(msg)?;
+    ))
+    .parse(msg)?;
     Ok((
         remain,
         data.map(|sources| IRCv3Source {
@@ -37,10 +38,11 @@ fn opts_user(msg: &str) -> IResult<&str, Option<&str>> {
     opt(preceded(
         tag("!"),
         take_while(|c: char| !c.is_whitespace() && c != '@'),
-    ))(msg)
+    ))
+    .parse(msg)
 }
 fn opts_host(msg: &str) -> IResult<&str, Option<&str>> {
-    opt(preceded(tag("@"), take_while(|c: char| !c.is_whitespace())))(msg)
+    opt(preceded(tag("@"), take_while(|c: char| !c.is_whitespace()))).parse(msg)
 }
 
 #[cfg(test)]

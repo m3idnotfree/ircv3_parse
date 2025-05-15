@@ -74,7 +74,7 @@
 //     pub stats: String,
 //     pub user: String,
 // }
-//
+pub mod validators;
 // impl ParamsParse for WhoAmI {
 //     fn parse(&self, _: &str, middle: ircv3_parse::IRCv3ParamsBase) -> Self
 //     where

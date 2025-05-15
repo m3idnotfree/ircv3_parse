@@ -87,6 +87,9 @@
 //             user: user.to_string(),
 //         }
 //     }
+// Re-export commonly used types
+mod unescaped_to_escaped;
+pub use validators::custom_nick_validator;
 // }
 //
 // pub fn whoami(msg: &str) -> IResult<&str, (&str, &str)> {

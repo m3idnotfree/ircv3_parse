@@ -3,7 +3,7 @@ name = "ircv3_parse"
 version = "1.0.1"
 authors = ["m3id"]
 edition = "2021"
-description = "Zero-copy parser for IRCv3 message"
+description = "Zero-copy parser for IRCv3 messages"
 repository = "https://github.com/m3idnotfree/ircv3_parse.git"
 license = "MIT"
 keywords = ["ircv3", "twitch", "irc", "parser", "chat"]
@@ -12,8 +12,10 @@ readme = "README.md"
 documentation = "https://docs.rs/ircv3_parse"
 
 [dependencies]
-ircv3_tags = "2.0.0"
-nom = "8.0.0"
+bytes = "1.10.1"
+memchr = "2.7.4"
+thiserror = "2.0.12"
 
 [dev-dependencies]
-pretty_assertions = "1.4.1"
+criterion = "0.6.0"
+proptest = "1.6.0"

@@ -1,82 +1,36 @@
-# IRCv3 parse
+# IRCv3 Parse
 
-implement [IRCv3 message](https://ircv3.net/specs/extensions/message-tags.html)  
-[RFC 1459, section 2.3.1](https://datatracker.ietf.org/doc/html/rfc1459#section-2.3.1)
+A **blazingly fast**, **zero-copy** IRC v3 message parser
 
-#### default params middle parse
+[Documentation](https://docs.rs/ircv3_parse)
 
-channel = "foo = #bar", "foo #bar", "#bar"
+> **Notice:** Each component parses first special character and follows the rule. If you want to use it strictly, use validation of each component.
+>
+> - **Tags**: Start with `@`, separated by `;` and followed by a ` `(space)
+> - **Source**: Start with `:`, format `name!user@example.com` or `example.com` and followed by a ` `(space)
+> - **Command**: No prefix, must be letters or 3-digit number
+> - **Middle Parameters**: Start with ` ` (space), separated by spaces
+> - **Trailing Parameters**: Start with ` :` (space + colon), can contain any text
 
-# Usage
+## Installation
 
-```rust
-use ircv3_parse::IRCv3;
-
-fn main(){
-  let msg = ":foo!foo@foo.tmi.abcdef.gh PRIVMSG #bar :LLLLLl";
-  let ircv3_message = IRCv3::parse(msg);
-}
+```toml
+[dependencies]
+ircv3_parse = "2.0.0"
 ```
 
-# Custom params middle parse
+## Quick Start
 
 ```rust
- use ircv3_parse::{IRCv3Builder, ParamsParse};
- use nom::{
-     branch::alt,
-     bytes::complete::{tag, take_until},
-     character::complete::{not_line_ending, space1},
-     sequence::tuple,
-     IResult,
-};
+use ircv3_parse::components::{Commands, TagValue};
 
- let msg = ":foo!foo@foo.tmi.abcdef.gh PRIVMSG guest w :bleedPurple";
- let result = IRCv3Builder::new(WhoAmI::default()).parse(msg);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let message = ircv3_parse::parse("PRIVMSG #channel :Hello everyone!")?;
 
- assert_eq!("guest".to_string(), result.params.stats);
- assert_eq!("w".to_string(), result.params.user);
- #[derive(Default)]
- struct WhoAmI {
-     pub stats: String,
-     pub user: String,
- }
+    assert_eq!("PRIVMSG", message.command().as_str());
+    assert_eq!("#channel", message.params().middles.first().unwrap());
+    assert_eq!("Hello everyone!", message.params().trailing.as_str());
 
- impl ParamsParse for WhoAmI {
-     fn parse(&self, _: &str, middle: ircv3_parse::IRCv3ParamsBase) -> Self
-     where
-         Self: Sized,
-     {
-         let join_middle = middle.middle.join(" ");
-         let (_, (who, user)) = whoami(join_middle.as_str()).unwrap();
-         WhoAmI {
-             stats: who.to_string(),
-             user: user.to_string(),
-         }
-     }
- }
-
- pub fn whoami(msg: &str) -> IResult<&str, (&str, &str)> {
-     let (remain, who) = alt((owner_user, guest_user))(msg)?;
-     Ok((remain, who))
- }
-
- fn owner_user(msg: &str) -> IResult<&str, (&str, &str)> {
-     let (remain, (gust, _, user)) = tuple((
-         tag("owner"),
-         space1,
-         alt((take_until(" "), not_line_ending)),
-     ))(msg)?;
-
-     Ok((remain, (gust, user)))
- }
-
- fn guest_user(msg: &str) -> IResult<&str, (&str, &str)> {
-     let (remain, (gust, _, user)) = tuple((
-         tag("guest"),
-         space1,
-         alt((take_until(" "), not_line_ending)),
-     ))(msg)?;
-
-     Ok((remain, (gust, user)))
- }
+    Ok(())
+}
 ```

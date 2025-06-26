@@ -7,7 +7,7 @@ const EQUAL_CHAR: char = '=';
 
 type TagPair<'a> = (&'a str, TagValue<'a>);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TagValue<'a> {
     Flag,
     Empty,
@@ -69,7 +69,7 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn get_flag(self, key: &str) -> bool {
+    pub fn get_flag(&self, key: &str) -> bool {
         self.split().any(|tag| tag == key)
     }
 
@@ -77,8 +77,9 @@ impl<'a> Tags<'a> {
     //
     // Returns:
     // * `None` if the key doesn't exist
-    // * `Some("")` if the key exists with an empty value
-    // * `Some(value)` if the key exists with a value
+    // * `Some(TagValue::Empty)` if the key exists with an empty value
+    // * `Some(TagValue::Value(value))` if the key exists with a value
+    // * `Some(TagValue::Flag)` if the key exists but flag
     #[inline]
     pub fn get(&'a self, key: &str) -> Option<TagValue<'a>> {
         self.split().find_map(|tag| self._get(tag, key))

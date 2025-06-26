@@ -105,6 +105,54 @@ impl<'a> Commands<'a> {
     }
 
     #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::NUMERIC(num) => num.as_bytes(),
+            Self::CAP => b"CAP",
+            Self::AUTHENTICATE => b"AUTHENTICATE",
+            Self::PASS => b"PASS",
+            Self::NICK => b"NICK",
+            Self::USER => b"USER",
+            Self::PING => b"PING",
+            Self::PONG => b"PONG",
+            Self::OPER => b"OPER",
+            Self::QUIT => b"QUIT",
+            Self::ERROR => b"ERROR",
+            Self::JOIN => b"JOIN",
+            Self::PART => b"PART",
+            Self::TOPIC => b"TOPIC",
+            Self::NAMES => b"NAMES",
+            Self::LIST => b"LIST",
+            Self::INVITE => b"INVITE",
+            Self::KICK => b"KICK",
+            Self::MOTD => b"MOTD",
+            Self::VERSION => b"VERSION",
+            Self::ADMIN => b"ADMIN",
+            Self::CONNECT => b"CONNECT",
+            Self::LUSERS => b"LUSERS",
+            Self::TIME => b"TIME",
+            Self::STATS => b"STATS",
+            Self::HELP => b"HELP",
+            Self::INFO => b"INFO",
+            Self::MODE => b"MODE",
+            Self::PRIVMSG => b"PRIVMSG",
+            Self::NOTICE => b"NOTICE",
+            Self::WHO => b"WHO",
+            Self::WHOIS => b"WHOIS",
+            Self::WHOWAS => b"WHOWAS",
+            Self::KILL => b"KILL",
+            Self::REHASH => b"REHASH",
+            Self::RESTART => b"RESTART",
+            Self::SQUIT => b"SQUIT",
+            Self::AWAY => b"AWAY",
+            Self::LINKS => b"LINKS",
+            Self::USERHOST => b"USERHOST",
+            Self::WALLOPS => b"WALLOPS",
+            Self::CUSTOM(unknown) => unknown.as_bytes(),
+        }
+    }
+
+    #[inline]
     pub fn is_ping(&self) -> bool {
         *self == Self::PING
     }

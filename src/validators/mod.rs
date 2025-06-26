@@ -78,7 +78,7 @@ pub fn source(input: &str) -> Result<(), SourceError> {
     Ok(())
 }
 
-fn nick(input: &str) -> Result<(), SourceError> {
+pub fn nick(input: &str) -> Result<(), SourceError> {
     if input.is_empty() {
         return Err(SourceError::EmptyNick);
     }
@@ -105,7 +105,7 @@ fn nick(input: &str) -> Result<(), SourceError> {
     Ok(())
 }
 
-fn user(input: &str) -> Result<(), SourceError> {
+pub fn user(input: &str) -> Result<(), SourceError> {
     for (i, c) in input.as_bytes().iter().enumerate() {
         if matches!(*c, SPACE | NUL | CR | LF) {
             return Err(SourceError::InvalidUserChar {

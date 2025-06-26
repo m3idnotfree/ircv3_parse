@@ -6,7 +6,7 @@ mod tags;
 pub use commands::{CapSubCommands, Commands};
 pub use params::{Middles, Params};
 pub use source::Source;
-pub use tags::Tags;
+pub use tags::{TagValue, Tags};
 
 use crate::scanner::Scanner;
 

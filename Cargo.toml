@@ -1,6 +1,6 @@
 [package]
 name = "ircv3_parse"
-version = "1.0.1"
+version = "2.0.0"
 authors = ["m3id"]
 edition = "2021"
 description = "Zero-copy parser for IRCv3 messages"

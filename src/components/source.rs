@@ -1,8 +1,8 @@
-use std::fmt;
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 use crate::{error::SourceError, validators};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Source<'a> {
     input: &'a str,
     pub name: &'a str,
@@ -44,8 +44,18 @@ impl<'a> Source<'a> {
     }
 }
 
-impl fmt::Display for Source<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+impl Display for Source<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Debug for Source<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct(stringify!(Source))
+            .field("name", &self.name)
+            .field("user", &self.user)
+            .field("host", &self.host)
+            .finish()
     }
 }

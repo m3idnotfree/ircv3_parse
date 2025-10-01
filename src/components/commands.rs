@@ -1,8 +1,8 @@
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::{error::CommandError, validators};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Commands<'a> {
     NUMERIC(&'a str),
     // Connection Messages
@@ -228,13 +228,19 @@ impl<'a> From<&'a str> for Commands<'a> {
     }
 }
 
-impl fmt::Display for Commands<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+impl Display for Commands<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl AsRef<str> for Commands<'_> {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CapSubCommands {
     LS,
     LIST,
@@ -248,6 +254,20 @@ pub enum CapSubCommands {
 }
 
 impl CapSubCommands {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::LS => "LS",
+            Self::LIST => "LIST",
+            Self::REQ => "REQ",
+            Self::ACK => "ACK",
+            Self::NAK => "NAK",
+            Self::END => "END",
+            Self::NEW => "NEW",
+            Self::DEL => "DEL",
+            Self::UNKNOWN(s) => s,
+        }
+    }
+
     pub fn get_description(&self) -> &'static str {
         match self {
             Self::LS => "List available capabilities",
@@ -279,18 +299,8 @@ impl From<&str> for CapSubCommands {
     }
 }
 
-impl fmt::Display for CapSubCommands {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LS => write!(f, "LS"),
-            Self::LIST => write!(f, "LIST"),
-            Self::REQ => write!(f, "REQ"),
-            Self::ACK => write!(f, "ACK"),
-            Self::NAK => write!(f, "NAK"),
-            Self::END => write!(f, "END"),
-            Self::NEW => write!(f, "NEW"),
-            Self::DEL => write!(f, "DEL"),
-            Self::UNKNOWN(s) => write!(f, "{}", s),
-        }
+impl Display for CapSubCommands {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
     }
 }

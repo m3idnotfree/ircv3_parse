@@ -141,7 +141,7 @@ pub(crate) const COLON: u8 = b':';
 pub(crate) const SEMICOLON: u8 = b';';
 pub(crate) const AT: u8 = b'@';
 
-pub fn parse(input: &str) -> Result<Message, IRCError> {
+pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
     if input.is_empty() {
         return Err(IRCError::EmptyInput);
     }

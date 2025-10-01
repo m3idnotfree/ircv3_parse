@@ -82,3 +82,39 @@ impl Debug for Message<'_> {
             .finish()
     }
 }
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Message<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let tags = self.tags();
+        let source = self.source();
+        let params = self.params();
+        let has_params = !params.middles.is_empty() || params.trailing.is_some();
+
+        let field_count =
+            1 + tags.is_some() as usize + source.is_some() as usize + has_params as usize;
+
+        let mut state = serializer.serialize_struct("Message", field_count)?;
+
+        if let Some(tags) = tags {
+            state.serialize_field("tags", &tags)?;
+        }
+
+        if let Some(source) = source {
+            state.serialize_field("source", &source)?;
+        }
+
+        state.serialize_field("command", &self.command())?;
+
+        if has_params {
+            state.serialize_field("params", &params)?;
+        }
+
+        state.end()
+    }
+}

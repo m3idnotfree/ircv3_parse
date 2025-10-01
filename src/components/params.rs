@@ -147,3 +147,56 @@ impl<'a> Display for Trailing<'a> {
         f.write_str(self.as_str())
     }
 }
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Params<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let field_count = (!self.middles.is_empty()) as usize + self.trailing.is_some() as usize;
+
+        let mut state = serializer.serialize_struct("Params", field_count)?;
+
+        if !self.middles.is_empty() {
+            state.serialize_field("middles", &self.middles)?;
+        }
+
+        if self.trailing.is_some() {
+            state.serialize_field("trailing", &self.trailing)?;
+        }
+
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Middles<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        let mut seq = serializer.serialize_seq(Some(self.count()))?;
+        for param in self.iter() {
+            seq.serialize_element(param)?;
+        }
+        seq.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Trailing<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self.0 {
+            Some(s) => serializer.serialize_str(s),
+            None => serializer.serialize_none(),
+        }
+    }
+}

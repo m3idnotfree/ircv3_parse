@@ -59,3 +59,28 @@ impl Debug for Source<'_> {
             .finish()
     }
 }
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Source<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let field_count = 1 + self.user.is_some() as usize + self.host.is_some() as usize;
+
+        let mut state = serializer.serialize_struct("Source", field_count)?;
+        state.serialize_field("name", &self.name)?;
+
+        if let Some(user) = self.user {
+            state.serialize_field("user", user)?;
+        }
+
+        if let Some(host) = self.host {
+            state.serialize_field("host", host)?;
+        }
+
+        state.end()
+    }
+}

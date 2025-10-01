@@ -210,3 +210,33 @@ impl<'a> IntoIterator for &Tags<'a> {
         })
     }
 }
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for TagValue<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            TagValue::Flag => serializer.serialize_none(),
+            TagValue::Empty => serializer.serialize_str(""),
+            TagValue::Value(s) => serializer.serialize_str(s),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Tags<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(Some(self.count()))?;
+        for (key, value) in self.iter() {
+            map.serialize_entry(key, &value)?;
+        }
+        map.end()
+    }
+}

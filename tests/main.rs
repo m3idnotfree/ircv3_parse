@@ -1,5 +1,8 @@
 mod components;
 
+#[cfg(feature = "serde")]
+mod serde;
+
 use components::{
     commands::invalid_command_strategy, escape::escaped_strategy, params::ParamsType, TestMessage,
 };

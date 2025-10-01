@@ -8,8 +8,11 @@ pub use params::{Middles, Params};
 pub use source::Source;
 pub use tags::{TagValue, Tags};
 
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+
 use crate::scanner::Scanner;
 
+#[derive(Clone, Copy)]
 pub struct Message<'a> {
     input: &'a str,
     scanner: Scanner,
@@ -40,7 +43,7 @@ impl<'a> Message<'a> {
     }
 
     #[inline]
-    pub fn command(&self) -> Commands {
+    pub fn command(&self) -> Commands<'a> {
         Commands::from(self.scanner.command_span.extract(self.input))
     }
 
@@ -60,5 +63,22 @@ impl<'a> Message<'a> {
             let input = self.scanner.params_span.extract(self.input);
             Params::new(input, input, None)
         }
+    }
+}
+
+impl Display for Message<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.input)
+    }
+}
+
+impl Debug for Message<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct(stringify!(Message))
+            .field("tags", &self.tags())
+            .field("source", &self.source())
+            .field("command", &self.command())
+            .field("params", &self.params())
+            .finish()
     }
 }

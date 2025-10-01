@@ -5,7 +5,7 @@ use crate::{
 
 const MEMCHR_THRESHOLD: usize = 12;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Scanner {
     has_tags: bool,
     has_source: bool,
@@ -242,7 +242,7 @@ fn find_space_colon_pattern(bytes: &[u8]) -> Option<usize> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ByteSpan {
     pub start: u32,
     pub end: u32,
@@ -272,15 +272,6 @@ impl ByteSpan {
     pub(crate) fn extract<'a>(&self, input: &'a str) -> &'a str {
         if self.start == self.end {
             ""
-        } else {
-            &input[self.start as usize..self.end as usize]
-        }
-    }
-
-    #[inline]
-    pub(crate) fn extract_bytes<'a>(&self, input: &'a [u8]) -> &'a [u8] {
-        if self.start == self.end {
-            &[]
         } else {
             &input[self.start as usize..self.end as usize]
         }

@@ -1,5 +1,10 @@
 # IRCv3 Parse
 
+[![crates.io](https://img.shields.io/crates/v/ircv3_parse.svg)](https://crates.io/crates/ircv3_parse)
+[![Documentation](https://docs.rs/ircv3_parse/badge.svg)](https://docs.rs/ircv3_parse)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/m3idnotfree/irc_parse/blob/main/LICENSE-MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/m3idnotfree/irc_parse/blob/main/LICENSE-APACHE)
+
 A **blazingly fast**, **zero-copy** IRC v3 message parser
 
 [Documentation](https://docs.rs/ircv3_parse)
@@ -16,7 +21,7 @@ A **blazingly fast**, **zero-copy** IRC v3 message parser
 
 ```toml
 [dependencies]
-ircv3_parse = "2.0.0"
+ircv3_parse = "2"
 ```
 
 ## Quick Start
@@ -34,3 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Features
+
+- **`serde`** - Serialization support for all types(deserialization not support)
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0
+- MIT license

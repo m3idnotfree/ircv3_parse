@@ -42,8 +42,8 @@ impl<'a> TagValue<'a> {
 impl<'a> Display for TagValue<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            Self::Value(value) => write!(f, "{}", value),
-            _ => write!(f, ""),
+            Self::Value(value) => f.write_str(value),
+            _ => f.write_str(""),
         }
     }
 }
@@ -163,7 +163,13 @@ impl<'a> Tags<'a> {
 
 impl Display for Tags<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self.as_str())
+        f.write_str(self.as_str())
+    }
+}
+
+impl AsRef<str> for Tags<'_> {
+    fn as_ref(&self) -> &str {
+        self.0
     }
 }
 

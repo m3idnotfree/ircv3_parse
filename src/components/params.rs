@@ -1,8 +1,11 @@
-use std::{fmt, str::SplitAsciiWhitespace};
+use std::{
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    str::SplitAsciiWhitespace,
+};
 
 use crate::{error::ParamError, validators};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Params<'a> {
     input: &'a str,
     pub middles: Middles<'a>,
@@ -35,18 +38,27 @@ impl<'a> Params<'a> {
     }
 }
 
-impl fmt::Display for Params<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Params<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match (self.middles.is_empty(), self.trailing.is_some()) {
             (false, true) => write!(f, "{} :{}", self.middles, self.trailing),
-            (true, false) => write!(f, ""),
-            (false, false) => write!(f, "{}", self.middles),
-            (true, true) => write!(f, "{}", self.trailing),
+            (true, false) => f.write_str(""),
+            (false, false) => f.write_str(self.middles.as_str()),
+            (true, true) => f.write_str(self.trailing.as_str()),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl Debug for Params<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct(stringify!(Params))
+            .field("middles", &self.middles.as_str())
+            .field("trailing", &self.trailing.raw())
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Middles<'a>(&'a str);
 
 impl<'a> Middles<'a> {
@@ -93,13 +105,19 @@ impl<'a> Middles<'a> {
     }
 }
 
-impl fmt::Display for Middles<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+impl Display for Middles<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl AsRef<str> for Middles<'_> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Trailing<'a>(Option<&'a str>);
 
 impl<'a> Trailing<'a> {
@@ -124,8 +142,8 @@ impl<'a> Trailing<'a> {
     }
 }
 
-impl<'a> fmt::Display for Trailing<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+impl<'a> Display for Trailing<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
     }
 }

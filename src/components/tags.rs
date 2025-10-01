@@ -1,4 +1,8 @@
-use std::{fmt, iter::Map, str::Split};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    iter::Map,
+    str::Split,
+};
 
 use crate::{error::TagError, unescaped_to_escaped, validators};
 
@@ -7,7 +11,7 @@ const EQUAL_CHAR: char = '=';
 
 type TagPair<'a> = (&'a str, TagValue<'a>);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TagValue<'a> {
     Flag,
     Empty,
@@ -35,8 +39,8 @@ impl<'a> TagValue<'a> {
     }
 }
 
-impl<'a> fmt::Display for TagValue<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'a> Display for TagValue<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Value(value) => write!(f, "{}", value),
             _ => write!(f, ""),
@@ -44,7 +48,7 @@ impl<'a> fmt::Display for TagValue<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tags<'a>(&'a str);
 
 impl<'a> Tags<'a> {
@@ -128,7 +132,7 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = TagPair> {
+    pub fn iter(&'a self) -> impl Iterator<Item = TagPair<'a>> {
         self.split().map(|tag| {
             if let Some((key, value)) = tag.split_once(EQUAL_CHAR) {
                 if value.is_empty() {
@@ -157,8 +161,8 @@ impl<'a> Tags<'a> {
     }
 }
 
-impl fmt::Display for Tags<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Tags<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.as_str())
     }
 }

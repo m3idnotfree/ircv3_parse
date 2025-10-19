@@ -1,3 +1,5 @@
+use crate::compat::ToString;
+
 use crate::{
     components::Source,
     error::{CommandError, ParamError, SourceError, TagError},

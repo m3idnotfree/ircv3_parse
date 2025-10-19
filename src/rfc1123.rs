@@ -1,4 +1,4 @@
-use std::fmt;
+use crate::compat::{Display, FmtResult, Formatter};
 
 use crate::{error::HostnameError, HYPEN};
 
@@ -100,8 +100,8 @@ impl RFC1123 {
     }
 }
 
-impl fmt::Display for RFC1123 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for RFC1123 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "RFC1123")
     }
 }

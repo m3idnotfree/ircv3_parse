@@ -1,6 +1,5 @@
-use std::{
-    fmt::{Debug, Display, Formatter, Result as FmtResult},
-    str::SplitAsciiWhitespace,
+use crate::compat::{
+    format, Debug, Display, FmtResult, Formatter, SplitAsciiWhitespace, String, Vec,
 };
 
 use crate::{error::ParamError, validators};

@@ -114,8 +114,34 @@ assert_eq!(
 );
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
-
 */
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+pub(crate) mod compat {
+    pub use core::{
+        fmt::{Debug, Display, Formatter, Result as FmtResult},
+        iter::Map,
+        str::{Split, SplitAsciiWhitespace},
+    };
+
+    #[cfg(not(feature = "std"))]
+    pub use alloc::{
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
+
+    #[cfg(feature = "std")]
+    pub use std::{
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
+}
 
 pub mod builder;
 pub mod components;

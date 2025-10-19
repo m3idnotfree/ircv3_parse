@@ -27,8 +27,6 @@ ircv3_parse = "2"
 ## Quick Start
 
 ```rust
-use ircv3_parse::components::{Commands, TagValue};
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message = ircv3_parse::parse("PRIVMSG #channel :Hello everyone!")?;
 
@@ -42,7 +40,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Features
 
-- **`serde`** - Serialization support for all types(deserialization not support)
+- **`serde`** - Serialization support for all types(deserialization not supported)
+
+## `no_std` Support
+
+Requires an allocator (uses `alloc` crate for `String` and `Vec`).
 
 ## License
 

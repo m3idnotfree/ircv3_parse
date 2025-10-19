@@ -1,8 +1,4 @@
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    iter::Map,
-    str::Split,
-};
+use crate::compat::{Display, FmtResult, Formatter, Map, Split, String, Vec};
 
 use crate::{error::TagError, unescaped_to_escaped, validators};
 

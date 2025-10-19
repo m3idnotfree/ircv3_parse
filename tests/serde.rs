@@ -1,5 +1,7 @@
+#[cfg(feature = "serde")]
 use ircv3_parse::parse;
 
+#[cfg(feature = "serde")]
 #[test]
 fn full_mesasge() {
     let input = "@aaa=bbb;ccc;example.com/ddd=eee;+fff=;ggg=hello\\sworld :nick!user@host.com PRIVMSG #channel :Hello World!";
@@ -21,6 +23,7 @@ fn full_mesasge() {
     assert_eq!(value["params"]["trailing"], "Hello World!");
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn minimal_message() {
     let input = "PING";
@@ -30,6 +33,7 @@ fn minimal_message() {
     assert_eq!(json, r#"{"command":"PING"}"#);
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn with_params_only() {
     let input = "PRIVMSG #channel :Hello";
@@ -45,6 +49,7 @@ fn with_params_only() {
     assert_eq!(value["params"]["trailing"], "Hello");
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn with_source_only() {
     let input = ":server.example.com 001 client :Welcome";
@@ -62,6 +67,7 @@ fn with_source_only() {
     assert_eq!(value["params"]["trailing"], "Welcome");
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn source_variations() {
     let msg1 = parse(":irc.example.com NOTICE * :Hello").unwrap();
@@ -86,6 +92,7 @@ fn source_variations() {
     assert!(val3["source"]["host"].is_null());
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn params_variations() {
     let msg1 = parse("MODE #channel +o user").unwrap();
@@ -110,6 +117,7 @@ fn params_variations() {
     assert_eq!(val3["params"]["trailing"], "Message text");
 }
 
+#[cfg(feature = "serde")]
 #[test]
 fn numeric_command() {
     let input = ":server.com 001 nick :Welcome to IRC";

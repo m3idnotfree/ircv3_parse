@@ -8,7 +8,7 @@ pub use params::{Middles, Params};
 pub use source::Source;
 pub use tags::{TagValue, Tags};
 
-use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use crate::compat::{Debug, Display, FmtResult, Formatter};
 
 use crate::scanner::Scanner;
 

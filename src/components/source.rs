@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use crate::compat::{Debug, Display, FmtResult, Formatter};
 
 use crate::{error::SourceError, validators};
 

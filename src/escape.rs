@@ -1,3 +1,5 @@
+use crate::compat::{String, Vec};
+
 use crate::{COLON, CR, LF, SEMICOLON, SPACE};
 
 /// Unescapes an IRCv3 tag value according to the specification.

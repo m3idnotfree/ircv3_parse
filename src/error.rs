@@ -1,4 +1,4 @@
-use std::fmt;
+use crate::compat::{Debug, FmtResult, Formatter, String};
 
 #[derive(Clone, PartialEq, thiserror::Error)]
 pub enum IRCError {
@@ -20,8 +20,8 @@ pub enum IRCError {
     Hostname(#[from] HostnameError),
 }
 
-impl fmt::Debug for IRCError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for IRCError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "IRC-PARSER[{}]: {}", self.code(), self)
     }
 }

@@ -299,6 +299,7 @@ impl<'a> SourceBuilder<'a> {
         buffer.put_slice(name.as_bytes());
         Self {
             buffer,
+            #[cfg(debug_assertions)]
             validation_enabled,
         }
     }

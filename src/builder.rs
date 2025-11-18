@@ -1,6 +1,12 @@
-use crate::compat::{format, Debug, Display, FmtResult, Formatter, String, ToString};
+use crate::compat::{format, Debug, FmtResult, Formatter, String};
 
-use crate::{components::Commands, validators, AT, COLON, SEMICOLON, SPACE};
+use crate::{components::Commands, AT, COLON, SEMICOLON, SPACE};
+
+#[cfg(debug_assertions)]
+use crate::{
+    compat::{Display, ToString},
+    validators,
+};
 
 use bytes::{BufMut, Bytes, BytesMut};
 
@@ -451,6 +457,7 @@ pub enum BuilderError {
     #[error("Hostname validation failed for '{input}': {reason}")]
     HostValidation { input: String, reason: String },
 }
+
 impl Debug for BuilderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "IRC-BUILDER[{}]: {}", self.code(), self)
@@ -465,7 +472,8 @@ impl BuilderError {
         }
     }
 
-    pub fn tag_validation(field: &'static str, input: &str, error: impl Display) -> Self {
+    #[cfg(debug_assertions)]
+    fn tag_validation(field: &'static str, input: &str, error: impl Display) -> Self {
         Self::TagValidation {
             field,
             input: input.to_string(),
@@ -473,13 +481,15 @@ impl BuilderError {
         }
     }
 
-    pub fn param_validation(input: &str, error: impl Display) -> Self {
+    #[cfg(debug_assertions)]
+    fn param_validation(input: &str, error: impl Display) -> Self {
         Self::ParamValidation {
             input: input.to_string(),
             reason: error.to_string(),
         }
     }
 
+    #[cfg(debug_assertions)]
     fn host_validation(input: &str, error: impl Display) -> Self {
         Self::HostValidation {
             input: input.to_string(),
@@ -490,6 +500,7 @@ impl BuilderError {
     fn empty_parameter(field: &'static str) -> Self {
         Self::EmptyParameter { field }
     }
+
     pub fn code(&self) -> &'static str {
         match self {
             Self::InvalidOrder { .. } => "BUILD_ORDER",

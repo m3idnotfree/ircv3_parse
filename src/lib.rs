@@ -155,7 +155,7 @@ mod scanner;
 pub use error::IRCError;
 pub use escape::unescaped_to_escaped;
 
-use components::Message;
+pub use components::Message;
 use scanner::Scanner;
 
 pub(crate) const NUL: u8 = b'\0';

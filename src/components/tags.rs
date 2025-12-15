@@ -81,12 +81,12 @@ impl<'a> Tags<'a> {
     // * `Some(TagValue::Value(value))` if the key exists with a value
     // * `Some(TagValue::Flag)` if the key exists but flag
     #[inline]
-    pub fn get(&'a self, key: &str) -> Option<TagValue<'a>> {
+    pub fn get(&self, key: &str) -> Option<TagValue<'a>> {
         self.split().find_map(|tag| self._get(tag, key))
     }
 
     #[inline]
-    fn _get(&'a self, tag: &'a str, key: &str) -> Option<TagValue<'a>> {
+    fn _get(&self, tag: &'a str, key: &str) -> Option<TagValue<'a>> {
         if let Some(after_key) = tag.strip_prefix(key) {
             match after_key.chars().next() {
                 Some('=') => {
@@ -106,7 +106,7 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn get_prefix(&'a self, key: &str) -> Option<TagValue<'a>> {
+    pub fn get_prefix(&self, key: &str) -> Option<TagValue<'a>> {
         self.split().find_map(|tag| {
             if let Some(after_key) = tag.strip_prefix('+') {
                 self._get(after_key, key)
@@ -117,7 +117,7 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn split(&'a self) -> Split<'a, char> {
+    pub fn split(&self) -> Split<'a, char> {
         self.0.split(SEMICOLON_CHAR)
     }
 
@@ -128,7 +128,7 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn iter(&'a self) -> impl Iterator<Item = TagPair<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = TagPair<'a>> {
         self.split().map(|tag| {
             if let Some((key, value)) = tag.split_once(EQUAL_CHAR) {
                 if value.is_empty() {

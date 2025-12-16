@@ -146,3 +146,99 @@ impl HostnameError {
         "RFC952"
     }
 }
+
+#[derive(Clone, PartialEq, thiserror::Error)]
+pub enum ExtractError {
+    #[error("Invalid command: expected {expected}, got {actual}")]
+    InvalidCommand { expected: String, actual: String },
+    #[error("Missing required component: {component}")]
+    MissingComponent { component: &'static str },
+    #[error("Missing required field: {field}")]
+    MissingField { field: &'static str },
+    #[error("Invalid field value for '{field}': {reason}")]
+    InvalidValue { field: &'static str, reason: String },
+
+    #[error("Failed to parse IRC message: {0}")]
+    ParseError(#[from] IRCError),
+}
+
+impl Debug for ExtractError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "EXTRACT[{}]: {}", self.code(), self)
+    }
+}
+
+impl ExtractError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidCommand { .. } => "INVALID_COMMAND",
+            Self::MissingComponent { .. } => "MISSING_COMPONENT",
+            Self::MissingField { .. } => "MISSING_FIELD",
+            Self::InvalidValue { .. } => "INVALID_VALUE",
+            Self::ParseError(e) => e.code(),
+        }
+    }
+
+    pub fn is_parse_error(&self) -> bool {
+        matches!(self, ExtractError::ParseError(..))
+    }
+
+    pub fn is_missing_tags(&self) -> bool {
+        matches!(self, ExtractError::MissingComponent { component: "tags" })
+    }
+
+    pub fn is_missing_source(&self) -> bool {
+        matches!(
+            self,
+            ExtractError::MissingComponent {
+                component: "source"
+            }
+        )
+    }
+
+    pub fn is_missing_param(&self) -> bool {
+        matches!(self, ExtractError::MissingComponent { component: "param" })
+    }
+
+    pub fn is_invalid_command(&self) -> bool {
+        matches!(self, ExtractError::InvalidCommand { .. })
+    }
+
+    pub fn invalid_command(expected: impl Into<String>, actual: impl Into<String>) -> Self {
+        Self::InvalidCommand {
+            expected: expected.into(),
+            actual: actual.into(),
+        }
+    }
+
+    pub fn missing_tags() -> Self {
+        Self::MissingComponent { component: "tags" }
+    }
+
+    pub fn missing_source() -> Self {
+        Self::MissingComponent {
+            component: "source",
+        }
+    }
+
+    pub fn missing_command() -> Self {
+        Self::MissingComponent {
+            component: "command",
+        }
+    }
+
+    pub fn missing_param() -> Self {
+        Self::MissingComponent { component: "param" }
+    }
+
+    pub fn missing_field(field: &'static str) -> Self {
+        Self::MissingField { field }
+    }
+
+    pub fn invalid_value(field: &'static str, reason: impl Into<String>) -> Self {
+        Self::InvalidValue {
+            field,
+            reason: reason.into(),
+        }
+    }
+}

@@ -145,6 +145,7 @@ pub(crate) mod compat {
 
 pub mod builder;
 pub mod components;
+pub mod extract;
 pub mod validators;
 
 mod error;
@@ -152,7 +153,7 @@ mod escape;
 mod rfc1123;
 mod scanner;
 
-pub use error::IRCError;
+pub use error::{ExtractError, IRCError};
 pub use escape::unescaped_to_escaped;
 
 pub use components::Message;
@@ -174,4 +175,8 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
 
     let scanner = Scanner::new(input)?;
     Ok(Message::new(input, scanner))
+}
+
+pub fn from_str<'a, T: extract::FromMessage<'a>>(s: &'a str) -> Result<T, ExtractError> {
+    T::from_str(s)
 }

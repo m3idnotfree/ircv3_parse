@@ -13,8 +13,8 @@ documentation = "https://docs.rs/ircv3_parse"
 
 [features]
 default = ["std"]
-std = ["bytes/std", "thiserror/std"]
-serde = ["dep:serde"]
+std = ["bytes/std", "thiserror/std", "serde?/std"]
+serde = ["dep:serde", "serde?/alloc"]
 
 [profile.release]
 debug-assertions = false

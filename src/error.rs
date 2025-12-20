@@ -153,12 +153,23 @@ impl HostnameError {
 pub enum ExtractError {
     #[error("invalid command: expected `{expected}`, got `{actual}`")]
     InvalidCommand { expected: String, actual: String },
+
     #[error("missing required component: {component}")]
     MissingComponent { component: &'static str },
     #[error("missing required field: {field}")]
     MissingField { field: &'static str },
+    #[error("missing tag `{tag_key}` for field `{field}`")]
+    MissingTag { field: String, tag_key: String },
+
+    #[error("missing source `{component}` for field '{field}'")]
+    MissingSourceField {
+        field: String,
+        component: &'static str,
+    },
+    #[error("missing parameter at index {index} for field '{field}'")]
+    MissingParam { field: String, index: usize },
     #[error("invalid field value for field '{field}': {reason}")]
-    InvalidValue { field: &'static str, reason: String },
+    InvalidValue { field: String, reason: String },
     #[error("failed to parse IRC message: {0}")]
     ParseError(#[from] IRCError),
 }
@@ -175,6 +186,9 @@ impl ExtractError {
             Self::InvalidCommand { .. } => "INVALID_COMMAND",
             Self::MissingComponent { .. } => "MISSING_COMPONENT",
             Self::MissingField { .. } => "MISSING_FIELD",
+            Self::MissingTag { .. } => "MISSING_TAG",
+            Self::MissingSourceField { .. } => "MISSING_SOURCE",
+            Self::MissingParam { .. } => "MISSING_PARAM",
             Self::InvalidValue { .. } => "INVALID_VALUE",
             Self::ParseError(e) => e.code(),
         }
@@ -199,6 +213,10 @@ impl ExtractError {
 
     pub fn is_missing_param(&self) -> bool {
         matches!(self, ExtractError::MissingComponent { component: "param" })
+    }
+
+    pub fn is_missing_tag(&self) -> bool {
+        matches!(self, ExtractError::MissingTag { .. })
     }
 
     pub fn is_invalid_command(&self) -> bool {
@@ -236,9 +254,30 @@ impl ExtractError {
         Self::MissingField { field }
     }
 
-    pub fn invalid_value(field: &'static str, reason: impl Into<String>) -> Self {
+    pub fn missing_tag(field: impl Into<String>, tag_key: impl Into<String>) -> Self {
+        Self::MissingTag {
+            field: field.into(),
+            tag_key: tag_key.into(),
+        }
+    }
+
+    pub fn missing_source_field(field: impl Into<String>, component: &'static str) -> Self {
+        Self::MissingSourceField {
+            field: field.into(),
+            component,
+        }
+    }
+
+    pub fn missing_param_field(field: impl Into<String>, index: usize) -> Self {
+        Self::MissingParam {
+            field: field.into(),
+            index,
+        }
+    }
+
+    pub fn invalid_value(field: impl Into<String>, reason: impl Into<String>) -> Self {
         Self::InvalidValue {
-            field,
+            field: field.into(),
             reason: reason.into(),
         }
     }

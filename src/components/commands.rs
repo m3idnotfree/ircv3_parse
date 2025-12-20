@@ -57,7 +57,7 @@ pub enum Commands<'a> {
 
 impl<'a> Commands<'a> {
     #[inline]
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'a str {
         match self {
             Self::NUMERIC(num) => num,
             Self::CAP => "CAP",
@@ -105,7 +105,7 @@ impl<'a> Commands<'a> {
     }
 
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &'a [u8] {
         match self {
             Self::NUMERIC(num) => num.as_bytes(),
             Self::CAP => b"CAP",

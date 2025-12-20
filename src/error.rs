@@ -2,7 +2,7 @@ use crate::compat::{Debug, FmtResult, Formatter, String};
 
 #[derive(Clone, PartialEq, thiserror::Error)]
 pub enum IRCError {
-    #[error("Cannot parse empty message")]
+    #[error("cannot parse empty message")]
     EmptyInput,
     #[error("{component} must be followed by a space")]
     MissingSpace { component: &'static str },
@@ -42,15 +42,15 @@ impl IRCError {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum TagError {
-    #[error("Tags cannot be empty")]
+    #[error("tags cannot be empty")]
     Empty,
 
-    #[error("Tag key cannot be empty")]
+    #[error("tag key cannot be empty")]
     EmptyKey,
 
-    #[error("Tag key contains invalid character '{char}' at position {position}")]
+    #[error("tag key contains invalid character '{char}' at position {position}")]
     InvalidKeyChar { char: char, position: usize },
-    #[error("Tag value contains invalid character '{char}' at position {position}")]
+    #[error("tag value contains invalid character '{char}' at position {position}")]
     InvalidValueChar { char: char, position: usize },
 
     #[error(transparent)]
@@ -65,16 +65,16 @@ impl TagError {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum SourceError {
-    #[error("Source cannot be empty")]
+    #[error("source cannot be empty")]
     Empty,
-    #[error("Nickname cannot be empty")]
+    #[error("nickname cannot be empty")]
     EmptyNick,
-    #[error("Nickname must start with letter, got '{char}'")]
+    #[error("nickname must start with a letter, got '{char}'")]
     InvalidNickFirstChar { char: char },
-    #[error("Nickname contains invalid character '{char}' at position {position} (only letters, digits, and special chars allowed)")]
+    #[error("nickname contains invalid character '{char}' at position {position} (only letters, digits, and special chars allowed)")]
     InvalidNickChar { char: char, position: usize },
 
-    #[error("Username contains invalid character '{char}' at position {position} (control characters not allowed)")]
+    #[error("username contains invalid character '{char}' at position {position} (control characters not allowed)")]
     InvalidUserChar { char: char, position: usize },
 
     #[error(transparent)]
@@ -89,15 +89,16 @@ impl SourceError {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum CommandError {
-    #[error("Command cannot be empty")]
+    #[error("command cannot be empty")]
     Empty,
-    #[error("Command must start with letter or digit, got '{char}'")]
+    #[error("command must start with a letter or digit, got '{char}'")]
     InvalidFirstChar { char: char },
-    #[error("Command must be letters or 3-digit number, got '{input}' at position {position}")]
+    #[error("command must be all letters or 3-digit number, got '{input}' at position {position}")]
     InvalidCommand { input: String, position: usize },
-    #[error("Numeric command must be exactly 3 digits, got {actual} digits")]
+    #[error("numeric command must be exactly 3 digits, got {actual} digits")]
     WrongDigitCount { actual: usize },
 }
+
 impl CommandError {
     pub fn code(&self) -> &'static str {
         "CMD"
@@ -106,13 +107,14 @@ impl CommandError {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ParamError {
-    #[error("Parameter middle cannot be empty")]
+    #[error("parameter middle cannot be empty")]
     EmptyMiddle,
-    #[error("Parameter middle contains invalid character '{char}' at position {position}")]
+    #[error("parameter middle contains invalid character '{char}' at position {position}")]
     InvalidMiddleChar { char: char, position: usize },
-    #[error("Parameter contains forbidden control character (colon, space, CR, LF, NUL)")]
+    #[error("parameter contains forbidden control character (colon, space, CR, LF, NUL)")]
     ContainsControlChar,
 }
+
 impl ParamError {
     pub fn code(&self) -> &'static str {
         "PARAM"
@@ -121,23 +123,23 @@ impl ParamError {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum HostnameError {
-    #[error("Hostname cannot be empty")]
+    #[error("hostname cannot be empty")]
     Empty,
-    #[error("Hostname label cannot be empty")]
+    #[error("hostname label cannot be empty")]
     EmptyLabel,
 
-    #[error("Hostname label must start with letter or digit, got '{char}'")]
+    #[error("hostname label must start with a letter or digit, got '{char}'")]
     InvalidFirstChar { char: char },
-    #[error("Hostname label cannot end with hypen, got '{char}'")]
+    #[error("hostname label cannot end with hyphen, got '{char}'")]
     InvalidLastChar { char: char },
-    #[error("Hostname label contains invalid character '{char}'")]
+    #[error("hostname label contains invalid character '{char}'")]
     InvalidChar { char: char },
 
-    #[error("Hostname label exceeds maximum length (max {max} characters, got {actual})")]
+    #[error("hostname label exceeds maximum length (max {max} characters, got {actual})")]
     LabelTooLong { max: usize, actual: usize },
-    #[error("Hostname exceeds maximum depth (max {max} labels, got {actual})")]
+    #[error("hostname exceeds maximum depth (max {max} labels, got {actual})")]
     TooManyLabels { max: usize, actual: usize },
-    #[error("Hostname exceeds maximum total length (max {max} characters, got {actual})")]
+    #[error("hostname exceeds maximum total length (max {max} characters, got {actual})")]
     TooLong { max: usize, actual: usize },
 }
 
@@ -149,16 +151,15 @@ impl HostnameError {
 
 #[derive(Clone, PartialEq, thiserror::Error)]
 pub enum ExtractError {
-    #[error("Invalid command: expected {expected}, got {actual}")]
+    #[error("invalid command: expected `{expected}`, got `{actual}`")]
     InvalidCommand { expected: String, actual: String },
-    #[error("Missing required component: {component}")]
+    #[error("missing required component: {component}")]
     MissingComponent { component: &'static str },
-    #[error("Missing required field: {field}")]
+    #[error("missing required field: {field}")]
     MissingField { field: &'static str },
-    #[error("Invalid field value for '{field}': {reason}")]
+    #[error("invalid field value for field '{field}': {reason}")]
     InvalidValue { field: &'static str, reason: String },
-
-    #[error("Failed to parse IRC message: {0}")]
+    #[error("failed to parse IRC message: {0}")]
     ParseError(#[from] IRCError),
 }
 

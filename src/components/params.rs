@@ -90,7 +90,7 @@ impl<'a> Middles<'a> {
         self.0.is_empty()
     }
 
-    pub fn to_vec(self) -> Vec<&'a str> {
+    pub fn to_vec(&self) -> Vec<&'a str> {
         self.iter().collect()
     }
 

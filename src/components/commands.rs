@@ -2,7 +2,18 @@ use crate::compat::{Display, FmtResult, Formatter, String, ToString};
 
 use crate::{error::CommandError, validators};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// IRC command types following RFC 1459 and RFC 2812
+///
+/// **Important:** all IRC commands are case-insensitive.
+///
+/// - [`Commands::from()`] accepts any case (PRIVMSG, privmsg, Privmsg)
+/// - Comparisons via [`PartialEq`] are case-insensitive
+/// - [`Commands::as_str()`] always returns uppercase (canonical form)
+///
+/// # Example
+///
+/// let cmd = Commands::from("PRIVMSG");
+#[derive(Debug, Clone, Copy, Eq, Hash)]
 pub enum Commands<'a> {
     NUMERIC(&'a str),
     // Connection Messages
@@ -177,9 +188,19 @@ impl<'a> Commands<'a> {
     }
 }
 
+macro_rules! parse_command {
+    ($value:expr, $($pattern:literal => $command:expr),* $(,)?) => {
+        $(
+            if $value.eq_ignore_ascii_case($pattern) {
+                return $command;
+        }
+        )*
+    };
+}
+
 impl<'a> From<&'a str> for Commands<'a> {
     fn from(value: &'a str) -> Self {
-        match value {
+        parse_command!(value,
             "CAP" => Self::CAP,
             "AUTHENTICATE" => Self::AUTHENTICATE,
             "PASS" => Self::PASS,
@@ -220,11 +241,13 @@ impl<'a> From<&'a str> for Commands<'a> {
             "LINKS" => Self::LINKS,
             "USERHOST" => Self::USERHOST,
             "WALLOPS" => Self::WALLOPS,
-            _ => match value.parse::<u16>() {
-                Ok(_) => Self::NUMERIC(value),
-                Err(_) => Self::CUSTOM(value),
-            },
+        );
+
+        if value.parse::<u16>().is_ok() {
+            return Self::NUMERIC(value);
         }
+
+        Self::CUSTOM(value)
     }
 }
 
@@ -237,6 +260,36 @@ impl Display for Commands<'_> {
 impl AsRef<str> for Commands<'_> {
     fn as_ref(&self) -> &str {
         self.as_str()
+    }
+}
+
+impl PartialEq for Commands<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<&str> for Commands<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str().eq_ignore_ascii_case(other)
+    }
+}
+
+impl PartialEq<String> for Commands<'_> {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str().eq_ignore_ascii_case(other.as_str())
+    }
+}
+
+impl PartialEq<Commands<'_>> for &str {
+    fn eq(&self, other: &Commands<'_>) -> bool {
+        other.as_str().eq_ignore_ascii_case(self)
+    }
+}
+
+impl PartialEq<Commands<'_>> for String {
+    fn eq(&self, other: &Commands<'_>) -> bool {
+        other.as_str().eq_ignore_ascii_case(self.as_str())
     }
 }
 
@@ -322,5 +375,44 @@ impl serde::Serialize for CapSubCommands {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::components::Commands;
+
+    #[test]
+    fn from_case_insensitive() {
+        assert_eq!(Commands::from("PRIVMSG"), Commands::PRIVMSG);
+        assert_eq!(Commands::from("PING"), Commands::PING);
+
+        assert_eq!(Commands::from("privmsg"), Commands::PRIVMSG);
+        assert_eq!(Commands::from("ping"), Commands::PING);
+
+        assert_eq!(Commands::from("PrivMsg"), Commands::PRIVMSG);
+        assert_eq!(Commands::from("PiNg"), Commands::PING);
+    }
+
+    #[test]
+    fn partialeq_case_insensitive() {
+        let cmd = Commands::PRIVMSG;
+
+        assert!(cmd == "PRIVMSG");
+        assert!(cmd == "privmsg");
+        assert!(cmd == "PrivMsg");
+        assert!(cmd == "PRIVMSG");
+
+        assert!(cmd != "PING");
+        assert!(cmd != "ping");
+    }
+
+    #[test]
+    fn string_comparison() {
+        let cmd = Commands::PRIVMSG;
+        let s = String::from("privmsg");
+
+        assert!(cmd == s);
+        assert!(s == cmd);
     }
 }

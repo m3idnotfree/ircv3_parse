@@ -231,14 +231,27 @@ impl<'a> TagBuilder<'a> {
 
             self.buffer.put_u8(b'=');
             self.buffer.put_slice(val.as_bytes());
+        } else {
+            self.buffer.put_u8(b'=');
         }
 
         self.has_tags = true;
         Ok(self)
     }
 
-    pub fn add_flag(self, key: &str) -> Result<Self, BuilderError> {
-        self.add(key, None)
+    pub fn add_flag(mut self, key: &str) -> Result<Self, BuilderError> {
+        self.write_separator();
+
+        #[cfg(debug_assertions)]
+        if self.validation_enabled {
+            validators::tag_key(key)
+                .map_err(|e| BuilderError::tag_validation("tag key", key, e))?;
+        }
+
+        self.buffer.put_slice(key.as_bytes());
+        self.has_tags = true;
+
+        Ok(self)
     }
 
     pub fn add_many<I>(mut self, tags: I) -> Result<Self, BuilderError>
@@ -265,6 +278,8 @@ impl<'a> TagBuilder<'a> {
 
                 self.buffer.put_u8(b'=');
                 self.buffer.put_slice(val.as_bytes());
+            } else {
+                self.buffer.put_u8(b'=');
             }
 
             self.has_tags = true;
@@ -538,5 +553,25 @@ mod tests {
             "@tag1=value1;tag2=;flag :name@example.com PRIVMSG\r\n",
             actual
         );
+    }
+
+    #[test]
+    fn base_2() {
+        let message = MessageBuilder::new(Commands::PRIVMSG)
+            .with_tags(|tags| {
+                tags.add("tag1", Some("value1"))?
+                    .add("tag2", None)?
+                    .add_flag("flag")
+            })
+            .unwrap()
+            .with_source("name", |source| source.with_host("example.com"))
+            .unwrap()
+            .with_trailing("")
+            .unwrap();
+
+        let actual = message.to_bytes();
+        let r = String::from_utf8(actual.to_vec()).unwrap();
+
+        assert_eq!("@tag1=value1;tag2=;flag :name@example.com PRIVMSG\r\n", &r);
     }
 }

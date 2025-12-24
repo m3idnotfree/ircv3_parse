@@ -3,7 +3,11 @@ name = "ircv3_parse_derive"
 version = "0.1.0"
 authors = ["m3id"]
 edition = "2021"
+description = "Derive macro for ircv3_parse"
+repository = "https://github.com/m3idnotfree/ircv3_parse/tree/main/ircv3_parse_derive"
 license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/ircv3_parse_derive"
 
 [lib]
 proc-macro = true

@@ -1,0 +1,5 @@
+error: duplicate `with` attribute
+ --> tests/ui/fail/06_duplicate_with_fail.rs:6:11
+  |
+6 |     #[irc(with = "fn2")]
+  |           ^^^^^^^^^^^^

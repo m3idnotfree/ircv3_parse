@@ -1,0 +1,17 @@
+error: FromMessage only supports structs
+ --> tests/ui/fail/02_unsupported_data_fail.rs:4:6
+  |
+4 | enum M1 {
+  |      ^^
+
+error: FromMessage only supports structs with named fields
+ --> tests/ui/fail/02_unsupported_data_fail.rs:9:8
+  |
+9 | struct M2(String);
+  |        ^^
+
+error: FromMessage only supports structs with named fields
+  --> tests/ui/fail/02_unsupported_data_fail.rs:12:8
+   |
+12 | struct M3;
+   |        ^^

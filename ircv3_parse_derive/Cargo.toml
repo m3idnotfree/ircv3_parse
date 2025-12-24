@@ -1,0 +1,18 @@
+[package]
+name = "ircv3_parse_derive"
+version = "0.1.0"
+authors = ["m3id"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.103"
+quote = "1.0.42"
+syn = "2.0.111"
+
+[dev-dependencies]
+ircv3_parse = "2.1.0"
+trybuild = "1.0.114"

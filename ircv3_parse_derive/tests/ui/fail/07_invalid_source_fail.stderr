@@ -1,0 +1,5 @@
+error: invalid source field (valid options: `name`, `user`, or `host`)
+ --> tests/ui/fail/07_invalid_source_fail.rs:5:20
+  |
+5 |     #[irc(source = "invalid")]
+  |                    ^^^^^^^^^

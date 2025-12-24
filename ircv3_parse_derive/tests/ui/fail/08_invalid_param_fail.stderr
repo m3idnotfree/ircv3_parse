@@ -1,0 +1,5 @@
+error: expected integer literal
+ --> tests/ui/fail/08_invalid_param_fail.rs:5:19
+  |
+5 |     #[irc(param = "first")]
+  |                   ^^^^^^^

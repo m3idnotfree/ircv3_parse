@@ -1,0 +1,6 @@
+error: unsupported type for source user field `field`: u16
+ --> tests/ui/fail/10_type_mismatch_fail.rs:5:5
+  |
+5 | /     #[irc(source = "user")]
+6 | |     field: u16,
+  | |______________^

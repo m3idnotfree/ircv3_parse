@@ -1,0 +1,5 @@
+error: unknown IRC attribute: unknown
+ --> tests/ui/fail/04_unknown_attribute_fail.rs:5:11
+  |
+5 |     #[irc(unknown)]
+  |           ^^^^^^^

@@ -1,0 +1,12 @@
+error: field must have at least one IRC extraction attribute
+ --> tests/ui/fail/03_missing_attribute_fail.rs:5:5
+  |
+5 |     field: String,
+  |     ^^^^^^^^^^^^^
+
+error: field must have at least one IRC extraction attribute
+  --> tests/ui/fail/03_missing_attribute_fail.rs:10:5
+   |
+10 | /     #[irc()]
+11 | |     field: String,
+   | |_________________^

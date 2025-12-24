@@ -1,0 +1,5 @@
+error: unknown IRC attribute: cmd
+ --> tests/ui/fail/01_unknown_struct_attribute_fail.rs:4:7
+  |
+4 | #[irc(cmd = "PrivMsg")]
+  |       ^^^

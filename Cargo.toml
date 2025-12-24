@@ -1,6 +1,6 @@
 [package]
 name = "ircv3_parse"
-version = "2.1.0"
+version = "3.0.0"
 authors = ["m3id"]
 edition = "2021"
 description = "Zero-copy parser for IRCv3 messages"
@@ -25,7 +25,7 @@ bytes = { version = "1.11.0", default-features = false }
 memchr = { version = "2.7.6", default-features = false }
 serde = { version = "1.0.228", default-features = false, optional = true, features = ["derive"] }
 thiserror = { version = "2.0.17", default-features = false }
-ircv3_parse_derive = { version = "0.1.0", optional = true }
+ircv3_parse_derive = { version = "3.0.0", optional = true }
 
 [dev-dependencies]
 proptest = "1.9.0"

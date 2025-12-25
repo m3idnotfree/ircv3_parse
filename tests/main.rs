@@ -6,7 +6,7 @@ mod serde;
 use components::{
     commands::invalid_command_strategy, escape::escaped_strategy, params::ParamsType, TestMessage,
 };
-use ircv3_parse::{unescaped_to_escaped, validators};
+use ircv3_parse::{unescape, validators};
 use proptest::{prelude::any, prop_assert, prop_assert_eq, proptest, test_runner::Config};
 
 proptest! {

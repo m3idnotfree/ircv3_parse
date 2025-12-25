@@ -1,6 +1,6 @@
 use crate::compat::{Display, FmtResult, Formatter, Map, Split, String, Vec};
 
-use crate::{error::TagError, unescaped_to_escaped, validators};
+use crate::{error::TagError, unescape, validators};
 
 const SEMICOLON_CHAR: char = ';';
 const EQUAL_CHAR: char = '=';
@@ -122,9 +122,8 @@ impl<'a> Tags<'a> {
     }
 
     #[inline]
-    pub fn get_escaped(&self, key: &str) -> Option<String> {
-        self.get(key)
-            .map(|value| unescaped_to_escaped(value.as_str()))
+    pub fn get_unescaped(&self, key: &str) -> Option<String> {
+        self.get(key).map(|value| unescape(value.as_str()))
     }
 
     #[inline]

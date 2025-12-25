@@ -152,12 +152,12 @@ pub mod extract;
 pub mod validators;
 
 mod error;
-mod escape;
 mod rfc1123;
 mod scanner;
+mod unescape;
 
 pub use error::{ExtractError, IRCError};
-pub use escape::unescaped_to_escaped;
+pub use unescape::unescape;
 
 pub use components::Message;
 use scanner::Scanner;

@@ -14,13 +14,13 @@ use crate::{COLON, CR, LF, SEMICOLON, SPACE};
 /// # Examples
 ///
 /// ```
-/// use ircv3_parse::unescaped_to_escaped;
+/// use ircv3_parse::unescape;
 ///
-/// assert_eq!(unescaped_to_escaped("hello\\sworld"), "hello world");
-/// assert_eq!(unescaped_to_escaped("semi\\:colon"), "semi;colon");
-/// assert_eq!(unescaped_to_escaped("back\\\\slash"), "back\\slash");
+/// assert_eq!(unescape("hello\\sworld"), "hello world");
+/// assert_eq!(unescape("semi\\:colon"), "semi;colon");
+/// assert_eq!(unescape("back\\\\slash"), "back\\slash");
 /// ```
-pub fn unescaped_to_escaped(value: &str) -> String {
+pub fn unescape(value: &str) -> String {
     const BACKSLASH: u8 = b'\\';
 
     let bytes = value.as_bytes();

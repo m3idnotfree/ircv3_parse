@@ -4,6 +4,7 @@ use crate::compat::{
 
 use crate::{error::ParamError, validators};
 
+/// IRC message parameters.
 #[derive(Clone, Copy)]
 pub struct Params<'a> {
     input: &'a str,
@@ -26,6 +27,19 @@ impl<'a> Params<'a> {
         self.input
     }
 
+    /// Returns the parameters formatted as they would appear in a message.
+    ///
+    /// Includes the leading space and `:` prefix for trailing parameter.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let msg = ircv3_parse::parse("PRIVMSG #channel :Hello")?;
+    /// let params = msg.params();
+    ///
+    /// assert_eq!(params.message(), " #channel :Hello");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn message(&self) -> String {
         match (self.middles.is_empty(), self.trailing.is_some()) {
@@ -57,6 +71,7 @@ impl Debug for Params<'_> {
     }
 }
 
+/// Middle parameters
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Middles<'a>(&'a str);
 
@@ -130,11 +145,32 @@ impl<'a> Trailing<'a> {
         self.0.is_none()
     }
 
+    /// Returns the trailing parameter as a string.
+    ///
+    /// Returns an empty string if there's no trailing parameter.
     #[inline]
     pub fn as_str(&self) -> &'a str {
         self.0.unwrap_or("")
     }
 
+    /// Returns the raw trailing parameter as an `Option`.
+    ///
+    /// Use this when you need to distinguish between an empty trailing
+    /// parameter and no trailing parameter at all.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let msg1 = ircv3_parse::parse("PRIVMSG #channel :Hello")?;
+    /// assert_eq!(msg1.params().trailing.raw(), Some("Hello"));
+    ///
+    /// let msg2 = ircv3_parse::parse("PRIVMSG #channel :")?;  // Empty trailing
+    /// assert_eq!(msg2.params().trailing.raw(), Some(""));
+    ///
+    /// let msg3 = ircv3_parse::parse("JOIN #channel")?;  // No trailing
+    /// assert_eq!(msg3.params().trailing.raw(), None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[inline]
     pub fn raw(&self) -> Option<&'a str> {
         self.0

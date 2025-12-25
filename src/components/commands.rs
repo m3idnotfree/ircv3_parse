@@ -2,17 +2,15 @@ use crate::compat::{Display, FmtResult, Formatter, String, ToString};
 
 use crate::{error::CommandError, validators};
 
-/// IRC command types following RFC 1459 and RFC 2812
+/// IRC command types following RFC 1459 and RFC 2812.
 ///
-/// **Important:** all IRC commands are case-insensitive.
+/// # Case Insensitivity
 ///
-/// - [`Commands::from()`] accepts any case (PRIVMSG, privmsg, Privmsg)
+/// **All IRC commands are case-insensitive**.
+///
+/// - [`Commands::from()`] accepts any case (PRIVMSG, privmsg, PrivMsg)
 /// - Comparisons via [`PartialEq`] are case-insensitive
-/// - [`Commands::as_str()`] always returns uppercase (canonical form)
-///
-/// # Example
-///
-/// let cmd = Commands::from("PRIVMSG");
+/// - [`Commands::as_str()`] always returns uppercase
 #[derive(Debug, Clone, Copy, Eq, Hash)]
 pub enum Commands<'a> {
     NUMERIC(&'a str),
@@ -67,6 +65,9 @@ pub enum Commands<'a> {
 }
 
 impl<'a> Commands<'a> {
+    /// Returns the command as a string slice.
+    ///
+    /// Always returns uppercase.
     #[inline]
     pub fn as_str(&self) -> &'a str {
         match self {

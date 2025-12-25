@@ -5,46 +5,68 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/m3idnotfree/irc_parse/blob/main/LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/m3idnotfree/irc_parse/blob/main/LICENSE-APACHE)
 
-A **blazingly fast**, **zero-copy** IRC v3 message parser
+A **zero-copy** IRC message parser with **IRCv3** support
 
 [Documentation](https://docs.rs/ircv3_parse)
 
-> **Notice:** Each component parses first special character and follows the rule. If you want to use it strictly, use validation of each component.
->
-> - **Tags**: Start with `@`, separated by `;` and followed by a ` `(space)
-> - **Source**: Start with `:`, format `name!user@example.com` or `example.com` and followed by a ` `(space)
-> - **Command**: No prefix, must be letters or 3-digit number
-> - **Middle Parameters**: Start with ` ` (space), separated by spaces
-> - **Trailing Parameters**: Start with ` :` (space + colon), can contain any text
+## Features
 
-## Installation
-
-```toml
-[dependencies]
-ircv3_parse = "2"
-```
+- Zero-copy parsing for performance
+- IRCv3 message tags support
+- Derive macro for easy message extraction
+- `no_std` compatible (with `alloc`)
 
 ## Quick Start
 
-```rust
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let message = ircv3_parse::parse("PRIVMSG #channel :Hello everyone!")?;
+```toml
+[dependencies]
+ircv3_parse = { version = "3", features = ["derive"] }
+```
 
-    assert_eq!("PRIVMSG", message.command().as_str());
-    assert_eq!("#channel", message.params().middles.first().unwrap());
-    assert_eq!("Hello everyone!", message.params().trailing.as_str());
+```rust
+use ircv3_parse::FromMessage;
+
+#[derive(FromMessage)]
+#[irc(command = "PRIVMSG")]
+struct PrivMsg<'a> {
+    #[irc(source = "name")]
+    nick: &'a str,
+    #[irc(trailing)]
+    message: &'a str
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: PrivMsg = ircv3_parse::from_str(input)?;
+
+    println!("From: {}", msg.nick);
+    println!("Message: {}",msg.message);
 
     Ok(())
 }
 ```
 
-## Features
+## Feature Flags
 
-- **`serde`** - Serialization support for all types(deserialization not supported)
+- **`derive`** - Enables the `FromMessage` derive macro (recommended)
+- **`serde`** - Enables `Serialize` implementation for `Message`
 
 ## `no_std` Support
 
-Requires an allocator (uses `alloc` crate for `String` and `Vec`).
+```toml
+[dependencies]
+ircv3_parse = { version = "3", default-features = false, features = ["derive"] }
+```
+
+## Parsing Rules
+
+> **Notice:** Each component parses first special character and follows the rule. Use validation methods for strict parsing.
+
+- **Tags**: Start with `@`, separated by `;`, followed by space
+- **Source**: Start with `:`, format `name!user@host` or `host`, followed by space
+- **Command**: Letters or 3-digit number
+- **Middle Parameters**: Separated by spaces
+- **Trailing Parameters**: Start with ` :` (space + colon)
 
 ## License
 

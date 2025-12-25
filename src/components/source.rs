@@ -2,6 +2,7 @@ use crate::compat::{Debug, Display, FmtResult, Formatter};
 
 use crate::{error::SourceError, validators};
 
+/// IRC message source component.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Source<'a> {
     input: &'a str,

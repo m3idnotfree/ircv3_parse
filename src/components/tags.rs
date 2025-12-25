@@ -7,6 +7,12 @@ const EQUAL_CHAR: char = '=';
 
 type TagPair<'a> = (&'a str, TagValue<'a>);
 
+/// Represents the value of an IRCv3 message tag.
+///
+/// IRCv3 tags can have three states:
+/// - **Flag**: Tag exists without a value (e.g., `subscriber`)
+/// - **Empty**: Tag exists with an empty value (e.g., `color=`)
+/// - **Value**: Tag has an actual value (e.g., `user-id=123`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TagValue<'a> {
     Flag,
@@ -15,6 +21,18 @@ pub enum TagValue<'a> {
 }
 
 impl<'a> TagValue<'a> {
+    /// Returns the tag value as a string slice.
+    ///
+    /// For [`TagValue::Flag`] and [`TagValue::Empty`], returns an empty string.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use ircv3_parse::components::TagValue;
+    /// assert_eq!(TagValue::Value("123").as_str(), "123");
+    /// assert_eq!(TagValue::Flag.as_str(), "");
+    /// assert_eq!(TagValue::Empty.as_str(), "");
+    /// ```
     pub fn as_str(&self) -> &'a str {
         match self {
             Self::Flag | Self::Empty => "",
@@ -26,6 +44,7 @@ impl<'a> TagValue<'a> {
         matches!(self, TagValue::Flag)
     }
 
+    /// Returns `true` if this tag has an explicitly empty value.
     pub fn is_empty(&self) -> bool {
         matches!(self, TagValue::Empty)
     }
@@ -44,6 +63,7 @@ impl<'a> Display for TagValue<'a> {
     }
 }
 
+/// IRCv3 message tags component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tags<'a>(&'a str);
 
@@ -53,6 +73,7 @@ impl<'a> Tags<'a> {
         Self(val)
     }
 
+    /// Returns the raw tags string.
     #[inline]
     pub fn as_str(&self) -> &'a str {
         self.0
@@ -68,18 +89,13 @@ impl<'a> Tags<'a> {
         self.into_iter().collect()
     }
 
+    /// Checks if a tag exists as a flag (without a value).
     #[inline]
     pub fn get_flag(&self, key: &str) -> bool {
         self.split().any(|tag| tag == key)
     }
 
-    // Gets the raw value for a key in the tag list without unescaping.
-    //
-    // Returns:
-    // * `None` if the key doesn't exist
-    // * `Some(TagValue::Empty)` if the key exists with an empty value
-    // * `Some(TagValue::Value(value))` if the key exists with a value
-    // * `Some(TagValue::Flag)` if the key exists but flag
+    /// Gets the value of a tag by key.
     #[inline]
     pub fn get(&self, key: &str) -> Option<TagValue<'a>> {
         self.split().find_map(|tag| self._get(tag, key))
@@ -105,6 +121,7 @@ impl<'a> Tags<'a> {
         }
     }
 
+    /// Gets a client-only tag (prefixed with `+`).
     #[inline]
     pub fn get_prefix(&self, key: &str) -> Option<TagValue<'a>> {
         self.split().find_map(|tag| {
@@ -116,16 +133,19 @@ impl<'a> Tags<'a> {
         })
     }
 
+    /// Splits tags by semicolon separator.
     #[inline]
     pub fn split(&self) -> Split<'a, char> {
         self.0.split(SEMICOLON_CHAR)
     }
 
+    /// Gets a tag value with escape sequences converted to actual characters.
     #[inline]
     pub fn get_unescaped(&self, key: &str) -> Option<String> {
         self.get(key).map(|value| unescape(value.as_str()))
     }
 
+    /// Returns an iterator over tag key-value pairs.
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = TagPair<'a>> {
         self.split().map(|tag| {

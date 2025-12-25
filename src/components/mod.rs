@@ -12,6 +12,7 @@ use crate::compat::{Debug, Display, FmtResult, Formatter};
 
 use crate::scanner::Scanner;
 
+/// A parsed IRC message.
 #[derive(Clone, Copy)]
 pub struct Message<'a> {
     input: &'a str,
@@ -24,6 +25,7 @@ impl<'a> Message<'a> {
         Self { input, scanner }
     }
 
+    /// Returns [`Tags`] if present.
     #[inline]
     pub fn tags(&self) -> Option<Tags<'a>> {
         if self.scanner.has_tags() {
@@ -33,6 +35,7 @@ impl<'a> Message<'a> {
         }
     }
 
+    /// Returns [`Source`] if present.
     #[inline]
     pub fn source(&self) -> Option<Source<'a>> {
         if self.scanner.has_source() {
@@ -42,11 +45,13 @@ impl<'a> Message<'a> {
         }
     }
 
+    /// Returns [`Commands`].
     #[inline]
     pub fn command(&self) -> Commands<'a> {
         Commands::from(self.scanner.command_span.extract(self.input))
     }
 
+    /// Returns [`Params`].
     #[inline]
     pub fn params(&self) -> Params<'a> {
         if self.scanner.has_trailing() {

@@ -11,6 +11,10 @@ categories = ["parser-implementations", "network-programming"]
 readme = "README.md"
 documentation = "https://docs.rs/ircv3_parse"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 default = ["std"]
 std = ["bytes/std", "thiserror/std", "serde?/std"]

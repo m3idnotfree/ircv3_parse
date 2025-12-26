@@ -115,26 +115,20 @@ proptest! {
 
 #[test]
 fn test_basic_unescaping() {
-    assert_eq!(unescaped_to_escaped("hello\\sworld"), "hello world");
-    assert_eq!(unescaped_to_escaped("semi\\:colon"), "semi;colon");
-    assert_eq!(unescaped_to_escaped("back\\\\slash"), "back\\slash");
-    assert_eq!(
-        unescaped_to_escaped("carriage\\rreturn"),
-        "carriage\rreturn"
-    );
-    assert_eq!(unescaped_to_escaped("line\\nfeed"), "line\nfeed");
+    assert_eq!(unescape("hello\\sworld"), "hello world");
+    assert_eq!(unescape("semi\\:colon"), "semi;colon");
+    assert_eq!(unescape("back\\\\slash"), "back\\slash");
+    assert_eq!(unescape("carriage\\rreturn"), "carriage\rreturn");
+    assert_eq!(unescape("line\\nfeed"), "line\nfeed");
 }
 
 #[test]
 fn test_edge_cases() {
-    assert_eq!(unescaped_to_escaped(""), "");
-    assert_eq!(unescaped_to_escaped("\\"), "\\");
-    assert_eq!(unescaped_to_escaped("no_escapes"), "no_escapes");
-    assert_eq!(unescaped_to_escaped("\\unknown"), "\\unknown");
-    assert_eq!(
-        unescaped_to_escaped("multiple\\s\\:escapes"),
-        "multiple ;escapes"
-    );
+    assert_eq!(unescape(""), "");
+    assert_eq!(unescape("\\"), "\\");
+    assert_eq!(unescape("no_escapes"), "no_escapes");
+    assert_eq!(unescape("\\unknown"), "\\unknown");
+    assert_eq!(unescape("multiple\\s\\:escapes"), "multiple ;escapes");
 }
 
 proptest! {
@@ -143,7 +137,7 @@ proptest! {
     fn escaped_string(
         (input, expected) in escaped_strategy()
     ) {
-        prop_assert_eq!(expected, unescaped_to_escaped(&input));
+        prop_assert_eq!(expected, unescape(&input));
     }
 }
 

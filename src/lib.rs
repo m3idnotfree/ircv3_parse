@@ -218,10 +218,10 @@ pub use ircv3_parse_derive::FromMessage;
 
 pub mod builder;
 pub mod components;
+pub mod error;
 pub mod extract;
 pub mod validators;
 
-mod error;
 mod rfc1123;
 mod scanner;
 mod unescape;

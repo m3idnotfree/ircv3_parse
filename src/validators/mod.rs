@@ -4,8 +4,10 @@ use crate::{
     components::Source,
     error::{CommandError, ParamError, SourceError, TagError},
     rfc1123::RFC1123,
-    CR, HYPEN, LF, NUL, SEMICOLON, SPACE,
+    COLON, CR, EQ, HYPEN, LF, NUL, SEMICOLON, SPACE,
 };
+
+const NICK_SPECIAL_CHARS: &[u8] = b"-[]\\`^{}";
 
 pub fn command(input: &str) -> Result<(), CommandError> {
     if input.is_empty() {
@@ -94,9 +96,7 @@ pub fn nick(input: &str) -> Result<(), SourceError> {
     }
 
     for (i, c) in bytes.iter().enumerate().skip(1) {
-        if !(c.is_ascii_alphanumeric()
-            || matches!(*c, HYPEN | b'[' | b']' | b'\\' | b'`' | b'^' | b'{' | b'}'))
-        {
+        if !(c.is_ascii_alphanumeric() || NICK_SPECIAL_CHARS.contains(c)) {
             return Err(SourceError::InvalidNickChar {
                 char: *c as char,
                 position: i,
@@ -123,8 +123,8 @@ pub fn tags(input: &str) -> Result<(), TagError> {
     if input.is_empty() {
         return Err(TagError::Empty);
     }
-    for tag in input.split(";") {
-        if let Some((key, value)) = tag.split_once('=') {
+    for tag in input.split(SEMICOLON as char) {
+        if let Some((key, value)) = tag.split_once(EQ as char) {
             tag_key(key)?;
             tag_value(value)?;
         } else {
@@ -192,7 +192,7 @@ pub fn tag_value(input: &str) -> Result<(), TagError> {
 pub fn params(input: &str) -> Result<(), ParamError> {
     for param in input.split_whitespace() {
         for c in param.as_bytes() {
-            if matches!(*c, SPACE | NUL | CR | LF | b':') {
+            if matches!(*c, SPACE | NUL | CR | LF | COLON) {
                 return Err(ParamError::ContainsControlChar);
             }
         }

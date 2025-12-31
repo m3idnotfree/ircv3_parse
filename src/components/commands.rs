@@ -116,6 +116,55 @@ impl<'a> Commands<'a> {
         }
     }
 
+    /// Returns the length of the command
+    #[inline]
+    pub fn len(&self) -> usize {
+        match self {
+            Self::NUMERIC(num) => num.len(),
+            Self::CAP => 3,
+            Self::AUTHENTICATE => 12,
+            Self::PASS => 4,
+            Self::NICK => 4,
+            Self::USER => 4,
+            Self::PING => 4,
+            Self::PONG => 4,
+            Self::OPER => 4,
+            Self::QUIT => 4,
+            Self::ERROR => 5,
+            Self::JOIN => 4,
+            Self::PART => 4,
+            Self::TOPIC => 5,
+            Self::NAMES => 5,
+            Self::LIST => 4,
+            Self::INVITE => 6,
+            Self::KICK => 4,
+            Self::MOTD => 4,
+            Self::VERSION => 7,
+            Self::ADMIN => 5,
+            Self::CONNECT => 7,
+            Self::LUSERS => 6,
+            Self::TIME => 4,
+            Self::STATS => 5,
+            Self::HELP => 4,
+            Self::INFO => 4,
+            Self::MODE => 4,
+            Self::PRIVMSG => 7,
+            Self::NOTICE => 6,
+            Self::WHO => 3,
+            Self::WHOIS => 6,
+            Self::WHOWAS => 6,
+            Self::KILL => 4,
+            Self::REHASH => 6,
+            Self::RESTART => 7,
+            Self::SQUIT => 5,
+            Self::AWAY => 4,
+            Self::LINKS => 5,
+            Self::USERHOST => 8,
+            Self::WALLOPS => 7,
+            Self::CUSTOM(unknown) => unknown.len(),
+        }
+    }
+
     #[inline]
     pub fn as_bytes(&self) -> &'a [u8] {
         match self {

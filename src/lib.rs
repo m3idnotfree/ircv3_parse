@@ -240,6 +240,8 @@ pub(crate) const HYPEN: u8 = b'-';
 pub(crate) const COLON: u8 = b':';
 pub(crate) const SEMICOLON: u8 = b';';
 pub(crate) const AT: u8 = b'@';
+pub(crate) const BANG: u8 = b'!';
+pub(crate) const EQ: u8 = b'=';
 
 /// Parse an IRC message from a string.
 ///

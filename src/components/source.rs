@@ -1,6 +1,6 @@
 use crate::compat::{Debug, Display, FmtResult, Formatter};
 
-use crate::{error::SourceError, validators};
+use crate::{error::SourceError, validators, AT, BANG};
 
 /// IRC message source component.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -17,12 +17,12 @@ impl<'a> Source<'a> {
         let mut user = None;
         let mut host = None;
 
-        if let Some((left, h)) = input.rsplit_once('@') {
+        if let Some((left, h)) = input.rsplit_once(AT as char) {
             host = Some(h);
             name = left;
         }
 
-        if let Some((n, u)) = name.split_once('!') {
+        if let Some((n, u)) = name.split_once(BANG as char) {
             name = n;
             user = Some(u);
         }

@@ -1,9 +1,6 @@
 use crate::compat::{Display, FmtResult, Formatter, Map, Split, String, Vec};
 
-use crate::{error::TagError, unescape, validators};
-
-const SEMICOLON_CHAR: char = ';';
-const EQUAL_CHAR: char = '=';
+use crate::{error::TagError, unescape, validators, EQ, SEMICOLON};
 
 type TagPair<'a> = (&'a str, TagValue<'a>);
 
@@ -81,7 +78,7 @@ impl<'a> Tags<'a> {
 
     #[inline]
     pub fn count(&self) -> usize {
-        self.0.matches(SEMICOLON_CHAR).count() + 1
+        self.0.matches(SEMICOLON as char).count() + 1
     }
 
     #[inline]
@@ -136,7 +133,7 @@ impl<'a> Tags<'a> {
     /// Splits tags by semicolon separator.
     #[inline]
     pub fn split(&self) -> Split<'a, char> {
-        self.0.split(SEMICOLON_CHAR)
+        self.0.split(SEMICOLON as char)
     }
 
     /// Gets a tag value with escape sequences converted to actual characters.
@@ -149,7 +146,7 @@ impl<'a> Tags<'a> {
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = TagPair<'a>> {
         self.split().map(|tag| {
-            if let Some((key, value)) = tag.split_once(EQUAL_CHAR) {
+            if let Some((key, value)) = tag.split_once(EQ as char) {
                 if value.is_empty() {
                     (key, TagValue::Empty)
                 } else {
@@ -193,8 +190,8 @@ impl<'a> IntoIterator for Tags<'a> {
     type IntoIter = Map<Split<'a, char>, fn(&'a str) -> TagPair<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.split(SEMICOLON_CHAR).map(|tag| {
-            if let Some((key, value)) = tag.split_once(EQUAL_CHAR) {
+        self.0.split(SEMICOLON as char).map(|tag| {
+            if let Some((key, value)) = tag.split_once(EQ as char) {
                 if value.is_empty() {
                     (key, TagValue::Empty)
                 } else {
@@ -212,8 +209,8 @@ impl<'a> IntoIterator for &Tags<'a> {
     type IntoIter = Map<Split<'a, char>, fn(&'a str) -> TagPair<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.split(SEMICOLON_CHAR).map(|tag| {
-            if let Some((key, value)) = tag.split_once(EQUAL_CHAR) {
+        self.0.split(SEMICOLON as char).map(|tag| {
+            if let Some((key, value)) = tag.split_once(EQ as char) {
                 if value.is_empty() {
                     (key, TagValue::Empty)
                 } else {

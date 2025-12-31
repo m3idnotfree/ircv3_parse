@@ -149,7 +149,7 @@
 //! ## Building Messages
 //!
 //! ```rust
-//! use ircv3_parse::{builder::MessageBuilder, components::Commands};
+//! use ircv3_parse::{builder::legacy::MessageBuilder, components::Commands};
 //!
 //! let message = MessageBuilder::new(Commands::PRIVMSG)
 //!     .with_tags(|tags| {

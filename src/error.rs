@@ -69,6 +69,8 @@ pub enum SourceError {
     Empty,
     #[error("nickname cannot be empty")]
     EmptyNick,
+    #[error("username cannot be empty")]
+    EmptyUser,
     #[error("nickname must start with a letter, got '{char}'")]
     InvalidNickFirstChar { char: char },
     #[error("nickname contains invalid character '{char}' at position {position} (only letters, digits, and special chars allowed)")]

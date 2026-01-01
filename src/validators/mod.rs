@@ -9,6 +9,15 @@ use crate::{
 
 const NICK_SPECIAL_CHARS: &[u8] = b"-[]\\`^{}";
 
+/// Validates an IRC command.
+///
+/// # Rules
+///
+/// - Must not be empty
+/// - Must be either all letters or exactly 3 digits
+/// - First character must be alphanumeric
+/// - Numeric commands must be exactly 3 digits
+/// - Letter commands must contain only letters
 pub fn command(input: &str) -> Result<(), CommandError> {
     if input.is_empty() {
         return Err(CommandError::Empty);
@@ -60,6 +69,14 @@ pub fn command(input: &str) -> Result<(), CommandError> {
     }
 }
 
+/// Validates an IRC message source (prefix).
+///
+/// # Rules
+///
+/// - Must not be empty
+/// - Nickname must follow IRC nickname rules (see [`nick`])
+/// - Username must not contain control characters (see [`user`])
+/// - Host must be RFC1123 compliant (see [`host`])
 pub fn source(input: &str) -> Result<(), SourceError> {
     let source = Source::parse(input);
     if source.user.is_none() && source.host.is_none() {
@@ -82,6 +99,13 @@ pub fn source(input: &str) -> Result<(), SourceError> {
     Ok(())
 }
 
+/// Validates an IRC nickname.
+///
+/// # Rules
+///
+/// - Must not be empty
+/// - Must start with a letter (a-z, A-Z)
+/// - May contain letters, digits, and special characters: '-[]\\`^{}'
 #[inline]
 pub fn nick(input: &str) -> Result<(), SourceError> {
     if input.is_empty() {
@@ -108,6 +132,12 @@ pub fn nick(input: &str) -> Result<(), SourceError> {
     Ok(())
 }
 
+/// Validates an IRC user.
+///
+/// # Rules
+///
+/// - Must not be empty
+/// - Must not contain: space, NUL, CR, LF
 #[inline]
 pub fn user(input: &str) -> Result<(), SourceError> {
     if input.is_empty() {
@@ -122,14 +152,35 @@ pub fn user(input: &str) -> Result<(), SourceError> {
             });
         }
     }
+
     Ok(())
 }
 
+/// Validates a host according to RFC1123
+///
+/// # Rule
+///
+/// - Must not be empty
+/// - Labels separated by dots (`.`)
+/// - Each label must:
+///   - Start with a letter or digit
+///   - Contain only letters, digits, and hyphens
+///   - Not end with a hyphen
+///   - Be 1-63 characters long
+/// - Total length must not exceed 253 characters
+/// - Maximum 10 labels (depth)
 pub fn host(input: &str) -> Result<(), SourceError> {
     RFC1123::new().validate(input)?;
     Ok(())
 }
 
+/// Validates multiple IRC tags
+///
+/// # Rule
+///
+/// - Must not be empty
+/// - Each tag consists of `key=value` or just `key` (flag)
+/// - Keys and values must follow their respective validation rules (see, [`tag_key`], [`tag_value`])
 pub fn tags(input: &str) -> Result<(), TagError> {
     if input.is_empty() {
         return Err(TagError::Empty);
@@ -143,9 +194,17 @@ pub fn tags(input: &str) -> Result<(), TagError> {
             tag_key(tag)?;
         }
     }
+
     Ok(())
 }
 
+/// Validates an IRC tag key.
+///
+/// # Rules
+/// - Must not be empty
+/// - May start with `+` for client-only tags
+/// - Vendor prefix (before `/`) must be a valid [`host`]
+/// - Key part must contain only letters, digits, and hyphens
 pub fn tag_key(input: &str) -> Result<(), TagError> {
     if input.is_empty() {
         return Err(TagError::EmptyKey);
@@ -183,6 +242,12 @@ fn tag_key_part(key: &str) -> Result<(), TagError> {
     Ok(())
 }
 
+/// Validates an IRC tag value.
+///
+/// # Rules
+///
+/// - May be empty (for tags like `key=`)
+/// - Must not contain: space, NUL, CR, LF, semicolon
 #[inline]
 pub fn tag_value(input: &str) -> Result<(), TagError> {
     if input.is_empty() {
@@ -203,6 +268,13 @@ pub fn tag_value(input: &str) -> Result<(), TagError> {
     Ok(())
 }
 
+/// Validates a single IRC parameter (middle parameter, not trailing).
+///
+/// # Rules
+///
+/// - Must not be empty
+/// - Must not contain: space, NUL, CR, LF, colon
+/// - Colon is forbidden because it indicates the start of trailing parameter
 #[inline]
 pub fn param(input: &str) -> Result<(), ParamError> {
     if input.is_empty() {
@@ -220,6 +292,13 @@ pub fn param(input: &str) -> Result<(), ParamError> {
     Ok(())
 }
 
+/// Validates multiple space-separated IRC parameters.
+///
+/// # Rules
+///
+/// - May be empty
+/// - Each parameter must pass [`param`] validation
+/// - Parameters are separated by whitespace
 #[inline]
 pub fn params(input: &str) -> Result<(), ParamError> {
     if input.is_empty() {
@@ -232,6 +311,13 @@ pub fn params(input: &str) -> Result<(), ParamError> {
     Ok(())
 }
 
+/// Validates an IRC trailing parameter (the final parameter after `:`).
+///
+/// # Rules
+///
+/// - May be empty
+/// - Must not contain: NUL, CR, LF
+/// - this is typically the message content
 #[inline]
 pub fn trailing(input: &str) -> Result<(), ParamError> {
     if input.is_empty() {

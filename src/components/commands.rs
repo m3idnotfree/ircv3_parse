@@ -11,7 +11,7 @@ use crate::{error::CommandError, validators};
 /// - [`Commands::from()`] accepts any case (PRIVMSG, privmsg, PrivMsg)
 /// - Comparisons via [`PartialEq`] are case-insensitive
 /// - [`Commands::as_str()`] always returns uppercase
-#[derive(Debug, Clone, Copy, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub enum Commands<'a> {
     NUMERIC(&'a str),
     // Connection Messages
@@ -315,7 +315,7 @@ impl AsRef<str> for Commands<'_> {
 
 impl PartialEq for Commands<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+        self.as_str().eq_ignore_ascii_case(other.as_str())
     }
 }
 
@@ -342,6 +342,8 @@ impl PartialEq<Commands<'_>> for String {
         other.as_str().eq_ignore_ascii_case(self.as_str())
     }
 }
+
+impl Eq for Commands<'_> {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CapSubCommands {

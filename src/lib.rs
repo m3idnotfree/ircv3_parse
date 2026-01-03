@@ -226,10 +226,10 @@ mod rfc1123;
 mod scanner;
 mod unescape;
 
+pub use components::{Commands, Message};
 pub use error::{ExtractError, IRCError};
 pub use unescape::unescape;
 
-pub use components::Message;
 use scanner::Scanner;
 
 pub(crate) const NUL: u8 = b'\0';

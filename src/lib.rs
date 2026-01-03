@@ -220,14 +220,16 @@ pub mod builder;
 pub mod components;
 pub mod error;
 pub mod extract;
+pub mod message;
 pub mod validators;
 
 mod rfc1123;
 mod scanner;
 mod unescape;
 
-pub use components::{Commands, Message};
+pub use components::Commands;
 pub use error::{ExtractError, IRCError};
+pub use message::Message;
 pub use unescape::unescape;
 
 use scanner::Scanner;

@@ -152,7 +152,7 @@ impl HostnameError {
 }
 
 #[derive(Clone, PartialEq, thiserror::Error)]
-pub enum ExtractError {
+pub enum DeError {
     #[error("invalid command: expected `{expected}`, got `{actual}`")]
     InvalidCommand { expected: String, actual: String },
 
@@ -176,13 +176,13 @@ pub enum ExtractError {
     ParseError(#[from] IRCError),
 }
 
-impl Debug for ExtractError {
+impl Debug for DeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "EXTRACT[{}]: {}", self.code(), self)
     }
 }
 
-impl ExtractError {
+impl DeError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::InvalidCommand { .. } => "INVALID_COMMAND",
@@ -197,32 +197,32 @@ impl ExtractError {
     }
 
     pub fn is_parse_error(&self) -> bool {
-        matches!(self, ExtractError::ParseError(..))
+        matches!(self, DeError::ParseError(..))
     }
 
     pub fn is_missing_tags(&self) -> bool {
-        matches!(self, ExtractError::MissingComponent { component: "tags" })
+        matches!(self, DeError::MissingComponent { component: "tags" })
     }
 
     pub fn is_missing_source(&self) -> bool {
         matches!(
             self,
-            ExtractError::MissingComponent {
+            DeError::MissingComponent {
                 component: "source"
             }
         )
     }
 
     pub fn is_missing_param(&self) -> bool {
-        matches!(self, ExtractError::MissingComponent { component: "param" })
+        matches!(self, DeError::MissingComponent { component: "param" })
     }
 
     pub fn is_missing_tag(&self) -> bool {
-        matches!(self, ExtractError::MissingTag { .. })
+        matches!(self, DeError::MissingTag { .. })
     }
 
     pub fn is_invalid_command(&self) -> bool {
-        matches!(self, ExtractError::InvalidCommand { .. })
+        matches!(self, DeError::InvalidCommand { .. })
     }
 
     pub fn invalid_command(expected: impl Into<String>, actual: impl Into<String>) -> Self {

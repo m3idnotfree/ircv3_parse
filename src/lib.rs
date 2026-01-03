@@ -59,7 +59,7 @@
 //! ### Example Implementation
 //!
 //! ```rust
-//! use ircv3_parse::{extract::FromMessage, ExtractError, Message};
+//! use ircv3_parse::{message::de::FromMessage, DeError, Message};
 //!
 //! struct PrivMsg<'a> {
 //!     color: Option<&'a str>,
@@ -69,11 +69,11 @@
 //! }
 //!
 //! impl<'a> FromMessage<'a> for PrivMsg<'a> {
-//!     fn from_message(msg: &Message<'a>) -> Result<Self, ExtractError> {
+//!     fn from_message(msg: &Message<'a>) -> Result<Self, DeError> {
 //!         // Validate command
 //!         let command = msg.command();
 //!         if !command.is_privmsg() {
-//!             return Err(ExtractError::invalid_command("PRIVMSG", command.as_str()));
+//!             return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
 //!         }
 //!
 //!         // Extract tags (optional)
@@ -83,13 +83,13 @@
 //!
 //!         // Extract source (required)
 //!         let source = msg.source()
-//!             .ok_or_else(|| ExtractError::missing_source())?;
+//!             .ok_or_else(|| DeError::missing_source())?;
 //!         let nick = source.name;
 //!
 //!         // Extract parameters
 //!         let params = msg.params();
 //!         let channel = params.middles.first()
-//!             .ok_or_else(|| ExtractError::missing_param_field("channel", 0))?;
+//!             .ok_or_else(|| DeError::missing_param_field("channel", 0))?;
 //!         let message = params.trailing.as_str();
 //!
 //!         Ok(Self {
@@ -219,7 +219,6 @@ pub use ircv3_parse_derive::FromMessage;
 pub mod builder;
 pub mod components;
 pub mod error;
-pub mod extract;
 pub mod message;
 pub mod validators;
 
@@ -228,7 +227,7 @@ mod scanner;
 mod unescape;
 
 pub use components::Commands;
-pub use error::{ExtractError, IRCError};
+pub use error::{DeError, IRCError};
 pub use message::Message;
 pub use unescape::unescape;
 
@@ -273,7 +272,7 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
     Ok(Message::new(input, scanner))
 }
 
-/// Parse an IRC message into a type implementing [`extract::FromMessage`].
+/// Parse an IRC message into a type implementing [`message::de::FromMessage`].
 ///
 /// Convenience function for types using `[derive(FromMessage)]` or manually implementing the
 /// trait.
@@ -299,7 +298,7 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
 ///
 /// # Errors
 ///
-/// Returns [`ExtractError`]
-pub fn from_str<'a, T: extract::FromMessage<'a>>(s: &'a str) -> Result<T, ExtractError> {
+/// Returns [`DeError`]
+pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Result<T, DeError> {
     T::from_str(s)
 }

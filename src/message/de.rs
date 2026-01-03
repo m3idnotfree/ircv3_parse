@@ -4,7 +4,7 @@
 /// providing type-safe access to message fields.
 ///
 /// ```rust
-/// use ircv3_parse::{extract::FromMessage, ExtractError};
+/// use ircv3_parse::{message::de::FromMessage, DeError};
 ///
 /// struct BasicMessage<'a> {
 ///     color: Option<&'a str>,
@@ -13,16 +13,16 @@
 /// }
 ///
 /// impl<'a> FromMessage<'a> for BasicMessage<'a> {
-///     fn from_message(msg: &ircv3_parse::Message<'a>) -> Result<Self, ircv3_parse::ExtractError> {
+///     fn from_message(msg: &ircv3_parse::Message<'a>) -> Result<Self, ircv3_parse::DeError> {
 ///         let command = msg.command();
 ///         if !command.is_privmsg() {
-///             return Err(ExtractError::invalid_command("PRIVMSG", command.as_str()));
+///             return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
 ///         }
 ///
-///         let tags = msg.tags().ok_or(ExtractError::missing_tags())?;
+///         let tags = msg.tags().ok_or(DeError::missing_tags())?;
 ///         let color = tags.get("color").map(|v| v.as_str());
 ///
-///         let source = msg.source().ok_or(ExtractError::missing_source())?;
+///         let source = msg.source().ok_or(DeError::missing_source())?;
 ///         let nick = source.name;
 ///
 ///         let params = msg.params();
@@ -50,17 +50,17 @@
 /// # }
 /// ```
 pub trait FromMessage<'a>: Sized {
-    fn from_str(s: &'a str) -> Result<Self, crate::ExtractError> {
+    fn from_str(s: &'a str) -> Result<Self, crate::DeError> {
         let msg = crate::parse(s)?;
         Self::from_message(&msg)
     }
 
-    fn from_message(msg: &crate::Message<'a>) -> Result<Self, crate::ExtractError>;
+    fn from_message(msg: &crate::Message<'a>) -> Result<Self, crate::DeError>;
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{extract::FromMessage, ExtractError};
+    use crate::{message::de::FromMessage, DeError};
 
     #[derive(Debug)]
     struct TestMessage<'a> {
@@ -71,17 +71,17 @@ mod tests {
     }
 
     impl<'a> FromMessage<'a> for TestMessage<'a> {
-        fn from_message(msg: &crate::Message<'a>) -> Result<Self, ExtractError> {
+        fn from_message(msg: &crate::Message<'a>) -> Result<Self, DeError> {
             let command = msg.command();
             if !command.is_privmsg() {
-                return Err(ExtractError::invalid_command("PRIVMSG", command.as_str()));
+                return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
             }
 
-            let tags = msg.tags().ok_or(ExtractError::missing_tags())?;
+            let tags = msg.tags().ok_or(DeError::missing_tags())?;
             let aaa = tags.get("aaa").map(|e| e.as_str());
             let ccc = tags.get_flag("ccc");
 
-            let source = msg.source().ok_or(ExtractError::missing_source())?;
+            let source = msg.source().ok_or(DeError::missing_source())?;
             let nick = source.name;
 
             let params = msg.params();

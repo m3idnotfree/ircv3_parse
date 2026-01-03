@@ -1,3 +1,5 @@
+pub mod de;
+
 use crate::compat::{Debug, Display, FmtResult, Formatter};
 
 use crate::components::{Commands, Params, Source, Tags};

@@ -68,7 +68,7 @@ impl<'a> ToMessage for Tags<'a> {
             return Ok(());
         }
 
-        let mut tags = serialize.tags()?;
+        let mut tags = serialize.tags();
         for tag in self.0.iter() {
             match tag {
                 TagTy::Value { key, value } => {
@@ -159,7 +159,7 @@ impl<'a> Params<'a> {
 
 impl<'a> ToMessage for Params<'a> {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let mut params = serialize.params()?;
+        let mut params = serialize.params();
         for p in &self.0 {
             params.add(p)?;
         }
@@ -517,7 +517,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags()?;
+                let mut tags = serialize.tags();
                 for (key, value) in &self.tag {
                     tags.tag(key, value.as_deref())?;
                 }
@@ -528,7 +528,7 @@ mod tests {
 
                 serialize.command(Commands::PRIVMSG);
 
-                let mut params = serialize.params()?;
+                let mut params = serialize.params();
                 for p in &self.param {
                     params.add(p)?;
                 }

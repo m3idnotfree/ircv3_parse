@@ -48,12 +48,12 @@ impl MessageSerializer for SizeTracker {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Result<Self::Tags<'_>, IRCError> {
+    fn tags(&mut self) -> Self::Tags<'_> {
         self.put_u8(AT);
-        Ok(SizeTagsTracker {
+        SizeTagsTracker {
             tracker: self,
             first: true,
-        })
+        }
     }
 
     fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError> {
@@ -66,8 +66,8 @@ impl MessageSerializer for SizeTracker {
         self.put_slice(command.as_bytes());
     }
 
-    fn params(&mut self) -> Result<Self::Params<'_>, IRCError> {
-        Ok(SizeParamsTracker { tracker: self })
+    fn params(&mut self) -> Self::Params<'_> {
+        SizeParamsTracker { tracker: self }
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {

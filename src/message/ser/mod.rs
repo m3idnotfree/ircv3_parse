@@ -39,10 +39,10 @@ pub trait MessageSerializer: Sized {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Result<Self::Tags<'_>, IRCError>;
+    fn tags(&mut self) -> Self::Tags<'_>;
     fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError>;
     fn command(&mut self, command: Commands);
-    fn params(&mut self) -> Result<Self::Params<'_>, IRCError>;
+    fn params(&mut self) -> Self::Params<'_>;
     fn trailing(&mut self, value: &str) -> Result<(), IRCError>;
     fn end(&mut self);
 }
@@ -103,12 +103,12 @@ impl MessageSerializer for IRCSerializer {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Result<Self::Tags<'_>, IRCError> {
+    fn tags(&mut self) -> Self::Tags<'_> {
         self.buffer.put_u8(AT);
-        Ok(IRCTagsSerializer {
+        IRCTagsSerializer {
             buffer: &mut self.buffer,
             first: true,
-        })
+        }
     }
 
     fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError> {
@@ -127,10 +127,10 @@ impl MessageSerializer for IRCSerializer {
         self.buffer.put_slice(command.as_bytes());
     }
 
-    fn params(&mut self) -> Result<Self::Params<'_>, IRCError> {
-        Ok(IRCParamsSerializer {
+    fn params(&mut self) -> Self::Params<'_> {
+        IRCParamsSerializer {
             buffer: &mut self.buffer,
-        })
+        }
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
@@ -233,13 +233,31 @@ impl<'a> SerializeParams for IRCParamsSerializer<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        message::ser::{SerializeParams, ToMessage},
+        message::ser::{SerializeParams, SerializeTags, ToMessage},
         Commands,
     };
 
     #[test]
     fn from_message() {
+        struct Tags {
+            field: String,
+        }
+
+        impl ToMessage for Tags {
+            fn to_message<S: super::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                let mut tags = serialize.tags();
+                tags.tag("field", Some(&self.field))?;
+                tags.end();
+
+                Ok(())
+            }
+        }
+
         struct PrivMsg {
+            tags: Tags,
             channel: String,
             message: String,
         }
@@ -249,9 +267,11 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
+                self.tags.to_message(serialize)?;
+
                 serialize.command(Commands::PRIVMSG);
 
-                let mut params = serialize.params()?;
+                let mut params = serialize.params();
                 params.add(&self.channel)?;
                 params.end();
 
@@ -263,13 +283,16 @@ mod tests {
         }
 
         let msg = PrivMsg {
+            tags: Tags {
+                field: "value".to_string(),
+            },
             channel: "#channel".to_string(),
             message: "Hi".to_string(),
         };
 
         let size = msg.serialized_size();
         let actual = crate::from_message(&msg).unwrap();
-        assert_eq!("PRIVMSG #channel :Hi\r\n", actual);
-        assert_eq!(22, size);
+        assert_eq!("@field=value PRIVMSG #channel :Hi\r\n", actual);
+        assert_eq!(35, size);
     }
 }

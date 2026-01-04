@@ -228,7 +228,7 @@ mod unescape;
 
 pub use components::Commands;
 pub use error::{DeError, IRCError};
-pub use message::Message;
+pub use message::{Message, MessageBuilder};
 pub use unescape::unescape;
 
 use scanner::Scanner;
@@ -301,4 +301,13 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
 /// Returns [`DeError`]
 pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Result<T, DeError> {
     T::from_str(s)
+}
+
+/// Serialize the custom data structure as a Bytes.
+///
+/// # Errors
+///
+/// Returns [`IRCError`]
+pub fn from_message<T: crate::message::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
+    t.to_bytes()
 }

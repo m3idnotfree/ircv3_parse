@@ -1,4 +1,9 @@
 pub mod de;
+pub mod ser;
+
+mod builder;
+
+pub use builder::MessageBuilder;
 
 use crate::compat::{Debug, Display, FmtResult, Formatter};
 

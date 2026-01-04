@@ -7,6 +7,9 @@ pub enum IRCError {
     #[error("{component} must be followed by a space")]
     MissingSpace { component: &'static str },
 
+    #[error("source name must be set before {component}")]
+    SourceNotSet { component: &'static str },
+
     #[error(transparent)]
     Tag(#[from] TagError),
     #[error(transparent)]
@@ -30,13 +33,31 @@ impl IRCError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::EmptyInput => "SCAN",
-            Self::Command(cmd) => cmd.code(),
+            Self::MissingSpace { component } => component,
+
+            Self::SourceNotSet { .. } => "BUILD_SOURCE",
+
             Self::Tag(tag) => tag.code(),
             Self::Source(src) => src.code(),
+            Self::Command(cmd) => cmd.code(),
             Self::Param(param) => param.code(),
             Self::Hostname(host) => host.code(),
-            Self::MissingSpace { component } => component,
         }
+    }
+
+    pub fn is_builder_error(&self) -> bool {
+        matches!(self, Self::SourceNotSet { .. })
+    }
+
+    pub fn is_parser_error(&self) -> bool {
+        matches!(self, Self::EmptyInput | Self::MissingSpace { .. })
+    }
+
+    pub fn is_validation_error(&self) -> bool {
+        matches!(
+            self,
+            Self::Tag(_) | Self::Source(_) | Self::Command(_) | Self::Param(_) | Self::Hostname(_)
+        )
     }
 }
 

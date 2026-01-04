@@ -1,6 +1,6 @@
 [package]
 name = "ircv3_parse_derive"
-version = "3.1.0"
+version = "3.1.1"
 authors = ["m3id"]
 edition = "2021"
 description = "Derive macro for ircv3_parse"

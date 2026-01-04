@@ -52,10 +52,10 @@ impl SourceField {
 
                 match TypeKind::classify(&field.ty) {
                     Str => Ok(
-                        quote! { #field_name: #source.ok_or(ircv3_parse::ExtractError::missing_source_field(stringify!(#field_name), #source_field_str))? },
+                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#field_name), #source_field_str))? },
                     ),
                     String => Ok(
-                        quote! { #field_name: #source.ok_or(ircv3_parse::ExtractError::missing_source_field(stringify!(#field_name), #source_field_str))?.to_string() },
+                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#field_name), #source_field_str))?.to_string() },
                     ),
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         Ok(quote! { #field_name: #source})

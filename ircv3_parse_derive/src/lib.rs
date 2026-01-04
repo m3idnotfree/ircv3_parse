@@ -105,12 +105,12 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
     let setup_code = components.expand();
 
     Ok(quote! {
-        impl #impl_generics ircv3_parse::extract::FromMessage<#msg_lifetime>
+        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
             for #struct_name #struct_ty_generics #where_clause
         {
             fn from_message(
                 msg: &ircv3_parse::Message<#msg_lifetime>
-            ) -> Result<Self, ircv3_parse::ExtractError> {
+            ) -> Result<Self, ircv3_parse::DeError> {
                 #command_validation
 
                 #(#setup_code)*

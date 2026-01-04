@@ -29,10 +29,10 @@ impl Tag {
         match self {
             Self::Value(key) => match TypeKind::classify(&field.ty) {
                 Str => Ok(
-                    quote! { #field_name: #tags.ok_or(ircv3_parse::ExtractError::missing_tag(stringify!(#field_name), #key))?.as_str() },
+                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#field_name), #key))?.as_str() },
                 ),
                 String => Ok(
-                    quote! { #field_name: #tags.ok_or(ircv3_parse::ExtractError::missing_tag(stringify!(#field_name), #key))?.to_string() },
+                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#field_name), #key))?.to_string() },
                 ),
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     Ok(quote! { #field_name: #tags.map(|s| s.as_str()) })

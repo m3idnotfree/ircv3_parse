@@ -46,7 +46,7 @@ impl StructAttribute {
         if let Some(cmd) = &self.command {
             quote! {
                 if msg.command() != #cmd {
-                    return Err(ircv3_parse::ExtractError::invalid_command(
+                    return Err(ircv3_parse::DeError::invalid_command(
                         #cmd,
                         msg.command().as_str()
                     ));

@@ -63,7 +63,7 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
 
     let struct_attrs = StructAttribute::parse(&input)?;
 
-    let fields = extract_named_fields(&input)?;
+    let fields = extract_named_fields(&input, "FromMessage")?;
 
     let mut components = MessageComponents::default();
     let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();

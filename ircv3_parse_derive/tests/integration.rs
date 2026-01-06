@@ -1,3 +1,4 @@
+#![allow(unused)]
 #[allow(unused_imports)]
 use ircv3_parse::message::de::FromMessage as _;
 use ircv3_parse_derive::FromMessage;
@@ -93,4 +94,35 @@ fn command_check() {
 
     let input = "NOTICE #channel :hello";
     assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
+}
+
+#[test]
+fn command_string() {
+    #[derive(FromMessage)]
+    struct Command {
+        #[irc(command)]
+        command: String,
+    }
+
+    let input = "PRIVMSG";
+
+    let msg: Command = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("PRIVMSG", msg.command);
+}
+
+#[test]
+fn command_commands() {
+    use ircv3_parse::Commands;
+    #[derive(FromMessage)]
+    struct Command<'a> {
+        #[irc(command)]
+        command: Commands<'a>,
+    }
+
+    let input = "PRIVMSG";
+
+    let msg: Command = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!(Commands::PRIVMSG, msg.command);
 }

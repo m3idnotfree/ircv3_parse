@@ -47,7 +47,7 @@ fn is_bool(ty: &Type) -> bool {
     is_type(ty, "bool")
 }
 
-fn is_type(ty: &Type, expect: &str) -> bool {
+pub fn is_type(ty: &Type, expect: &str) -> bool {
     match ty {
         Type::Path(type_path) if type_path.qself.is_none() => type_path
             .path

@@ -1,3 +1,4 @@
+use ircv3_parse::Commands;
 use ircv3_parse_derive::FromMessage;
 
 #[derive(FromMessage)]
@@ -20,6 +21,15 @@ struct FullMessage<'a> {
 
     #[irc(param = 0)]
     channel: &'a str,
+
+    #[irc(command)]
+    command1: &'a str,
+
+    #[irc(command)]
+    command2: String,
+
+    #[irc(command)]
+    command3: Commands<'a>,
 
     #[irc(params)]
     all_params: Vec<&'a str>,

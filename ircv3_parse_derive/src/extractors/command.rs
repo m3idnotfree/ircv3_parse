@@ -2,6 +2,7 @@ use quote::{quote, ToTokens};
 use syn::{Error, Result};
 use syn::{Ident, LitStr};
 
+use crate::type_check;
 use crate::COMMAND;
 use crate::{error_msg, TypeKind};
 
@@ -21,10 +22,20 @@ impl CommandField {
         match TypeKind::classify(&field.ty) {
             TypeKind::Str => Ok(quote! { #field_name: command.as_str() }),
             TypeKind::String => Ok(quote! { #field_name: command.to_string() }),
-            _ => Err(Error::new_spanned(
-                field,
-                error_msg::unsupported_type(COMMAND, field_name, field.ty.to_token_stream()),
-            )),
+            _ => {
+                if type_check::is_type(&field.ty, "Commands") {
+                    Ok(quote! { #field_name: command })
+                } else {
+                    Err(Error::new_spanned(
+                        field,
+                        error_msg::unsupported_type(
+                            COMMAND,
+                            field_name,
+                            field.ty.to_token_stream(),
+                        ),
+                    ))
+                }
+            }
         }
     }
 }

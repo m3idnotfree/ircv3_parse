@@ -1,5 +1,6 @@
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
+use syn::token::Eq;
 use syn::{meta::ParseNestedMeta, Error, Result};
 use syn::{Field, Ident, LitInt, LitStr};
 
@@ -15,7 +16,7 @@ pub struct FieldAttribute {
 }
 
 impl FieldAttribute {
-    pub fn parse(field: &Field) -> Result<Self> {
+    pub fn parse(field: &Field, field_name: &Ident) -> Result<Self> {
         let mut field_kind: Option<FieldKind> = None;
         let mut with: Option<LitStr> = None;
 
@@ -25,7 +26,7 @@ impl FieldAttribute {
             }
 
             attr.parse_nested_meta(|meta| {
-                let attr_type = AttributeType::parse(&meta)?;
+                let attr_type = AttributeType::parse(&meta, field_name)?;
 
                 if let AttributeType::With(value) = attr_type {
                     if with.is_some() {
@@ -76,10 +77,17 @@ impl FieldAttribute {
             Param(_) | Params | Trailing => {
                 components.mark_params();
             }
-            Command => {
+            Command(_) => {
                 components.mark_command();
             }
         };
+    }
+
+    pub fn command_field(&self) -> Option<LitStr> {
+        match &self.kind {
+            FieldKind::Command(cmd) => cmd.0.clone(),
+            _ => None,
+        }
     }
 }
 
@@ -90,7 +98,7 @@ enum AttributeType {
     Param(LitInt),
     Params,
     Trailing,
-    Command,
+    Command(Option<LitStr>),
     With(LitStr),
 }
 
@@ -103,26 +111,54 @@ impl AttributeType {
             Self::Param(_) => PARAM,
             Self::Params => PARAMS,
             Self::Trailing => TRAILING,
-            Self::Command => COMMAND,
+            Self::Command(_) => COMMAND,
             Self::With(_) => WITH,
         }
     }
 
-    pub fn parse(meta: &ParseNestedMeta<'_>) -> Result<Self> {
+    pub fn parse(meta: &ParseNestedMeta<'_>, field_name: &Ident) -> Result<Self> {
         if meta.path.is_ident(TAG) {
-            return Ok(Self::Tag(meta.value()?.parse()?));
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                LitStr::new(&field_name.to_string(), field_name.span())
+            };
+
+            return Ok(Self::Tag(key));
         }
 
         if meta.path.is_ident(TAG_FLAG) {
-            return Ok(Self::TagFlag(meta.value()?.parse()?));
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                LitStr::new(&field_name.to_string(), field_name.span())
+            };
+
+            return Ok(Self::TagFlag(key));
         }
 
         if meta.path.is_ident(SOURCE) {
-            return Ok(Self::Source(meta.value()?.parse()?));
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                LitStr::new("name", field_name.span())
+            };
+
+            return Ok(Self::Source(key));
         }
 
         if meta.path.is_ident(PARAM) {
-            return Ok(Self::Param(meta.value()?.parse()?));
+            let key = if meta.input.peek(Eq) {
+                let lit: LitInt = meta.value()?.parse()?;
+                lit
+            } else {
+                LitInt::new("0", field_name.span())
+            };
+
+            return Ok(Self::Param(key));
         }
 
         if meta.path.is_ident(PARAMS) {
@@ -134,7 +170,13 @@ impl AttributeType {
         }
 
         if meta.path.is_ident(COMMAND) {
-            return Ok(Self::Command);
+            let value = if meta.input.peek(Eq) {
+                Some(meta.value()?.parse()?)
+            } else {
+                None
+            };
+
+            return Ok(Self::Command(value));
         }
 
         if meta.path.is_ident(WITH) {
@@ -153,7 +195,7 @@ enum FieldKind {
     Param(ParamField),
     Params,
     Trailing,
-    Command,
+    Command(CommandField),
 }
 
 impl FieldKind {
@@ -167,7 +209,7 @@ impl FieldKind {
             Self::Param(_) => PARAM,
             Self::Params => PARAMS,
             Self::Trailing => TRAILING,
-            Self::Command => COMMAND,
+            Self::Command(_) => COMMAND,
         }
     }
 
@@ -179,7 +221,7 @@ impl FieldKind {
             AttributeType::Param(value) => Ok(Self::Param(ParamField::new(&value)?)),
             AttributeType::Params => Ok(Self::Params),
             AttributeType::Trailing => Ok(Self::Trailing),
-            AttributeType::Command => Ok(Self::Command),
+            AttributeType::Command(value) => Ok(Self::Command(CommandField::new(value))),
             AttributeType::With(_) => Err(Error::new(
                 Span::call_site(),
                 "`with` is not an extraction attribute",
@@ -199,7 +241,7 @@ impl FieldKind {
             Self::Param(param) => param.expand(field, field_name, with),
             Self::Params => expand_params_vec(field, field_name, with),
             Self::Trailing => TrailingField::expand(field, field_name, with),
-            Self::Command => CommandField::expand(field, field_name, with),
+            Self::Command(_) => CommandField::expand(field, field_name, with),
         }
     }
 }

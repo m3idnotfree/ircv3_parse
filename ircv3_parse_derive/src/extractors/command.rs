@@ -6,9 +6,14 @@ use crate::type_check;
 use crate::COMMAND;
 use crate::{error_msg, TypeKind};
 
-pub struct CommandField;
+#[derive(Clone)]
+pub struct CommandField(pub Option<LitStr>);
 
 impl CommandField {
+    pub fn new(value: Option<LitStr>) -> Self {
+        Self(value)
+    }
+
     pub fn expand(
         field: &syn::Field,
         field_name: &Ident,

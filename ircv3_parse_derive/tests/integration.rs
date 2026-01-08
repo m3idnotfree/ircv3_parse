@@ -97,6 +97,20 @@ fn command_check() {
 }
 
 #[test]
+fn command_check_ignore_struct_level() {
+    #[allow(unused)]
+    #[derive(FromMessage)]
+    #[irc(command = "PRIVMSG")]
+    struct CommandCheck<'a> {
+        #[irc(command = "NOTICE")]
+        comand: &'a str,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
+}
+
+#[test]
 fn command_string() {
     #[derive(FromMessage)]
     struct Command {
@@ -125,4 +139,55 @@ fn command_commands() {
     let msg: Command = ircv3_parse::from_str(input).unwrap();
 
     assert_eq!(Commands::PRIVMSG, msg.command);
+}
+
+#[test]
+fn tag_empty_attribute_value() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag)]
+        msgid: String,
+        #[irc(tag_flag)]
+        field: bool,
+        #[irc(tag_flag)]
+        field2: bool,
+    }
+
+    let input = "@msgid=1;field2 PRIVMSG #channel :hi";
+
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("1", msg.msgid);
+    assert!(!msg.field);
+    assert!(msg.field2);
+}
+
+#[test]
+fn source_empty_attribute_value_return_name() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source)]
+        yfs: String,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel :hi";
+
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("nick", msg.yfs);
+}
+
+#[test]
+fn param_empty_attribute_value_return_first() {
+    #[derive(FromMessage)]
+    struct Param {
+        #[irc(param)]
+        param: String,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel param2 :hi";
+
+    let msg: Param = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("#channel", msg.param);
 }

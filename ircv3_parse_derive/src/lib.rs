@@ -11,6 +11,7 @@ pub(crate) use type_check::TypeKind;
 
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::LitStr;
 use syn::{parse_macro_input, DeriveInput, Error, Result};
 
 use components::MessageComponents;
@@ -34,18 +35,40 @@ pub(crate) const WITH: &str = "with";
 /// # Attributes
 ///
 /// ## Struct-level
+///
 /// - `#[irc(command = "COMMAND")]` - Validates command matches
 ///
 /// ## Field-level
-/// - `#[irc(tag = "key")]` - Extract tag value
-/// - `#[irc(tag_flag = "key")]` - Extract tag flag (bool)
+///
+/// **Tag Extraction:**
+/// - `#[irc(tag)]` - Extract tag value using field name as key
+/// - `#[irc(tag = "key")]` - Extract tag value with custom key
+///
+/// **Tag Flag Extraction:**
+/// - `#[irc(tag_flag)]` - Extract tag flag using field name as key (returns `bool`)
+/// - `#[irc(tag_flag = "key")]` - Extract tag flag with custom key (returns `bool`)
+///
+/// **Source Extraction:**
+/// - `#[irc(source)]` - Extract source `name` component
 /// - `#[irc(source = "name|user|host")]` - Extract source component
-/// - `#[irc(param = N)]` - Extract Nth parameter
-/// - `#[irc(params)]` - Extract all parameter
-/// - `#[irc(trailing)]` - Extract trailing message
-/// - `#[irc(command)]` - Extract command
-/// - `#[irc(with = "function")]` - Custom converter function
-/// ```
+///
+/// **Parameter Extraction:**
+/// - `#[irc(param)]` - Extract first parameter (index 0)
+/// - `#[irc(param = N)]` - Extract parameter at index N
+/// - `#[irc(params)]` - Extract all parameter into a `Vec`
+///
+/// **Trailing Parameter:**
+/// - `#[irc(trailing)]` - Extract trailing parameter
+///
+/// **Command Extraction:**
+/// - `#[irc(command)]` - Extract command value
+/// - `#[irc(command = "COMMAND)]` - Extract and validate command matches "COMMAND"
+///     - If field-level `command` is set, struct-level `command` is ignored
+///     - If multiple `command` attribute exist, the last one is used
+///
+/// **Custom Extraction:**
+/// - `#[irc(with = "function")]` - Use custom extraction function
+///
 #[proc_macro_derive(FromMessage, attributes(irc))]
 pub fn derive_from_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -69,13 +92,15 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
     let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut errors = Vec::new();
 
+    let mut commands: Option<LitStr> = None;
+
     for field in fields.iter() {
         let field_name = match field.ident.as_ref() {
             Some(field_name) => field_name,
             None => continue,
         };
 
-        let attribute = match FieldAttribute::parse(field) {
+        let attribute = match FieldAttribute::parse(field, field_name) {
             Ok(attr) => attr,
             Err(e) => {
                 errors.push(e);
@@ -84,6 +109,8 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
         };
 
         attribute.mark_components(&mut components);
+
+        commands = attribute.command_field();
 
         let expand = match attribute.expand(field, field_name) {
             Ok(expand) => expand,
@@ -101,7 +128,7 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
     }
 
     let struct_name = &input.ident;
-    let command_validation = struct_attrs.expand_validation();
+    let command_validation = struct_attrs.expand_validation(commands);
     let setup_code = components.expand();
 
     Ok(quote! {

@@ -34,14 +34,34 @@
 //!
 //! ### Field-Level Attributes
 //!
-//! - `#[irc(tag = "key")]` - Extract tag value
-//! - `#[irc(tag_flag = "key")]` - Extract tag flag
+//! **Tag Extraction:**
+//! - `#[irc(tag)]` - Extract tag value using field name as key
+//! - `#[irc(tag = "key")]` - Extract tag value with custom key
+//!
+//! **Tag Flag Extraction:**
+//! - `#[irc(tag_flag)]` - Extract tag flag using field name as key (returns `bool`)
+//! - `#[irc(tag_flag = "key")]` - Extract tag flag with custom key (returns `bool`)
+//!
+//! **Source Extraction:**
+//! - `#[irc(source)]` - Extract source `name` component
 //! - `#[irc(source = "component")]` - Extract source component (`name`, `user`, or `host`)
-//! - `#[irc(param = N)]` - Extract parameter by index
+//!
+//! **Parameter Extraction:**
+//! - `#[irc(param)]` - Extract first parameter (index 0)
+//! - `#[irc(param = N)]` - Extract parameter at index N
 //! - `#[irc(params)]` - Extract all parameters into a `Vec`
+//!
+//! **Trailing Parameter:**
 //! - `#[irc(trailing)]` - Extract trailing parameter
-//! - `#[irc(command)]` - Extract command
-//! - `#[irc(with = "function")]` - Custom extraction
+//!
+//! **Command Extraction:**
+//! - `#[irc(command)]` - Extract command value
+//! - `#[irc(command = "COMMAND)]` - Extract and validate command matches "COMMAND"
+//!     - If field-level `command` is set, struct-level `command` is ignored
+//!     - If multiple `command` attribute exist, the last one is used
+//!
+//! **Custom Extraction:**
+//! - `#[irc(with = "function")]` - Use custom extraction function
 //!
 //! ## Manual FromMessage Implementation
 //!
@@ -53,7 +73,7 @@
 //!
 //! - [`Message::tags()`] - Returns [`Tags`](components::Tags)
 //! - [`Message::source()`] - Returns [`Source`](components::Source)
-//! - [`Message::command()`] - Returns [`Commands`](components::Commands)
+//! - [`Message::command()`] - Returns [`Commands`]
 //! - [`Message::params()`] - Returns [`Params`](components::Params)
 //!
 //! ### Example Implementation
@@ -174,7 +194,7 @@
 //! Components must be added in the correct order:
 //!
 //! 1. Command (required) - [`MessageBuilder::new()`](builder::MessageBuilder::new()) with
-//!    [`Commands`](components::Commands)
+//!    [`Commands`]
 //! 2. Tags (optional) - [`with_tags()`](builder::MessageBuilder::with_tags())
 //! 3. Source (optional) - [`with_source()`](builder::MessageBuilder::with_source())
 //! 4. Middle parameters (optional) - [`with_params()`](builder::MessageBuilder::with_params())

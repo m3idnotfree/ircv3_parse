@@ -1,6 +1,6 @@
 use quote::{quote, ToTokens};
 use syn::LitStr;
-use syn::{DeriveInput, Error, Result};
+use syn::{DeriveInput, Result};
 
 use crate::error_msg;
 use crate::{COMMAND, IRC};
@@ -23,10 +23,7 @@ impl StructAttribute {
                     let s: LitStr = meta.value()?.parse()?;
 
                     if command.is_some() {
-                        return Err(Error::new(
-                            s.span(),
-                            error_msg::duplicate_attribute(COMMAND),
-                        ));
+                        return Err(meta.error(error_msg::duplicate_attribute(COMMAND)));
                     }
 
                     command = Some(s);
@@ -42,18 +39,20 @@ impl StructAttribute {
         Ok(Self { command })
     }
 
-    pub fn expand_validation(&self) -> proc_macro2::TokenStream {
-        if let Some(cmd) = &self.command {
-            quote! {
-                if msg.command() != #cmd {
-                    return Err(ircv3_parse::DeError::invalid_command(
-                        #cmd,
-                        msg.command().as_str()
-                    ));
+    pub fn expand_validation(&self, command: Option<LitStr>) -> proc_macro2::TokenStream {
+        command
+            .as_ref()
+            .or(self.command.as_ref())
+            .map(|cmd| {
+                quote! {
+                    if msg.command() != #cmd {
+                        return Err(ircv3_parse::DeError::invalid_command(
+                            #cmd,
+                            msg.command().as_str()
+                        ));
+                    }
                 }
-            }
-        } else {
-            quote! {}
-        }
+            })
+            .unwrap_or(quote! {})
     }
 }

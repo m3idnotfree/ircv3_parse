@@ -335,11 +335,11 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn add_params(&mut self, params: &'a [&'a str]) -> Result<&mut Self, IRCError> {
-        for param in params {
-            self.add_param(param)?;
-        }
-
+    pub fn add_params<I>(&mut self, params: I) -> Result<&mut Self, IRCError>
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
+        self.components.params.extend(params);
         Ok(self)
     }
 

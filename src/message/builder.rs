@@ -144,8 +144,10 @@ impl<'a> Params<'a> {
         self.0.push(param);
     }
 
-    #[allow(unused)]
-    pub fn extend(&mut self, params: &'a [&'a str]) {
+    pub fn extend<I>(&mut self, params: I)
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
         self.0.extend(params);
     }
 
@@ -469,7 +471,7 @@ mod tests {
     fn params() {
         let mut params = Params::new();
         params.push("param1");
-        params.extend(&["param2", "param3"]);
+        params.extend(["param2", "param3"]);
 
         let mut buffer = IRCSerializer::new();
         params.to_message(&mut buffer).unwrap();

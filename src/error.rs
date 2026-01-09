@@ -9,6 +9,8 @@ pub enum IRCError {
 
     #[error("source name must be set before {component}")]
     SourceNotSet { component: &'static str },
+    #[error("command is required")]
+    MissingCommand,
 
     #[error(transparent)]
     Tag(#[from] TagError),
@@ -36,6 +38,7 @@ impl IRCError {
             Self::MissingSpace { component } => component,
 
             Self::SourceNotSet { .. } => "BUILD_SOURCE",
+            Self::MissingCommand => "BUILD_COMMAND",
 
             Self::Tag(tag) => tag.code(),
             Self::Source(src) => src.code(),
@@ -46,7 +49,7 @@ impl IRCError {
     }
 
     pub fn is_builder_error(&self) -> bool {
-        matches!(self, Self::SourceNotSet { .. })
+        matches!(self, Self::SourceNotSet { .. } | Self::MissingCommand)
     }
 
     pub fn is_parser_error(&self) -> bool {

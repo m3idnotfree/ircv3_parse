@@ -328,6 +328,6 @@ pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Resul
 /// # Errors
 ///
 /// Returns [`IRCError`]
-pub fn from_message<T: crate::message::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
+pub fn to_message<T: crate::message::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
     t.to_bytes()
 }

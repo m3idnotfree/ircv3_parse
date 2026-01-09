@@ -357,7 +357,6 @@ impl<'a> MessageBuilder<'a> {
             .to_message(&mut buffer, self.command)
             .unwrap();
 
-        // buffer.end();
         buffer.into_bytes()
     }
 
@@ -546,7 +545,6 @@ mod tests {
 
         let priv_msg = PrivMsg {
             tag: vec![("key".to_string(), Some("value".to_string()))],
-            // source: "name!user@example.com".to_string(),
             source: "name".to_string(),
             param: vec!["param".to_string()],
             message: "hi".to_string(),

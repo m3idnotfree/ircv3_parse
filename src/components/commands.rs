@@ -345,6 +345,22 @@ impl PartialEq<Commands<'_>> for String {
 
 impl Eq for Commands<'_> {}
 
+impl<'a> crate::message::de::FromMessage<'a> for Commands<'a> {
+    fn from_message(msg: &crate::Message<'a>) -> Result<Self, crate::DeError> {
+        Ok(msg.command())
+    }
+}
+
+impl<'a> crate::message::ser::ToMessage for Commands<'a> {
+    fn to_message<S: crate::message::ser::MessageSerializer>(
+        &self,
+        serialize: &mut S,
+    ) -> Result<(), crate::IRCError> {
+        serialize.command(*self);
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CapSubCommands {
     LS,
@@ -432,7 +448,10 @@ impl serde::Serialize for CapSubCommands {
 
 #[cfg(test)]
 mod tests {
-    use crate::components::Commands;
+    use crate::{
+        components::Commands,
+        message::{de::FromMessage, ser::ToMessage},
+    };
 
     #[test]
     fn from_case_insensitive() {
@@ -466,5 +485,37 @@ mod tests {
 
         assert!(cmd == s);
         assert!(s == cmd);
+    }
+
+    #[test]
+    fn from_message() {
+        let input = "PRIVMSG #channel :hi";
+        let cmd = Commands::from_str(input).unwrap();
+        assert_eq!(Commands::PRIVMSG, cmd);
+    }
+
+    #[test]
+    fn to_message() {
+        struct Cmd<'a> {
+            cmd: Commands<'a>,
+        }
+
+        impl ToMessage for Cmd<'_> {
+            fn to_message<S: crate::message::ser::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                self.cmd.to_message(serialize)
+            }
+        }
+
+        let msg = Cmd {
+            cmd: Commands::NOTICE,
+        };
+        let size = msg.serialized_size();
+        let actual = crate::to_message(&msg).unwrap();
+
+        assert_eq!("NOTICE", actual);
+        assert_eq!(6, size);
     }
 }

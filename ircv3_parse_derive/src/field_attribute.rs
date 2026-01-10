@@ -6,6 +6,7 @@ use syn::{Field, Ident, LitInt, LitStr};
 
 use crate::error_msg;
 use crate::extractors::{CommandField, ParamField, SourceField, Tag, TrailingField};
+use crate::ser::SerializationBuilder;
 use crate::MessageComponents;
 use crate::TypeKind;
 use crate::{COMMAND, IRC, PARAM, PARAMS, SOURCE, TAG, TAG_FLAG, TRAILING, WITH};
@@ -88,6 +89,15 @@ impl FieldAttribute {
             FieldKind::Command(cmd) => cmd.0.clone(),
             _ => None,
         }
+    }
+
+    pub fn expand_de(
+        self,
+        field: &Field,
+        field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        self.kind.expand_de(field, field_name, builder)
     }
 }
 
@@ -244,6 +254,22 @@ impl FieldKind {
             Self::Command(_) => CommandField::expand(field, field_name, with),
         }
     }
+
+    pub fn expand_de(
+        self,
+        field: &Field,
+        field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        match self {
+            Self::Tag(tag_type) => tag_type.expand_de(field, field_name, builder),
+            Self::Source(source) => source.expand_de(field, field_name, builder),
+            Self::Param(param) => param.expand_de(field, field_name, builder),
+            Self::Params => expand_vec_de(field, field_name, builder),
+            Self::Trailing => TrailingField::expand_de(field, field_name, builder),
+            Self::Command(cmd) => cmd.expand_de(field, field_name, builder),
+        }
+    }
 }
 
 fn expand_params_vec(
@@ -267,5 +293,44 @@ fn expand_params_vec(
             field,
             error_msg::unsupported_type(PARAMS, field_name, field.ty.to_token_stream()),
         )),
+    }
+}
+
+fn expand_vec_de(
+    field: &Field,
+    field_name: &Ident,
+    builder: &mut SerializationBuilder,
+) -> Result<()> {
+    use TypeKind::*;
+
+    match TypeKind::classify(&field.ty) {
+        Vec(ty) => match TypeKind::classify(ty) {
+            Str => {
+                builder.params_push(quote! {
+                    params.extend(&self.#field_name)?;
+                });
+                Ok(())
+            }
+            String => {
+                builder.params_push(quote! {
+                    params.extend(&self.#field_name)?;
+                });
+                Ok(())
+            }
+            _ => {
+                builder.custom_params(quote! {
+                    for p in &self.#field_name {
+                        p.to_message(serialize)?;
+                    }
+                });
+                Ok(())
+            }
+        },
+        _ => {
+            builder.custom_params(quote! {
+                self.#field_name.to_message(serialize)?;
+            });
+            Ok(())
+        }
     }
 }

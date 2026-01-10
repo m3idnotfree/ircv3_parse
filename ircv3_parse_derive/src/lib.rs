@@ -4,6 +4,7 @@ mod components;
 mod extractors;
 mod field_attribute;
 mod msg_lifetime;
+mod ser;
 mod struct_attribute;
 mod type_check;
 
@@ -156,4 +157,53 @@ fn combine_errors(errors: Vec<Error>) -> Option<Error> {
         a.combine(b);
         a
     })
+}
+
+/// Derives `ToMessage` implementation for structs to serialize IRC messages.
+///
+/// # Attributes
+///
+/// ## Struct-level
+///
+/// - `#[irc(command = "COMMAND")]` - Sets the default command for this message type
+/// - `#[irc(crlf)]` - Explicitly appends `\r\n` at the end of the message
+///
+/// ## Field-level
+///
+/// ### Tags
+/// - `#[irc(tag)]` - Serializes field as tag using the field name as key
+/// - `#[irc(tag = "key")]` - Serializes field as tag with custom key
+///
+/// ### Tag Flags
+/// - `#[irc(tag_flag)]` - Serializes boolean field as tag flag using field name as key
+/// - `#[irc(tag_flag = "key")]` - Serializes boolean field as tag flag with custom key
+///
+/// ### Source
+/// - `#[irc(source)]` - Serializes field as source name component (`source = "name"`)
+/// - `#[irc(source = "name|user|host")]` - Serializes field as source component
+///     - **Note**: `name` is **required** when using `user` or `host`
+///
+/// ### Parameters
+/// - `#[irc(param)]` - Serializes field as a middle parameter
+/// - `#[irc(params)]` - Serializes field as multiple middle parameters
+/// - `#[irc(param = N)]` - Serializes field as a middle parameter
+///     - **Note**: The index `N` is ignored during serialization
+///     - `FromMessage` uses the index to extract the Nth parameter
+///     - `ToMessage` always serializes fields in declaration order
+///
+/// ### Trailing Parameter
+/// - `#[irc(trailing)]` - Serializes field as the trailing parameter
+///
+/// ### Command
+/// - `#[irc(command)]` - Serializes field as the IRC command
+/// - `#[irc(command = "COMMAND")]` - Uses the specified command string
+///   - If field-level `command` is set, struct-level `command` is ignored
+///   - If multiple `command` attributes exist, the last one takes precedence
+///
+#[proc_macro_derive(ToMessage, attributes(irc))]
+pub fn derive_to_message(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    ser::derive_to_message_impl(input)
+        .unwrap_or_else(Error::into_compile_error)
+        .into()
 }

@@ -2,6 +2,7 @@ use quote::{quote, ToTokens};
 use syn::{Error, Result};
 use syn::{Field, Ident, LitStr};
 
+use crate::ser::SerializationBuilder;
 use crate::{error_msg, TypeKind};
 
 pub enum SourceField {
@@ -76,6 +77,139 @@ impl SourceField {
                     }
                 }
             }
+        }
+    }
+
+    pub fn expand_de(
+        &self,
+        field: &Field,
+        field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        use TypeKind::*;
+
+        match self {
+            Self::Name => match TypeKind::classify(&field.ty) {
+                Str => {
+                    builder.set_source_name(
+                        quote! { let mut source = serialize.source(self.#field_name)?; },
+                    );
+                    Ok(())
+                }
+                String => {
+                    builder.set_source_name(
+                        quote! { let mut source = serialize.source(self.#field_name.as_ref())?; },
+                    );
+                    Ok(())
+                }
+                Option(inner) => match TypeKind::classify(inner) {
+                    Str => {
+                        builder.set_source_name(quote! {
+                            if let Some(field) = self.#field_name{
+                                let mut source = serialize.source(self.#field_name)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    String => {
+                        builder.set_source_name(quote! {
+                            if let Some(field) = self.#field_name{
+                                let mut source = serialize.source(self.#field_name.as_ref())?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    _ => {
+                        builder.custom_source(quote! {self.#field_name.to_message(serialize)?;});
+                        Ok(())
+                    }
+                },
+                _ => {
+                    builder.custom_source(quote! {self.#field_name.to_message(serialize)?;});
+                    Ok(())
+                }
+            },
+            Self::User => match TypeKind::classify(&field.ty) {
+                Str => {
+                    builder.set_source_user(quote! {source.user(self.#field_name)?;});
+                    Ok(())
+                }
+                String => {
+                    builder.set_source_user(quote! {source.user(self.#field_name.as_ref())?;});
+                    Ok(())
+                }
+
+                Option(inner) => match TypeKind::classify(inner) {
+                    Str => {
+                        builder.set_source_user(quote! {
+                            if let Some(field) = self.#field_name{
+                                source.user(field)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    String => {
+                        builder.set_source_user(quote! {
+                            if let Some(field) = self.#field_name{
+                                source.user(field.as_ref())?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    _ => {
+                        builder.custom_source(quote! {
+                            if let Some(field) = self.#field_name{
+                                field.to_message(serialize)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                },
+                _ => {
+                    builder.set_source_user(quote! {source.user(self.#field_name)?;});
+                    Ok(())
+                }
+            },
+            Self::Host => match TypeKind::classify(&field.ty) {
+                Str => {
+                    builder.set_source_host(quote! {source.host(self.#field_name)?;});
+                    Ok(())
+                }
+                String => {
+                    builder.set_source_host(quote! {source.host(self.#field_name.as_ref())?;});
+                    Ok(())
+                }
+                Option(inner) => match TypeKind::classify(inner) {
+                    Str => {
+                        builder.set_source_host(quote! {
+                            if let Some(field) = self.#field_name{
+                                source.host(field)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    String => {
+                        builder.set_source_host(quote! {
+                            if let Some(field) = self.#field_name{
+                                source.host(field.as_ref())?;
+                            }
+                        });
+                        Ok(())
+                    }
+                    _ => {
+                        builder.custom_source(quote! {
+                            if let Some(field) = self.#field_name{
+                                field.to_message(serialize)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                },
+                _ => {
+                    builder.set_source_host(quote! {source.host(self.#field_name)?;});
+                    Ok(())
+                }
+            },
         }
     }
 

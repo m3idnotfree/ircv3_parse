@@ -2,6 +2,7 @@ use quote::{quote, ToTokens};
 use syn::{Error, Result};
 use syn::{Ident, LitStr};
 
+use crate::ser::SerializationBuilder;
 use crate::type_check;
 use crate::COMMAND;
 use crate::{error_msg, TypeKind};
@@ -42,5 +43,15 @@ impl CommandField {
                 }
             }
         }
+    }
+
+    pub fn expand_de(
+        self,
+        _field: &syn::Field,
+        _field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        builder.field_command(self.0);
+        Ok(())
     }
 }

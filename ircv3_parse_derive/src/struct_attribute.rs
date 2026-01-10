@@ -5,13 +5,17 @@ use syn::{DeriveInput, Result};
 use crate::error_msg;
 use crate::{COMMAND, IRC};
 
+const CRLF: &str = "crlf";
+
 pub struct StructAttribute {
     command: Option<LitStr>,
+    crlf: bool,
 }
 
 impl StructAttribute {
     pub fn parse(input: &DeriveInput) -> Result<Self> {
         let mut command: Option<LitStr> = None;
+        let mut crlf = false;
 
         for attr in &input.attrs {
             if !attr.path().is_ident(IRC) {
@@ -30,13 +34,22 @@ impl StructAttribute {
                     return Ok(());
                 }
 
+                if meta.path.is_ident(CRLF) {
+                    if crlf {
+                        return Err(meta.error(error_msg::duplicate_attribute(CRLF)));
+                    }
+
+                    crlf = true;
+                    return Ok(());
+                }
+
                 Err(meta.error(error_msg::unknown_irc_attribute(
                     meta.path.to_token_stream(),
                 )))
             })?;
         }
 
-        Ok(Self { command })
+        Ok(Self { command, crlf })
     }
 
     pub fn expand_validation(&self, command: Option<LitStr>) -> proc_macro2::TokenStream {
@@ -53,6 +66,18 @@ impl StructAttribute {
                     }
                 }
             })
-            .unwrap_or(quote! {})
+            .unwrap_or_default()
+    }
+
+    pub fn expand_crlf(&self) -> proc_macro2::TokenStream {
+        if self.crlf {
+            quote! { serialize.end()?; }
+        } else {
+            quote! {}
+        }
+    }
+
+    pub fn command(&self) -> &Option<LitStr> {
+        &self.command
     }
 }

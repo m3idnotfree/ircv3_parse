@@ -2,6 +2,7 @@ use quote::{quote, ToTokens};
 use syn::{Error, Result};
 use syn::{Field, Ident, LitStr};
 
+use crate::ser::SerializationBuilder;
 use crate::TAG;
 use crate::{error_msg, TypeKind};
 
@@ -51,6 +52,68 @@ impl Tag {
                     &field.ty,
                     "tag_flag field must be of type bool",
                 )),
+            },
+        }
+    }
+
+    pub fn expand_de(
+        &self,
+        field: &Field,
+        field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        use TypeKind::*;
+
+        match self {
+            Self::Value(key) => match TypeKind::classify(&field.ty) {
+                Str => {
+                    builder.tag(quote! { tags.tag(&#key, Some(self.#field_name))?; });
+                    Ok(())
+                }
+                String => {
+                    builder.tag(quote! { tags.tag(&#key, Some(self.#field_name.as_ref()))?; });
+                    Ok(())
+                }
+                Option(inner) => match TypeKind::classify(inner) {
+                    Str => {
+                        builder.tag(quote! { tags.tag(&#key, self.#field_name)?; });
+                        Ok(())
+                    }
+                    String => {
+                        builder.tag(quote! { tags.tag(&#key, self.#field_name.as_deref())?; });
+                        Ok(())
+                    }
+                    _ => {
+                        builder.custom_tag(quote! {
+                            if let Some(field) = self.#field_name {
+                                field.to_message(serialize)?;
+                            }
+                        });
+                        Ok(())
+                    }
+                },
+                _ => {
+                    builder.custom_tag(quote! {
+                            self.#field_name.to_message(serialize)?;
+                    });
+                    Ok(())
+                }
+            },
+            Self::Flag(key) => match TypeKind::classify(&field.ty) {
+                Bool => {
+                    builder.tag(quote! {
+                        if self.#field_name {
+                            tags.flag(&#key)?;
+                        }
+                    });
+                    Ok(())
+                }
+                _ => {
+                    builder.custom_tag(quote! {
+                        self.#field_name.to_message(serialize)?;
+                    });
+                    Ok(())
+                }
             },
         }
     }

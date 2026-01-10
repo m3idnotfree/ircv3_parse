@@ -2,6 +2,7 @@ use quote::{quote, ToTokens};
 use syn::{Error, Result};
 use syn::{Field, Ident, LitInt, LitStr};
 
+use crate::ser::SerializationBuilder;
 use crate::PARAM;
 use crate::{error_msg, TypeKind};
 
@@ -47,6 +48,58 @@ impl ParamField {
                 field,
                 error_msg::unsupported_type(PARAM, field_name, field.ty.to_token_stream()),
             )),
+        }
+    }
+
+    pub fn expand_de(
+        &self,
+        field: &Field,
+        field_name: &Ident,
+        builder: &mut SerializationBuilder,
+    ) -> Result<()> {
+        use TypeKind::*;
+
+        match TypeKind::classify(&field.ty) {
+            Str => {
+                builder.params_push(quote! { params.push(self.#field_name)?; });
+                Ok(())
+            }
+            String => {
+                builder.params_push(quote! { params.push(self.#field_name.as_ref())?; });
+                Ok(())
+            }
+            Option(inner) => match TypeKind::classify(inner) {
+                Str => {
+                    builder.params_push(quote! {
+                        if let Some(p) = self.#field_name {
+                            params.push(p)?;
+                        }
+                    });
+                    Ok(())
+                }
+                String => {
+                    builder.params_push(quote! {
+                        if let Some(p) = self.#field_name {
+                            params.push(p.as_ref())?;
+                        }
+                    });
+                    Ok(())
+                }
+                _ => {
+                    builder.custom_params(quote! {
+                        if let Some(p) = self.#field_name {
+                            p.to_message(serialize)?;
+                        }
+                    });
+                    Ok(())
+                }
+            },
+            _ => {
+                builder.custom_params(quote! {
+                    self.#field_name.to_message(serialize)?;
+                });
+                Ok(())
+            }
         }
     }
 

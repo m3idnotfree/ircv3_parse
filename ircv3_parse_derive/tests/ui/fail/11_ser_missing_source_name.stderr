@@ -1,0 +1,5 @@
+error: source `name` field is required when using `user` or `host fields
+ --> tests/ui/fail/11_ser_missing_source_name.rs:4:8
+  |
+4 | struct M<'a> {
+  |        ^

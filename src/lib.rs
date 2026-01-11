@@ -234,7 +234,7 @@ pub(crate) mod compat {
 }
 
 #[cfg(feature = "derive")]
-pub use ircv3_parse_derive::FromMessage;
+pub use ircv3_parse_derive::{FromMessage, ToMessage};
 
 pub mod builder;
 pub mod components;

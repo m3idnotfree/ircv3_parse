@@ -1,8 +1,17 @@
 //! Zero-copy IRC message parser with IRCv3 support.
 //!
+//! ## Key Features
+//!
+//! - **Zero-copy parsing**: Message components are slices into the original input string
+//! - **IRCv3 support**: Full support for message tags, source, and all IRCv3 features
+//! - **Derive macros**: `FromMessage` and `ToMessage` for easy message extraction and generation
+//! - **Manual implementations**: Full control over parsing and serialization when needed
+//! - **Builder pattern**: Flexible, order-independent message construction with [`MessageBuilder`]
+//! - **`no_std` compatible**: Works in embedded and `no_std` environments (requires `alloc`)
+//!
 //! ## Quick Start
 //!
-//! ### Using Derive Macro (Recommended)
+//! ### Parsing Messages with FromMessage
 //!
 //! ```rust
 //! use ircv3_parse::FromMessage;
@@ -24,6 +33,33 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! ### Building Messages with ToMessage
+//!
+//! ```rust
+//! use ircv3_parse::ToMessage;
+//!
+//! #[derive(ToMessage)]
+//! #[irc(command = "PRIVMSG", crlf)]
+//! struct PrivMsg<'a> {
+//!     #[irc(tag)]
+//!     msgid: &'a str,
+//!     #[irc(param)]
+//!     channel: &'a str,
+//!     #[irc(trailing)]
+//!     message: &'a str,
+//! }
+//!
+//! let msg = PrivMsg {
+//!     msgid: "123",
+//!     channel: "#channel",
+//!     message: "hi",
+//! };
+//!
+//! let output = ircv3_parse::to_message(&msg)?;
+//! assert_eq!(b"@msgid=123 PRIVMSG #channel :hi\r\n", output.as_ref());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! ## FromMessage Derive Attributes
 //!
 //! The `FromMessage` derive macro supports both `&str` and `String` field types.
@@ -34,36 +70,43 @@
 //!
 //! ### Field-Level Attributes
 //!
-//! **Tag Extraction:**
+//! #### Tag
+//!
 //! - `#[irc(tag)]` - Extract tag value using field name as key
 //! - `#[irc(tag = "key")]` - Extract tag value with custom key
 //!
-//! **Tag Flag Extraction:**
+//! #### Tag Flag
+//!
 //! - `#[irc(tag_flag)]` - Extract tag flag using field name as key (returns `bool`)
 //! - `#[irc(tag_flag = "key")]` - Extract tag flag with custom key (returns `bool`)
 //!
-//! **Source Extraction:**
+//! #### Source
+//!
 //! - `#[irc(source)]` - Extract source `name` component
 //! - `#[irc(source = "component")]` - Extract source component (`name`, `user`, or `host`)
 //!
-//! **Parameter Extraction:**
+//! #### Parameter
+//!
 //! - `#[irc(param)]` - Extract first parameter (index 0)
 //! - `#[irc(param = N)]` - Extract parameter at index N
 //! - `#[irc(params)]` - Extract all parameters into a `Vec`
 //!
-//! **Trailing Parameter:**
+//! #### Trailing Parameter
+//!
 //! - `#[irc(trailing)]` - Extract trailing parameter
 //!
-//! **Command Extraction:**
-//! - `#[irc(command)]` - Extract command value
-//! - `#[irc(command = "COMMAND)]` - Extract and validate command matches "COMMAND"
-//!     - If field-level `command` is set, struct-level `command` is ignored
-//!     - If multiple `command` attribute exist, the last one is used
+//! #### Command
 //!
-//! **Custom Extraction:**
+//! - `#[irc(command)]` - Extract command value
+//! - `#[irc(command = "COMMAND")]` - Extract and validate command matches "COMMAND"
+//!     - If field-level `command` is set, struct-level `command` is ignored
+//!     - If multiple `command` attributes exist, the last one is used
+//!
+//! #### Custom Extraction
+//!
 //! - `#[irc(with = "function")]` - Use custom extraction function
 //!
-//! ## Manual FromMessage Implementation
+//! ## Manual [`FromMessage`](message::de::FromMessage) Implementation
 //!
 //! For more complex parsing logic, implement the `FromMessage` trait manually.
 //!
@@ -123,7 +166,158 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! ## ToMessage Derive Attributes
+//!
+//! The `ToMessage` derive macro supports both `&str` and `String` field types.
+//!
+//! ### Struct-Level Attributes
+//!
+//! - `#[irc(command = "COMMAND")]` - Sets the default command for this message type
+//! - `#[irc(crlf)]` - Explicitly appends `\r\n` at the end of the message
+//!
+//! ### Field-Level Attributes
+//!
+//! #### Tag
+//!
+//! - `#[irc(tag)]` - Serializes field as tag using the field name as key
+//! - `#[irc(tag = "key")]` - Serializes field as tag with custom key
+//!
+//! #### Tag Flag
+//!
+//! - `#[irc(tag_flag)]` - Serializes boolean field as tag flag using field name as key
+//! - `#[irc(tag_flag = "key")]` - Serializes boolean field as tag flag with custom key
+//!
+//! #### Source
+//!
+//! - `#[irc(source)]` - Serializes field as source name component (`source = "name"`)
+//! - `#[irc(source = "name|user|host")]` - Serializes field as source component
+//!     - **Note**: `name` is **required** when using `user` or `host`
+//!
+//! #### Parameter
+//!
+//! - `#[irc(param)]` - Serializes field as a middle parameter
+//! - `#[irc(params)]` - Serializes field as multiple middle parameters
+//! - `#[irc(param = N)]` - Serializes field as a middle parameter
+//!     - **Note**: The index `N` is ignored during serialization
+//!     - `FromMessage` uses the index to extract the Nth parameter
+//!     - `ToMessage` always serializes fields in declaration order
+//!
+//! #### Trailing Parameter
+//!
+//! - `#[irc(trailing)]` - Serializes field as the trailing parameter
+//!
+//! #### Command
+//!
+//! - `#[irc(command)]` - Serializes field as the IRC command
+//! - `#[irc(command = "COMMAND")]` - Uses the specified command string
+//!   - If field-level `command` is set, struct-level `command` is ignored
+//!   - If multiple `command` attributes exist, the last one takes precedence
+//!
+//! ## Manual [`ToMessage`](message::ser::ToMessage) Implementation
+//!
+//! **Note**: Component serialization order is important and must follow this sequence:
+//! 1. tags (optional)
+//! 2. source (optional)
+//! 3. command (required)
+//! 4. params (optional)
+//! 5. trailing (optional)
+//! 6. crlf (optional)
+//!
+//! ### Example Implementation
+//!
+//! ```rust
+//! use ircv3_parse::message::ser::ToMessage;
+//!
+//! struct PrivMsg<'a> {
+//!     msgid: &'a str,
+//!     subscriber: bool,
+//!     channel: &'a str,
+//!     message: String,
+//! }
+//!
+//! impl ToMessage for PrivMsg<'_> {
+//!     fn to_message<S: ircv3_parse::message::ser::MessageSerializer>(
+//!         &self,
+//!         serialize: &mut S,
+//!     ) -> Result<(), ircv3_parse::IRCError> {
+//!         use ircv3_parse::Commands;
+//!
+//!         {
+//!             use ircv3_parse::message::ser::SerializeTags;
+//!
+//!             let mut tags = serialize.tags();
+//!             tags.tag("msgid", Some(self.msgid))?;
+//!             if self.subscriber {
+//!                 tags.flag("subscriber")?;
+//!             }
+//!             // You can skip tags.end() because Drop handles it
+//!             tags.end();
+//!         }
+//!
+//!         Commands::PRIVMSG.to_message(serialize)?;
+//!
+//!         {
+//!             use ircv3_parse::message::ser::SerializeParams;
+//!
+//!             let mut params = serialize.params();
+//!             params.push(self.channel)?;
+//!             // You can skip params.end() because Drop handles it
+//!             params.end();
+//!         }
+//!
+//!         serialize.trailing(self.message.as_ref())?;
+//!
+//!         serialize.end()?;
+//!         Ok(())
+//!     }
+//! }
+//!
+//! let msg = PrivMsg {
+//!     msgid: "1",
+//!     subscriber: false,
+//!     channel: "#channel",
+//!     message: "hi".to_string(),
+//! };
+//!
+//! let msg = ircv3_parse::to_message(&msg)?;
+//!
+//! assert_eq!("@msgid=1 PRIVMSG #channel :hi\r\n", msg);
+//!
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! ### Using [`MessageBuilder`]
+//!
+//! The builder pattern allows order-independent message construction.
+//!
+//! ```rust
+//! use ircv3_parse::{Commands, MessageBuilder};
+//!
+//! let mut msg = MessageBuilder::new(Commands::PRIVMSG);
+//! msg.add_tag("tag1", Some("value1"))?
+//!     .add_tag("tag2", None)?
+//!     .add_tag_flag("flag")?;
+//!
+//! // source name must be set before user or host
+//! msg.set_source_name("nick")?;
+//! msg.set_source_user("user")?;
+//! msg.set_source_host("example.com")?;
+//!
+//! msg.set_trailing("hi")?;
+//!
+//! let actual = msg.build();
+//! assert_eq!(
+//!     b"@tag1=value1;tag2=;flag :nick!user@example.com PRIVMSG :hi\r\n",
+//!     actual.as_ref()
+//! );
+//!
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 //! ## Error Handling
+//!
+//! ### FromMessage
+//!
+//! Returns [`DeError`] for deserialization failures.
 //!
 //! ```rust
 //! use ircv3_parse::FromMessage;
@@ -166,45 +360,25 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! ## Building Messages
+//! ### ToMessage
 //!
-//! ```rust
-//! use ircv3_parse::{builder::legacy::MessageBuilder, components::Commands};
-//!
-//! let message = MessageBuilder::new(Commands::PRIVMSG)
-//!     .with_tags(|tags| {
-//!         tags.add("id", Some("123"))?
-//!             .add("color", None)?
-//!             .add_flag("subscriber")
-//!     })?
-//!     .with_source("nick", |source| {
-//!         source.with_user("user")?.with_host("example.com")
-//!     })?
-//!     .with_params(|params| params.add("#channel"))?
-//!     .with_trailing("hi")?
-//!     .finish();
-//!
-//! let bytes = message.to_bytes();
-//! // Result: @id=123;color=;subscriber :nick!user@example.com PRIVMSG #channel :hi\r\n
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
-//!
-//! ### Builder Order
-//!
-//! Components must be added in the correct order:
-//!
-//! 1. Command (required) - [`MessageBuilder::new()`](builder::MessageBuilder::new()) with
-//!    [`Commands`]
-//! 2. Tags (optional) - [`with_tags()`](builder::MessageBuilder::with_tags())
-//! 3. Source (optional) - [`with_source()`](builder::MessageBuilder::with_source())
-//! 4. Middle parameters (optional) - [`with_params()`](builder::MessageBuilder::with_params())
-//! 5. Trailing parameter (optional) - [`with_trailing()`](builder::MessageBuilder::with_trailing())
-//!
+//! Returns [`IRCError`] for serialization failures.
 //!
 //! ## Feature Flags
 //!
-//! - `derive` - Enables the `FromMessage` derive macro
-//! - `serde` - Enables `Serialize` implementation for [`Message`]
+//! - **`std`** (enabled by default) - Enables standard library support
+//! - **`derive`** - Enables `FromMessage` and `ToMessage` derive macros (recommended)
+//! - **`serde`** - Enables `Serialize` implementation for [`Message`]
+//!
+//! ## Using in `no_std` Environments
+//!
+//! This crate supports `no_std` environments with the `alloc` crate:
+//!
+//! ```toml
+//! [dependencies]
+//! ircv3_parse = { version = "3", default-features = false, features = ["derive"] }
+//! ```
+//!
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -323,7 +497,7 @@ pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Resul
     T::from_str(s)
 }
 
-/// Serialize the custom data structure as a Bytes.
+/// Serialize a custom data structure as Bytes.
 ///
 /// # Errors
 ///

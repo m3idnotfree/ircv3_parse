@@ -1,51 +1,51 @@
-[workspace]
-members = [".", "ircv3_parse_derive"]
-resolver = "2"
-
-[workspace.package]
-version = "3.1.1"
-authors = ["m3id"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-rust-version = "1.78"
-
-[workspace.dependencies]
-ircv3_parse_derive = { version = "=3.1.1", path = "ircv3_parse_derive" }
-
 [package]
 name = "ircv3_parse"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Zero-copy parser for IRCv3 messages"
+documentation = "https://docs.rs/ircv3_parse"
+readme = "README.md"
 repository = "https://github.com/m3idnotfree/ircv3_parse.git"
 license.workspace = true
-keywords = ["ircv3", "twitch", "irc", "parser", "chat"]
-categories = ["parser-implementations", "network-programming"]
-readme = "README.md"
-documentation = "https://docs.rs/ircv3_parse"
-rust-version.workspace = true
+keywords = ["chat", "irc", "ircv3", "parser", "twitch"]
+categories = ["network-programming", "parser-implementations"]
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[features]
-default = ["std"]
-std = ["bytes/std", "thiserror/std", "serde?/std"]
-serde = ["dep:serde", "serde?/alloc"]
-derive = ["ircv3_parse_derive"]
+[workspace]
+resolver = "2"
+members = [".", "ircv3_parse_derive"]
 
-[profile.release]
-debug-assertions = false
+[workspace.package]
+version = "3.1.1"
+authors = ["m3id"]
+edition = "2021"
+rust-version = "1.78"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=3.1.1" }
 
 [dependencies]
 bytes = { version = "1.11.0", default-features = false }
-memchr = { version = "2.7.6", default-features = false }
-serde = { version = "1.0.228", default-features = false, optional = true, features = ["derive"] }
-thiserror = { version = "2.0.17", default-features = false }
 ircv3_parse_derive = { workspace = true, optional = true }
+memchr = { version = "2.7.6", default-features = false }
+serde = { version = "1.0.228", default-features = false, features = ["derive"], optional = true }
+thiserror = { version = "2.0.17", default-features = false }
 
 [dev-dependencies]
 proptest = "1.9.0"
 serde_json = "1.0.145"
+
+[features]
+default = ["std"]
+derive = ["ircv3_parse_derive"]
+serde = ["dep:serde", "serde?/alloc"]
+std = ["bytes/std", "serde?/std", "thiserror/std"]
+
+[profile.release]
+debug-assertions = false

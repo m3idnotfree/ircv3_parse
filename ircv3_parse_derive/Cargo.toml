@@ -19,5 +19,5 @@ quote = "1.0.42"
 syn = "2.0.111"
 
 [dev-dependencies]
-ircv3_parse = { version = "^3", path = "../" }
+ircv3_parse = { path = "../", version = "^3" }
 trybuild = "1.0.114"

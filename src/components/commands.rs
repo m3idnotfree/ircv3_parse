@@ -117,6 +117,7 @@ impl<'a> Commands<'a> {
     }
 
     /// Returns the length of the command
+    #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub fn len(&self) -> usize {
         match self {

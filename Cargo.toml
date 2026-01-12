@@ -21,14 +21,14 @@ resolver = "2"
 members = [".", "ircv3_parse_derive"]
 
 [workspace.package]
-version = "3.1.1"
+version = "3.2.0"
 authors = ["m3id"]
 edition = "2021"
 rust-version = "1.78"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=3.1.1" }
+ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=3.2.0" }
 
 [dependencies]
 bytes = { version = "1.11.0", default-features = false }

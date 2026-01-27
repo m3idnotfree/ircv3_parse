@@ -1,0 +1,82 @@
+[changelog]
+body = """
+{% if version %}\
+    {% if previous.version %}\
+        ## [{{ version | trim_start_matches(pat="v") }}]($REPO/compare/{{ previous.version }}..{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+    {% else %}\
+        ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+    {% endif %}\
+{% else %}\
+    ## [unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits
+    | filter(attribute="scope") %}
+        - **({{commit.scope}})**{% if commit.breaking %} [**breaking**] {% endif %} \
+            {{ commit.message }} ([{{ commit.id | truncate(length=7, end="") }}]($REPO/commit/{{ commit.id }}))
+    {%- endfor -%}
+    {% raw %}\n{% endraw %}\
+    {%- for commit in commits %}
+        {%- if commit.scope -%}
+        {% else -%}
+            - {% if commit.breaking %} [**breaking**] {% endif %}\
+                {{ commit.message }} ([{{ commit.id | truncate(length=7, end="") }}]($REPO/commit/{{ commit.id }}))
+        {% endif -%}
+    {% endfor -%}
+{% endfor %}
+"""
+trim = true
+render_always = true
+postprocessors = [
+  { pattern = '\$REPO', replace = "https://github.com/m3idnotfree/ircv3_parse" },
+]
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+require_conventional = false
+split_commits = false
+commit_preprocessors = [
+  { pattern = '^feat\(\): README\.md write', replace = "feat(docs): add README.md" },
+  { pattern = "^Create LICENSE-", replace = "chore(license): add LICENSE-" },
+  { pattern = '^feat\(\): first release', replace = "chore: first commit" },
+  { pattern = '^fix\(return\): str -> string\nbecause last consumer', replace = "fix(field): change fields type from &str to String" },
+  { pattern = '^refactor\(Ircv3Parse\):\n', replace = "refactor(parse): restructure parsing methods\n\n" },
+  { pattern = '^update\(prefix\):\n', replace = "refactor(IRCv3Prefix)!: add parse method\n\n" },
+  { pattern = '^update\(params\):\n', replace = "refactor(params): use parse method\n\n" },
+  { pattern = '^style:\s*$', replace = "style: format" },
+  { pattern = '^test\(command\):\s*$', replace = "test(command): add command tests" },
+  { pattern = '^chore\(format\):\s*$', replace = "style: format" },
+  { pattern = '^feat\(commands\): implement case-insensitive command parsing and\ncomparison', replace = "feat(commands): implement case-insensitive command parsing and comparison" },
+  { pattern = "^release:", replace = "chore(release):" },
+  { pattern = '^chore\(main\): release 0.1.4', replace = "chore(release): 0.1.4" },
+]
+protect_breaking_commits = false
+commit_parsers = [
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^Merge pull request", skip = true },
+  { message = "^feat", group = "<!-- 00 -->Features" },
+  { message = "^fix", group = "<!-- 01 -->Bug Fixes" },
+  { message = "^doc", group = "<!-- 03 -->Documentation" },
+  { message = "^perf", group = "<!-- 04 -->Performance" },
+  { message = "^refactor", group = "<!-- 02 -->Refactoring" },
+  { message = "^style", group = "<!-- 05 -->Style" },
+  { message = "^test", group = "<!-- 06 -->Tests" },
+  { message = "^chore\\(release\\): prepare for", skip = true },
+  { message = "^chore\\(deps.*\\)", skip = true },
+  { message = "^chore\\(pr\\)", skip = true },
+  { message = "^chore\\(pull\\)", skip = true },
+  { message = "^chore|^ci", group = "<!-- 07 -->Miscellaneous" },
+  { body = ".*security", group = "<!-- 08 -->Security" },
+  { message = "^revert", group = "<!-- 09 -->Revert" },
+  { message = ".*", group = "<!-- 99 -->Other" },
+]
+filter_commits = false
+fail_on_unmatched_commit = false
+link_parsers = []
+use_branch_tags = false
+topo_order = false
+topo_order_commits = true
+sort_commits = "oldest"
+recurse_submodules = false

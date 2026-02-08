@@ -29,6 +29,26 @@ impl TrailingField {
         }
     }
 
+    pub fn expand_unnamed(
+        field: &syn::Field,
+        idx: usize,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(params.trailing.as_str()) });
+        }
+
+        match TypeKind::classify(&field.ty) {
+            TypeKind::Str => Ok(quote! { params.trailing.as_str() }),
+            TypeKind::String => Ok(quote! { params.trailing.to_string() }),
+            _ => Err(Error::new_spanned(
+                field,
+                error_msg::unsupported_unnamed_type(TRAILING, idx, field.ty.to_token_stream()),
+            )),
+        }
+    }
+
     pub fn expand_de(
         field: &syn::Field,
         field_name: &Ident,

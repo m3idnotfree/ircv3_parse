@@ -61,8 +61,56 @@ impl FieldAttribute {
         Ok(Self { kind, with })
     }
 
+    pub fn parse_unnamed(field: &Field) -> Result<Self> {
+        let mut field_kind: Option<FieldKind> = None;
+        let mut with: Option<LitStr> = None;
+
+        for attr in &field.attrs {
+            if !attr.path().is_ident(IRC) {
+                continue;
+            }
+
+            attr.parse_nested_meta(|meta| {
+                let attr_type = AttributeType::parse_unnamed(&meta)?;
+
+                if let AttributeType::With(value) = attr_type {
+                    if with.is_some() {
+                        return Err(meta.error(error_msg::duplicate_attribute(WITH)));
+                    }
+
+                    with = Some(value);
+                    return Ok(());
+                }
+
+                if let Some(existing) = &field_kind {
+                    return Err(meta.error(format!(
+                        "field cannot have multiple extraction attributes (found both `{}` and `{}`)",
+                        existing.name(),
+                        attr_type.name()
+                    )));
+                }
+
+                field_kind = Some(FieldKind::from_attribute_type(attr_type)?);
+                Ok(())
+            })?;
+        }
+
+        let kind = field_kind.ok_or_else(|| {
+            Error::new_spanned(
+                field,
+                "field must have at least one IRC extraction attribute",
+            )
+        })?;
+
+        Ok(Self { kind, with })
+    }
+
     pub fn expand(&self, field: &Field, field_name: &Ident) -> Result<proc_macro2::TokenStream> {
         self.kind.expand(field, field_name, &self.with)
+    }
+
+    pub fn expand_unnamed(&self, field: &Field, idx: usize) -> Result<proc_macro2::TokenStream> {
+        self.kind.expand_unnamed(field, idx, &self.with)
     }
 
     pub fn mark_components(&self, components: &mut MessageComponents) {
@@ -197,6 +245,78 @@ impl AttributeType {
             meta.path.to_token_stream(),
         )))
     }
+
+    pub fn parse_unnamed(meta: &ParseNestedMeta<'_>) -> Result<Self> {
+        if meta.path.is_ident(TAG) {
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                return Err(meta.error(error_msg::required_value("tag")));
+            };
+
+            return Ok(Self::Tag(key));
+        }
+
+        if meta.path.is_ident(TAG_FLAG) {
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                return Err(meta.error(error_msg::required_value("tag_flag")));
+            };
+
+            return Ok(Self::TagFlag(key));
+        }
+
+        if meta.path.is_ident(SOURCE) {
+            let key = if meta.input.peek(Eq) {
+                let lit: LitStr = meta.value()?.parse()?;
+                lit
+            } else {
+                LitStr::new("name", Span::call_site())
+            };
+
+            return Ok(Self::Source(key));
+        }
+
+        if meta.path.is_ident(PARAM) {
+            let key = if meta.input.peek(Eq) {
+                let lit: LitInt = meta.value()?.parse()?;
+                lit
+            } else {
+                LitInt::new("0", Span::call_site())
+            };
+
+            return Ok(Self::Param(key));
+        }
+
+        if meta.path.is_ident(PARAMS) {
+            return Ok(Self::Params);
+        }
+
+        if meta.path.is_ident(TRAILING) {
+            return Ok(Self::Trailing);
+        }
+
+        if meta.path.is_ident(COMMAND) {
+            let value = if meta.input.peek(Eq) {
+                Some(meta.value()?.parse()?)
+            } else {
+                None
+            };
+
+            return Ok(Self::Command(value));
+        }
+
+        if meta.path.is_ident(WITH) {
+            return Ok(Self::With(meta.value()?.parse()?));
+        }
+
+        Err(meta.error(error_msg::unknown_irc_attribute(
+            meta.path.to_token_stream(),
+        )))
+    }
 }
 
 enum FieldKind {
@@ -255,6 +375,22 @@ impl FieldKind {
         }
     }
 
+    pub fn expand_unnamed(
+        &self,
+        field: &Field,
+        idx: usize,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        match &self {
+            Self::Tag(tag_type) => tag_type.expand_unnamed(field, idx, with),
+            Self::Source(source) => source.expand_unnamed(field, idx, with),
+            Self::Param(param) => param.expand_unnamed(field, idx, with),
+            Self::Params => expand_unnamed_params_vec(field, idx, with),
+            Self::Trailing => TrailingField::expand_unnamed(field, idx, with),
+            Self::Command(_) => CommandField::expand_unnamed(field, idx, with),
+        }
+    }
+
     pub fn expand_de(
         self,
         field: &Field,
@@ -292,6 +428,30 @@ fn expand_params_vec(
         _ => Err(Error::new_spanned(
             field,
             error_msg::unsupported_type(PARAMS, field_name, field.ty.to_token_stream()),
+        )),
+    }
+}
+
+fn expand_unnamed_params_vec(
+    field: &Field,
+    idx: usize,
+    with: &Option<LitStr>,
+) -> Result<proc_macro2::TokenStream> {
+    if let Some(with_fn) = &with {
+        let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+        return Ok(quote! { #with_fn(params.middles.to_vec()) });
+    }
+
+    match TypeKind::classify(&field.ty) {
+        TypeKind::Vec(inner) if matches!(TypeKind::classify(inner), TypeKind::Str) => {
+            Ok(quote! { params.middles.to_vec() })
+        }
+        TypeKind::Vec(inner) if matches!(TypeKind::classify(inner), TypeKind::String) => {
+            Ok(quote! { params.middles.iter().map(|s| s.to_string()).collect::<Vec<_>>() })
+        }
+        _ => Err(Error::new_spanned(
+            field,
+            error_msg::unsupported_unnamed_type(PARAMS, idx, field.ty.to_token_stream()),
         )),
     }
 }

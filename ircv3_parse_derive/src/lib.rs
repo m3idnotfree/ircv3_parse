@@ -16,7 +16,7 @@ use syn::LitStr;
 use syn::{parse_macro_input, DeriveInput, Error, Result};
 
 use components::MessageComponents;
-use extractors::extract_named_fields;
+use extractors::{extract_named_fields, extract_unnamed_fields};
 use field_attribute::FieldAttribute;
 use msg_lifetime::get_or_create_msg_lifetime;
 use struct_attribute::StructAttribute;
@@ -79,6 +79,23 @@ pub fn derive_from_message(input: TokenStream) -> TokenStream {
 }
 
 fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
+    match &input.data {
+        syn::Data::Struct(data) => match &data.fields {
+            syn::Fields::Named(_) => expend_named_struct(input),
+            syn::Fields::Unnamed(_) => expend_unnamed_struct(input),
+            _ => Err(Error::new_spanned(
+                &input.ident,
+                "FromMessage does not support unit structs",
+            )),
+        },
+        _ => Err(Error::new_spanned(
+            &input.ident,
+            "FromMessage only supports structs",
+        )),
+    }
+}
+
+fn expend_named_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
     let (_, struct_ty_generics, _) = input.generics.split_for_impl();
 
     let mut impl_block_generics = input.generics.clone();
@@ -146,6 +163,75 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
                 Ok(Self {
                     #(#expand_fields),*
                 })
+
+            }
+        }
+    })
+}
+
+fn expend_unnamed_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
+    let (_, struct_ty_generics, _) = input.generics.split_for_impl();
+
+    let mut impl_block_generics = input.generics.clone();
+    let msg_lifetime = get_or_create_msg_lifetime(&mut impl_block_generics);
+    let (impl_generics, _, where_clause) = impl_block_generics.split_for_impl();
+
+    let struct_attrs = StructAttribute::parse(&input)?;
+
+    let fields = extract_unnamed_fields(&input, "FromMessage")?;
+
+    let mut components = MessageComponents::default();
+    let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut errors = Vec::new();
+
+    let mut commands: Option<LitStr> = None;
+
+    for (idx, field) in fields.iter().enumerate() {
+        let attribute = match FieldAttribute::parse_unnamed(field) {
+            Ok(attr) => attr,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+
+        attribute.mark_components(&mut components);
+
+        commands = attribute.command_field();
+
+        let expand = match attribute.expand_unnamed(field, idx) {
+            Ok(expand) => expand,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+
+        expand_fields.push(expand);
+    }
+
+    if let Some(e) = combine_errors(errors) {
+        return Err(e);
+    }
+
+    let struct_name = &input.ident;
+    let command_validation = struct_attrs.expand_validation(commands);
+    let setup_code = components.expand();
+
+    Ok(quote! {
+        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
+            for #struct_name #struct_ty_generics #where_clause
+        {
+            fn from_message(
+                msg: &ircv3_parse::Message<#msg_lifetime>
+            ) -> Result<Self, ircv3_parse::DeError> {
+                #command_validation
+
+                #(#setup_code)*
+
+                Ok(Self(
+                    #(#expand_fields),*
+                ))
 
             }
         }

@@ -56,6 +56,51 @@ impl Tag {
         }
     }
 
+    pub fn expand_unnamed(
+        &self,
+        field: &Field,
+        idx: usize,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let tags = self.expand_tag_with();
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(#tags) });
+        }
+
+        use TypeKind::*;
+
+        let tags = self.expand_tag();
+
+        match self {
+            Self::Value(key) => match TypeKind::classify(&field.ty) {
+                Str => Ok(
+                    quote! { #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#idx), #key))?.as_str() },
+                ),
+                String => Ok(
+                    quote! { #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#idx), #key))?.to_string() },
+                ),
+                Option(inner) if matches!(TypeKind::classify(inner), Str) => {
+                    Ok(quote! { #tags.map(|s| s.as_str()) })
+                }
+                Option(inner) if matches!(TypeKind::classify(inner), String) => {
+                    Ok(quote! { #tags.map(|s| s.to_string()) })
+                }
+                _ => Err(Error::new_spanned(
+                    field,
+                    error_msg::unsupported_unnamed_type(TAG, idx, field.ty.to_token_stream()),
+                )),
+            },
+            Self::Flag(key) => match TypeKind::classify(&field.ty) {
+                Bool => Ok(quote! { tags.get_flag(#key) }),
+                _ => Err(Error::new_spanned(
+                    &field.ty,
+                    "tag_flag field must be of type bool",
+                )),
+            },
+        }
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

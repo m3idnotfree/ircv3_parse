@@ -20,3 +20,22 @@ pub fn extract_named_fields(
         )),
     }
 }
+
+pub fn extract_unnamed_fields(
+    input: &DeriveInput,
+    name: impl Into<String>,
+) -> Result<&Punctuated<Field, Comma>> {
+    match &input.data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Unnamed(fields) => Ok(&fields.unnamed),
+            _ => Err(Error::new_spanned(
+                &input.ident,
+                format!("{} only supports structs with unnamed", name.into()),
+            )),
+        },
+        _ => Err(Error::new_spanned(
+            &input.ident,
+            format!("{} only supports structs", name.into()),
+        )),
+    }
+}

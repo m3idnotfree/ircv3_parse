@@ -12,3 +12,16 @@ pub fn unsupported_type(component: &str, field: &Ident, ty: proc_macro2::TokenSt
     let ty_str = ty.to_string().replace(" ", "");
     format!("unsupported type for {component} field `{field}`: {ty_str}")
 }
+
+pub fn required_value(component: &str) -> String {
+    format!("required `{component}` value")
+}
+
+pub fn unsupported_unnamed_type(
+    component: &str,
+    idx: usize,
+    ty: proc_macro2::TokenStream,
+) -> String {
+    let ty_str = ty.to_string().replace(" ", "");
+    format!("unsupported type for {component} field `{idx}`: {ty_str}")
+}

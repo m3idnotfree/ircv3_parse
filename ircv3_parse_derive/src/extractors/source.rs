@@ -80,6 +80,63 @@ impl SourceField {
         }
     }
 
+    pub fn expand_unnamed(
+        &self,
+        field: &Field,
+        idx: usize,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let source = self.expand_source();
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(#source) });
+        }
+
+        use TypeKind::*;
+
+        let source = self.expand_source();
+
+        match self {
+            Self::Name => match TypeKind::classify(&field.ty) {
+                Str => Ok(quote! { #source }),
+                String => Ok(quote! { #source.to_string() }),
+                _ => Err(Error::new_spanned(
+                    field,
+                    "source `name` field cannot be Option<...> (use &str or String instead)",
+                )),
+            },
+            Self::User | Self::Host => {
+                let source_field_str = self.as_str();
+
+                match TypeKind::classify(&field.ty) {
+                    Str => Ok(
+                        quote! { #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#idx), #source_field_str))? },
+                    ),
+                    String => Ok(
+                        quote! { #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#idx), #source_field_str))?.to_string() },
+                    ),
+                    Option(inner) if matches!(TypeKind::classify(inner), Str) => {
+                        Ok(quote! { #source })
+                    }
+                    Option(inner) if matches!(TypeKind::classify(inner), String) => {
+                        Ok(quote! { #source.map(|s| s.to_string()) })
+                    }
+                    _ => {
+                        let component = format!("source {source_field_str}");
+                        Err(Error::new_spanned(
+                            field,
+                            error_msg::unsupported_unnamed_type(
+                                &component,
+                                idx,
+                                field.ty.to_token_stream(),
+                            ),
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

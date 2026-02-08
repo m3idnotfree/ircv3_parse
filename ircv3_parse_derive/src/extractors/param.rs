@@ -51,6 +51,41 @@ impl ParamField {
         }
     }
 
+    pub fn expand_unnamed(
+        &self,
+        field: &Field,
+        field_idx: usize,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            let params = self.expand_param();
+            return Ok(quote! { #with_fn(#params) });
+        }
+
+        use TypeKind::*;
+
+        let idx = self.0;
+        let params = self.expand_param();
+
+        match TypeKind::classify(&field.ty) {
+            Str => Ok(
+                quote! { #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#idx), #idx))? },
+            ),
+            String => Ok(
+                quote! { #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#idx), #idx))?.to_string() },
+            ),
+            Option(inner) if matches!(TypeKind::classify(inner), Str) => Ok(quote! { #params }),
+            Option(inner) if matches!(TypeKind::classify(inner), String) => {
+                Ok(quote! { #params.map(|s| s.to_string()) })
+            }
+            _ => Err(Error::new_spanned(
+                field,
+                error_msg::unsupported_unnamed_type(PARAM, field_idx, field.ty.to_token_stream()),
+            )),
+        }
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

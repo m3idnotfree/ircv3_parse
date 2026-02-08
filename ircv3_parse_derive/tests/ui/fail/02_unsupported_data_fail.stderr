@@ -4,14 +4,35 @@ error: FromMessage only supports structs
 4 | enum M1 {
   |      ^^
 
-error: field must have at least one IRC extraction attribute
- --> tests/ui/fail/02_unsupported_data_fail.rs:9:11
-  |
-9 | struct M2(String);
-  |           ^^^^^^
-
 error: FromMessage does not support unit structs
   --> tests/ui/fail/02_unsupported_data_fail.rs:12:8
    |
 12 | struct M3;
    |        ^^
+
+error[E0599]: no function or associated item named `from_message` found for struct `String` in the current scope
+ --> tests/ui/fail/02_unsupported_data_fail.rs:8:10
+  |
+8 | #[derive(FromMessage)]
+  |          ^^^^^^^^^^^ function or associated item not found in `String`
+  |
+note: if you're trying to build a new `String` consider using one of the following associated functions:
+      String::new
+      String::with_capacity
+      String::try_with_capacity
+      String::from_utf8
+      and $N others
+ --> $RUST/alloc/src/string.rs
+  |
+  |     pub const fn new() -> String {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+  |     pub fn with_capacity(capacity: usize) -> String {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+  |     pub fn try_with_capacity(capacity: usize) -> Result<String, TryReserveError> {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+  |     pub fn from_utf8(vec: Vec<u8>) -> Result<String, FromUtf8Error> {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the derive macro `FromMessage` (in Nightly builds, run with -Z macro-backtrace for more info)

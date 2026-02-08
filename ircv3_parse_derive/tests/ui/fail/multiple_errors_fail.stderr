@@ -9,9 +9,3 @@ error: unknown IRC attribute: invalid2
   |
 7 |     #[irc(invalid2)]
   |           ^^^^^^^^
-
-error: field must have at least one IRC extraction attribute
-  --> tests/ui/fail/multiple_errors_fail.rs:10:5
-   |
-10 |     missing: String,
-   |     ^^^^^^^^^^^^^^^

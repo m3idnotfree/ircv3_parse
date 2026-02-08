@@ -25,3 +25,7 @@ pub fn unsupported_unnamed_type(
     let ty_str = ty.to_string().replace(" ", "");
     format!("unsupported type for {component} field `{idx}`: {ty_str}")
 }
+
+pub fn nested_field_requires_attribute(field: &Ident) -> String {
+    format!("field `{field}` requires an IRC attribute for ToMessage serialization")
+}

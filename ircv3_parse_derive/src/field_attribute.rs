@@ -51,12 +51,7 @@ impl FieldAttribute {
             })?;
         }
 
-        let kind = field_kind.ok_or_else(|| {
-            Error::new_spanned(
-                field,
-                "field must have at least one IRC extraction attribute",
-            )
-        })?;
+        let kind = field_kind.unwrap_or(FieldKind::Nested);
 
         Ok(Self { kind, with })
     }
@@ -95,12 +90,7 @@ impl FieldAttribute {
             })?;
         }
 
-        let kind = field_kind.ok_or_else(|| {
-            Error::new_spanned(
-                field,
-                "field must have at least one IRC extraction attribute",
-            )
-        })?;
+        let kind = field_kind.unwrap_or(FieldKind::Nested);
 
         Ok(Self { kind, with })
     }
@@ -129,6 +119,7 @@ impl FieldAttribute {
             Command(_) => {
                 components.mark_command();
             }
+            _ => {}
         };
     }
 
@@ -326,6 +317,7 @@ enum FieldKind {
     Params,
     Trailing,
     Command(CommandField),
+    Nested,
 }
 
 impl FieldKind {
@@ -340,6 +332,7 @@ impl FieldKind {
             Self::Params => PARAMS,
             Self::Trailing => TRAILING,
             Self::Command(_) => COMMAND,
+            Self::Nested => "nested",
         }
     }
 
@@ -372,6 +365,17 @@ impl FieldKind {
             Self::Params => expand_params_vec(field, field_name, with),
             Self::Trailing => TrailingField::expand(field, field_name, with),
             Self::Command(_) => CommandField::expand(field, field_name, with),
+            Self::Nested => {
+                use TypeKind::*;
+
+                match TypeKind::classify(&field.ty) {
+                    Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
+                    _ => {
+                        let ty = &field.ty;
+                        Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+                    }
+                }
+            }
         }
     }
 
@@ -388,6 +392,17 @@ impl FieldKind {
             Self::Params => expand_unnamed_params_vec(field, idx, with),
             Self::Trailing => TrailingField::expand_unnamed(field, idx, with),
             Self::Command(_) => CommandField::expand_unnamed(field, idx, with),
+            Self::Nested => {
+                use TypeKind::*;
+
+                match TypeKind::classify(&field.ty) {
+                    Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
+                    _ => {
+                        let ty = &field.ty;
+                        Ok(quote! { <#ty>::from_message(&msg)? })
+                    }
+                }
+            }
         }
     }
 
@@ -404,6 +419,10 @@ impl FieldKind {
             Self::Params => expand_vec_de(field, field_name, builder),
             Self::Trailing => TrailingField::expand_de(field, field_name, builder),
             Self::Command(cmd) => cmd.expand_de(field, field_name, builder),
+            Self::Nested => Err(Error::new_spanned(
+                field,
+                error_msg::nested_field_requires_attribute(field_name),
+            )),
         }
     }
 }

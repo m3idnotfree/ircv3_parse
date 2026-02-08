@@ -191,3 +191,21 @@ fn param_empty_attribute_value_return_first() {
 
     assert_eq!("#channel", msg.param);
 }
+
+#[test]
+fn nested_attribute() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    struct MsgId(#[irc(tag = "msgid")] String);
+
+    #[derive(FromMessage, Debug)]
+    struct Message {
+        #[irc(source)]
+        nick: String,
+        msg_id: MsgId,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel param2 :hi";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(msg.nick, "nick");
+    assert_eq!(msg.msg_id, MsgId("1".to_string()));
+}

@@ -1,10 +1,9 @@
-use quote::{quote, ToTokens};
-use syn::{Error, Result};
+use quote::quote;
+use syn::Result;
 use syn::{Ident, LitStr};
 
 use crate::ser::SerializationBuilder;
-use crate::TRAILING;
-use crate::{error_msg, TypeKind};
+use crate::TypeKind;
 
 pub struct TrailingField;
 
@@ -19,19 +18,28 @@ impl TrailingField {
             return Ok(quote! { #field_name: #with_fn(params.trailing.as_str()) });
         }
 
+        use TypeKind::*;
+
         match TypeKind::classify(&field.ty) {
-            TypeKind::Str => Ok(quote! { #field_name: params.trailing.as_str() }),
-            TypeKind::String => Ok(quote! { #field_name: params.trailing.to_string() }),
-            _ => Err(Error::new_spanned(
-                field,
-                error_msg::unsupported_type(TRAILING, field_name, field.ty.to_token_stream()),
-            )),
+            Str => Ok(quote! { #field_name: params.trailing.as_str() }),
+            String => Ok(quote! { #field_name: params.trailing.to_string() }),
+            Option(inner) if matches!(TypeKind::classify(inner), Str) => {
+                Ok(quote! { #field_name: params.trailing.raw().filter(|s| !s.is_empty()) })
+            }
+            Option(inner) if matches!(TypeKind::classify(inner), String) => Ok(
+                quote! { #field_name: params.trailing.raw().filter(|s| !s.is_empty()).map(|s| s.to_string()) },
+            ),
+            Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
+            _ => {
+                let ty = &field.ty;
+                Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+            }
         }
     }
 
     pub fn expand_unnamed(
         field: &syn::Field,
-        idx: usize,
+        _idx: usize,
         with: &Option<LitStr>,
     ) -> Result<proc_macro2::TokenStream> {
         if let Some(with_fn) = with {
@@ -39,13 +47,22 @@ impl TrailingField {
             return Ok(quote! { #with_fn(params.trailing.as_str()) });
         }
 
+        use TypeKind::*;
+
         match TypeKind::classify(&field.ty) {
-            TypeKind::Str => Ok(quote! { params.trailing.as_str() }),
-            TypeKind::String => Ok(quote! { params.trailing.to_string() }),
-            _ => Err(Error::new_spanned(
-                field,
-                error_msg::unsupported_unnamed_type(TRAILING, idx, field.ty.to_token_stream()),
-            )),
+            Str => Ok(quote! { params.trailing.as_str() }),
+            String => Ok(quote! { params.trailing.to_string() }),
+            Option(inner) if matches!(TypeKind::classify(inner), Str) => {
+                Ok(quote! { params.trailing.raw().filter(|s| !s.is_empty()) })
+            }
+            Option(inner) if matches!(TypeKind::classify(inner), String) => Ok(
+                quote! { params.trailing.raw().filter(|s| !s.is_empty()).map(|s| s.to_string()) },
+            ),
+            Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
+            _ => {
+                let ty = &field.ty;
+                Ok(quote! { <#ty>::from_message(&msg)? })
+            }
         }
     }
 

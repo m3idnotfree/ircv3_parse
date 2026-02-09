@@ -1,9 +1,9 @@
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{Error, Result};
 use syn::{Field, Ident, LitStr};
 
 use crate::ser::SerializationBuilder;
-use crate::{error_msg, TypeKind};
+use crate::TypeKind;
 
 pub enum SourceField {
     Name,
@@ -43,10 +43,14 @@ impl SourceField {
             Self::Name => match TypeKind::classify(&field.ty) {
                 Str => Ok(quote! { #field_name: #source }),
                 String => Ok(quote! { #field_name: #source.to_string() }),
-                _ => Err(Error::new_spanned(
+                Option(_) => Err(Error::new_spanned(
                     field,
                     "source `name` field cannot be Option<...> (use &str or String instead)",
                 )),
+                _ => {
+                    let ty = &field.ty;
+                    Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+                }
             },
             Self::User | Self::Host => {
                 let source_field_str = self.as_str();
@@ -64,16 +68,10 @@ impl SourceField {
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         Ok(quote! { #field_name: #source.map(|s| s.to_string()) })
                     }
+                    Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
                     _ => {
-                        let component = format!("source {source_field_str}");
-                        Err(Error::new_spanned(
-                            field,
-                            error_msg::unsupported_type(
-                                &component,
-                                field_name,
-                                field.ty.to_token_stream(),
-                            ),
-                        ))
+                        let ty = &field.ty;
+                        Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
                     }
                 }
             }
@@ -100,10 +98,14 @@ impl SourceField {
             Self::Name => match TypeKind::classify(&field.ty) {
                 Str => Ok(quote! { #source }),
                 String => Ok(quote! { #source.to_string() }),
-                _ => Err(Error::new_spanned(
+                Option(_) => Err(Error::new_spanned(
                     field,
                     "source `name` field cannot be Option<...> (use &str or String instead)",
                 )),
+                _ => {
+                    let ty = &field.ty;
+                    Ok(quote! { <#ty>::from_message(&msg)? })
+                }
             },
             Self::User | Self::Host => {
                 let source_field_str = self.as_str();
@@ -121,16 +123,10 @@ impl SourceField {
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         Ok(quote! { #source.map(|s| s.to_string()) })
                     }
+                    Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
                     _ => {
-                        let component = format!("source {source_field_str}");
-                        Err(Error::new_spanned(
-                            field,
-                            error_msg::unsupported_unnamed_type(
-                                &component,
-                                idx,
-                                field.ty.to_token_stream(),
-                            ),
-                        ))
+                        let ty = &field.ty;
+                        Ok(quote! { <#ty>::from_message(&msg)? })
                     }
                 }
             }

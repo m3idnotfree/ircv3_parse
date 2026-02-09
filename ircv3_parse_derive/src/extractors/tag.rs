@@ -1,10 +1,9 @@
-use quote::{quote, ToTokens};
-use syn::{Error, Result};
+use quote::quote;
+use syn::Result;
 use syn::{Field, Ident, LitStr};
 
 use crate::ser::SerializationBuilder;
-use crate::TAG;
-use crate::{error_msg, TypeKind};
+use crate::TypeKind;
 
 pub enum Tag {
     Value(LitStr),
@@ -41,17 +40,21 @@ impl Tag {
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
                     Ok(quote! { #field_name: #tags.map(|s| s.to_string()) })
                 }
-                _ => Err(Error::new_spanned(
-                    field,
-                    error_msg::unsupported_type(TAG, field_name, field.ty.to_token_stream()),
-                )),
+                Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
+                _ => {
+                    let ty = &field.ty;
+                    Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+                }
             },
             Self::Flag(key) => match TypeKind::classify(&field.ty) {
                 Bool => Ok(quote! { #field_name: tags.get_flag(#key) }),
-                _ => Err(Error::new_spanned(
-                    &field.ty,
-                    "tag_flag field must be of type bool",
-                )),
+                _ => match TypeKind::classify(&field.ty) {
+                    Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
+                    _ => {
+                        let ty = &field.ty;
+                        Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+                    }
+                },
             },
         }
     }
@@ -86,17 +89,21 @@ impl Tag {
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
                     Ok(quote! { #tags.map(|s| s.to_string()) })
                 }
-                _ => Err(Error::new_spanned(
-                    field,
-                    error_msg::unsupported_unnamed_type(TAG, idx, field.ty.to_token_stream()),
-                )),
+                Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
+                _ => {
+                    let ty = &field.ty;
+                    Ok(quote! { <#ty>::from_message(&msg)? })
+                }
             },
             Self::Flag(key) => match TypeKind::classify(&field.ty) {
                 Bool => Ok(quote! { tags.get_flag(#key) }),
-                _ => Err(Error::new_spanned(
-                    &field.ty,
-                    "tag_flag field must be of type bool",
-                )),
+                _ => match TypeKind::classify(&field.ty) {
+                    Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
+                    _ => {
+                        let ty = &field.ty;
+                        Ok(quote! { <#ty>::from_message(&msg)? })
+                    }
+                },
             },
         }
     }

@@ -1,11 +1,10 @@
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{Error, Result};
 use syn::{Ident, LitStr};
 
 use crate::ser::SerializationBuilder;
 use crate::type_check;
-use crate::COMMAND;
-use crate::{error_msg, TypeKind};
+use crate::TypeKind;
 
 #[derive(Clone)]
 pub struct CommandField(pub Option<LitStr>);
@@ -25,21 +24,21 @@ impl CommandField {
             return Ok(quote! { #field_name: #with_fn(command.as_str()) });
         }
 
+        use TypeKind::*;
+
         match TypeKind::classify(&field.ty) {
-            TypeKind::Str => Ok(quote! { #field_name: command.as_str() }),
-            TypeKind::String => Ok(quote! { #field_name: command.to_string() }),
+            Str => Ok(quote! { #field_name: command.as_str() }),
+            String => Ok(quote! { #field_name: command.to_string() }),
+            Option(_) => Err(Error::new_spanned(
+                field,
+                "command field cannot be Option<...> (use &str or String instead)",
+            )),
             _ => {
                 if type_check::is_type(&field.ty, "Commands") {
                     Ok(quote! { #field_name: command })
                 } else {
-                    Err(Error::new_spanned(
-                        field,
-                        error_msg::unsupported_type(
-                            COMMAND,
-                            field_name,
-                            field.ty.to_token_stream(),
-                        ),
-                    ))
+                    let ty = &field.ty;
+                    Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
                 }
             }
         }
@@ -47,7 +46,7 @@ impl CommandField {
 
     pub fn expand_unnamed(
         field: &syn::Field,
-        idx: usize,
+        _idx: usize,
         with: &Option<LitStr>,
     ) -> Result<proc_macro2::TokenStream> {
         if let Some(with_fn) = with {
@@ -55,21 +54,21 @@ impl CommandField {
             return Ok(quote! { #with_fn(command.as_str()) });
         }
 
+        use TypeKind::*;
+
         match TypeKind::classify(&field.ty) {
-            TypeKind::Str => Ok(quote! { command.as_str() }),
-            TypeKind::String => Ok(quote! { command.to_string() }),
+            Str => Ok(quote! { command.as_str() }),
+            String => Ok(quote! { command.to_string() }),
+            Option(_) => Err(Error::new_spanned(
+                field,
+                "command field cannot be Option<...> (use &str or String instead)",
+            )),
             _ => {
                 if type_check::is_type(&field.ty, "Commands") {
                     Ok(quote! { command })
                 } else {
-                    Err(Error::new_spanned(
-                        field,
-                        error_msg::unsupported_unnamed_type(
-                            COMMAND,
-                            idx,
-                            field.ty.to_token_stream(),
-                        ),
-                    ))
+                    let ty = &field.ty;
+                    Ok(quote! { <#ty>::from_message(&msg)? })
                 }
             }
         }

@@ -1,10 +1,9 @@
-use quote::{quote, ToTokens};
-use syn::{Error, Result};
+use quote::quote;
+use syn::Result;
 use syn::{Field, Ident, LitInt, LitStr};
 
 use crate::ser::SerializationBuilder;
-use crate::PARAM;
-use crate::{error_msg, TypeKind};
+use crate::TypeKind;
 
 pub struct ParamField(usize);
 
@@ -44,17 +43,18 @@ impl ParamField {
             Option(inner) if matches!(TypeKind::classify(inner), String) => {
                 Ok(quote! { #field_name: #params.map(|s| s.to_string()) })
             }
-            _ => Err(Error::new_spanned(
-                field,
-                error_msg::unsupported_type(PARAM, field_name, field.ty.to_token_stream()),
-            )),
+            Option(inner) => Ok(quote! { #field_name: <#inner>::from_message(&msg).ok() }),
+            _ => {
+                let ty = &field.ty;
+                Ok(quote! { #field_name: <#ty>::from_message(&msg)? })
+            }
         }
     }
 
     pub fn expand_unnamed(
         &self,
         field: &Field,
-        field_idx: usize,
+        _field_idx: usize,
         with: &Option<LitStr>,
     ) -> Result<proc_macro2::TokenStream> {
         if let Some(with_fn) = with {
@@ -79,10 +79,11 @@ impl ParamField {
             Option(inner) if matches!(TypeKind::classify(inner), String) => {
                 Ok(quote! { #params.map(|s| s.to_string()) })
             }
-            _ => Err(Error::new_spanned(
-                field,
-                error_msg::unsupported_unnamed_type(PARAM, field_idx, field.ty.to_token_stream()),
-            )),
+            Option(inner) => Ok(quote! { <#inner>::from_message(&msg).ok() }),
+            _ => {
+                let ty = &field.ty;
+                Ok(quote! { <#ty>::from_message(&msg)? })
+            }
         }
     }
 

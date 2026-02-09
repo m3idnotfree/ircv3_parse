@@ -70,6 +70,17 @@ pub(crate) const WITH: &str = "with";
 /// **Custom Extraction:**
 /// - `#[irc(with = "function")]` - Use custom extraction function
 ///
+/// ## Nested Types
+///
+/// Fields can use custom types that implement `FromMessage`. The macro will
+/// automatically call `<Type>::from_message()` for custom types.
+///
+/// **Behavior:**
+/// - If a field has **no attribute**, the macro calls `<Type>::from_message()`
+/// - If a field has an attribute but the type is **not** `&str`, `String`,
+///   `Option<&str>`, or `Option<String>`, the attribute is **ignored** and
+///   `<Type>::from_message()` is called instead
+///
 #[proc_macro_derive(FromMessage, attributes(irc))]
 pub fn derive_from_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -126,9 +137,9 @@ fn expend_named_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
             }
         };
 
-        attribute.mark_components(&mut components);
+        attribute.mark_components(field, &mut components);
 
-        commands = attribute.command_field();
+        commands = attribute.command_field(field);
 
         let expand = match attribute.expand(field, field_name) {
             Ok(expand) => expand,
@@ -195,9 +206,9 @@ fn expend_unnamed_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream>
             }
         };
 
-        attribute.mark_components(&mut components);
+        attribute.mark_components(field, &mut components);
 
-        commands = attribute.command_field();
+        commands = attribute.command_field(field);
 
         let expand = match attribute.expand_unnamed(field, idx) {
             Ok(expand) => expand,

@@ -103,8 +103,28 @@ impl FieldAttribute {
         self.kind.expand_unnamed(field, idx, &self.with)
     }
 
-    pub fn mark_components(&self, components: &mut MessageComponents) {
+    pub fn mark_components(&self, field: &Field, components: &mut MessageComponents) {
         use FieldKind::*;
+
+        let has_with = self.with.is_some();
+
+        let is_primitive = match TypeKind::classify(&field.ty) {
+            TypeKind::Str | TypeKind::String => true,
+            TypeKind::Option(inner) => {
+                matches!(TypeKind::classify(inner), TypeKind::Str | TypeKind::String)
+            }
+            TypeKind::Vec(inner) => {
+                matches!(TypeKind::classify(inner), TypeKind::Str | TypeKind::String)
+            }
+            TypeKind::Bool => true,
+            _ => false,
+        };
+
+        let is_commands = crate::type_check::is_type(&field.ty, "Commands");
+
+        if !has_with && !is_primitive && !is_commands {
+            return;
+        }
 
         match &self.kind {
             Tag { .. } => {
@@ -123,9 +143,22 @@ impl FieldAttribute {
         };
     }
 
-    pub fn command_field(&self) -> Option<LitStr> {
+    pub fn command_field(&self, field: &Field) -> Option<LitStr> {
         match &self.kind {
-            FieldKind::Command(cmd) => cmd.0.clone(),
+            FieldKind::Command(cmd) => {
+                use TypeKind::*;
+
+                match TypeKind::classify(&field.ty) {
+                    Str | String => cmd.0.clone(),
+                    _ => {
+                        if crate::type_check::is_type(&field.ty, "Commands") {
+                            cmd.0.clone()
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
             _ => None,
         }
     }

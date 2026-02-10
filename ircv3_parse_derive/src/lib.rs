@@ -94,10 +94,7 @@ fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStre
         syn::Data::Struct(data) => match &data.fields {
             syn::Fields::Named(_) => expend_named_struct(input),
             syn::Fields::Unnamed(_) => expend_unnamed_struct(input),
-            _ => Err(Error::new_spanned(
-                &input.ident,
-                "FromMessage does not support unit structs",
-            )),
+            syn::Fields::Unit => expend_unit(input),
         },
         _ => Err(Error::new_spanned(
             &input.ident,
@@ -244,6 +241,80 @@ fn expend_unnamed_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream>
                     #(#expand_fields),*
                 ))
 
+            }
+        }
+    })
+}
+
+fn expend_unit(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
+    if input.attrs.is_empty() {
+        let name = &input.ident.to_string();
+        return Err(Error::new_spanned(
+            input,
+            format!("unit struct `{name}` requires at least one IRC attribute"),
+        ));
+    }
+
+    let (_, struct_ty_generics, _) = input.generics.split_for_impl();
+
+    let mut impl_block_generics = input.generics.clone();
+    let msg_lifetime = get_or_create_msg_lifetime(&mut impl_block_generics);
+    let (impl_generics, _, where_clause) = impl_block_generics.split_for_impl();
+
+    let mut components = MessageComponents::default();
+    let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut errors = Vec::new();
+    let mut commands: Option<LitStr> = None;
+
+    for attr in &input.attrs {
+        if !attr.path().is_ident(IRC) {
+            continue;
+        }
+
+        let attribute = match FieldAttribute::parse_unit(attr) {
+            Ok(attr) => attr,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+
+        attribute.mark_components_unit(&mut components);
+
+        commands = attribute.command_field_unit();
+
+        let expand = match attribute.expand_struct_unit(&input.ident) {
+            Ok(expand) => expand,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+
+        expand_fields.push(expand);
+    }
+
+    if let Some(e) = combine_errors(errors) {
+        return Err(e);
+    }
+
+    let struct_name = &input.ident;
+    let struct_attrs = StructAttribute::default();
+    let command_validation = struct_attrs.expand_validation(commands);
+    let setup_code = components.expand();
+
+    Ok(quote! {
+        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
+            for #struct_name #struct_ty_generics #where_clause
+        {
+            fn from_message(
+                msg: &ircv3_parse::Message<#msg_lifetime>
+            ) -> Result<Self, ircv3_parse::DeError> {
+                #command_validation
+
+                #(#setup_code)*
+
+                #(#expand_fields),*
             }
         }
     })

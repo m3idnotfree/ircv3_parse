@@ -198,3 +198,16 @@ fn nested_outer_attribute_ignored() {
 
     assert!(ircv3_parse::from_str::<Message>("NOTICE").is_err());
 }
+
+#[test]
+fn unit_struct() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    #[irc(command = "PRIVMSG")]
+    struct PrivMsg;
+
+    let input = "PRIVMSG";
+    let msg: PrivMsg = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(PrivMsg, msg);
+
+    assert!(ircv3_parse::from_str::<PrivMsg>("NOTICE").is_err());
+}

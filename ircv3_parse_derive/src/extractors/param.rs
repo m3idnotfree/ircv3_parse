@@ -87,6 +87,28 @@ impl ParamField {
         }
     }
 
+    pub fn expand_struct_unit(
+        &self,
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            let params = self.expand_param();
+            return Ok(quote! { #with_fn(#params) });
+        }
+
+        let idx = self.0;
+        let params = self.expand_param();
+        Ok(quote! {
+            if #params.is_some() {
+                Ok(#struct_name)
+            } else {
+                Err(ircv3_parse::DeError::missing_param_field(stringify!(#struct_name), #idx))
+            }
+        })
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

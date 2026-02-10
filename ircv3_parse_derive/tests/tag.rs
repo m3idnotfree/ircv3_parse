@@ -211,3 +211,14 @@ fn nested_outer_attribute_ignored() {
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(MsgId("123".to_string()), msg.msg_id);
 }
+
+#[test]
+fn unit_struct() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    #[irc(tag = "msgid")]
+    struct MsgId;
+
+    let input = "@msgid=123 PRIVMSG #channel :hello";
+    let msg: MsgId = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(MsgId, msg);
+}

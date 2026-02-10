@@ -4,11 +4,11 @@ error: FromMessage only supports structs
 4 | enum M1 {
   |      ^^
 
-error: FromMessage does not support unit structs
-  --> tests/ui/fail/02_unsupported_data_fail.rs:12:8
+error: unit struct `M3` requires at least one IRC attribute
+  --> tests/ui/fail/02_unsupported_data_fail.rs:12:1
    |
 12 | struct M3;
-   |        ^^
+   | ^^^^^^^^^^
 
 error[E0599]: no function or associated item named `from_message` found for struct `String` in the current scope
  --> tests/ui/fail/02_unsupported_data_fail.rs:8:10

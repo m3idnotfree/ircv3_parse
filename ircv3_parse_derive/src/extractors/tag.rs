@@ -108,6 +108,35 @@ impl Tag {
         }
     }
 
+    pub fn expand_struct_unit(
+        &self,
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let tags = self.expand_tag_with();
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(#tags) });
+        }
+
+        let tags = self.expand_tag();
+        match self {
+            Self::Value(key) => Ok(quote! {
+                match #tags {
+                    Some(v) => Ok(#struct_name),
+                    None => Err(ircv3_parse::DeError::missing_tag(stringify!(#struct_name), #key))
+                }
+            }),
+            Self::Flag(key) => Ok(quote! {
+                if #tags {
+                    Ok(#struct_name)
+                } else {
+                    Err(ircv3_parse::DeError::missing_tag(stringify!(#struct_name), #key))
+                }
+            }),
+        }
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

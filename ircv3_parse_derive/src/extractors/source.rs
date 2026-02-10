@@ -133,6 +133,34 @@ impl SourceField {
         }
     }
 
+    pub fn expand_struct_unit(
+        &self,
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let source = self.expand_source();
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(#source) });
+        }
+
+        match self {
+            Self::Name => Ok(quote! {Ok(#struct_name)}),
+            Self::User | Self::Host => {
+                let source = self.expand_source();
+                let source_field_str = self.as_str();
+
+                Ok(quote! {
+                    if #source.is_some() {
+                        Ok(#struct_name)
+                    } else {
+                        Err(ircv3_parse::DeError::missing_source_field(stringify!(#struct_name), #source_field_str))
+                    }
+                })
+            }
+        }
+    }
+
     pub fn expand_de(
         &self,
         field: &Field,

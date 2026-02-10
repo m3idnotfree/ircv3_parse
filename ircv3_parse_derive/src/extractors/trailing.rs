@@ -66,6 +66,18 @@ impl TrailingField {
         }
     }
 
+    pub fn expand_struct_unit(
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(params.trailing.as_str()) });
+        }
+
+        Ok(quote! {Ok(#struct_name)})
+    }
+
     pub fn expand_de(
         field: &syn::Field,
         field_name: &Ident,

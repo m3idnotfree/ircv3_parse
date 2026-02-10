@@ -7,6 +7,7 @@ use crate::{COMMAND, IRC};
 
 const CRLF: &str = "crlf";
 
+#[derive(Default)]
 pub struct StructAttribute {
     command: Option<LitStr>,
     crlf: bool,

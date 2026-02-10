@@ -74,6 +74,19 @@ impl CommandField {
         }
     }
 
+    pub fn expand_struct_unit(
+        &self,
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        if let Some(with_fn) = with {
+            let with_fn = Ident::new(&with_fn.value(), with_fn.span());
+            return Ok(quote! { #with_fn(command.as_str()) });
+        }
+
+        Ok(quote! {Ok(#struct_name)})
+    }
+
     pub fn expand_de(
         self,
         _field: &syn::Field,

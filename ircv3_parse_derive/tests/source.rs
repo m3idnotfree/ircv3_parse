@@ -233,3 +233,14 @@ fn nested_outer_attribute_ignored() {
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some(Nick("nick".to_string())), msg.nick);
 }
+
+#[test]
+fn unit_struct() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    #[irc(source = "name")]
+    struct Nick;
+
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Nick = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Nick, msg);
+}

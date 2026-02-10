@@ -173,3 +173,14 @@ fn duplication() {
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Content("hi"), msg.content);
 }
+
+#[test]
+fn unit_struct() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    #[irc(trailing)]
+    struct Content;
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Content = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Content, msg);
+}

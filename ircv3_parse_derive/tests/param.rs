@@ -257,3 +257,14 @@ fn nested_outer_attribute_ignored() {
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Count(42), msg.count);
 }
+
+#[test]
+fn unit_struct() {
+    #[derive(FromMessage, Debug, PartialEq)]
+    #[irc(param = 0)]
+    struct Count;
+
+    let input = "PRIVMSG 42";
+    let msg: Count = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Count, msg);
+}

@@ -95,12 +95,49 @@ impl FieldAttribute {
         Ok(Self { kind, with })
     }
 
+    pub fn parse_unit(attr: &syn::Attribute) -> Result<Self> {
+        let mut field_kind: Option<FieldKind> = None;
+        let mut with: Option<LitStr> = None;
+
+        attr.parse_nested_meta(|meta| {
+            let attr_type = AttributeType::parse_unnamed(&meta)?;
+
+            if let AttributeType::With(value) = attr_type {
+                if with.is_some() {
+                    return Err(meta.error(error_msg::duplicate_attribute(WITH)));
+                }
+
+                with = Some(value);
+                return Ok(());
+            }
+
+            if let Some(existing) = &field_kind {
+                return Err(meta.error(format!(
+                    "field cannot have multiple extraction attributes (found both `{}` and `{}`)",
+                    existing.name(),
+                    attr_type.name()
+                )));
+            }
+
+            field_kind = Some(FieldKind::from_attribute_type(attr_type)?);
+            Ok(())
+        })?;
+
+        let kind = field_kind.unwrap_or(FieldKind::Nested);
+
+        Ok(Self { kind, with })
+    }
+
     pub fn expand(&self, field: &Field, field_name: &Ident) -> Result<proc_macro2::TokenStream> {
         self.kind.expand(field, field_name, &self.with)
     }
 
     pub fn expand_unnamed(&self, field: &Field, idx: usize) -> Result<proc_macro2::TokenStream> {
         self.kind.expand_unnamed(field, idx, &self.with)
+    }
+
+    pub fn expand_struct_unit(&self, struct_name: &Ident) -> Result<proc_macro2::TokenStream> {
+        self.kind.expand_struct_unit(struct_name, &self.with)
     }
 
     pub fn mark_components(&self, field: &Field, components: &mut MessageComponents) {
@@ -143,6 +180,26 @@ impl FieldAttribute {
         };
     }
 
+    pub fn mark_components_unit(&self, components: &mut MessageComponents) {
+        use FieldKind::*;
+
+        match &self.kind {
+            Tag { .. } => {
+                components.mark_tags();
+            }
+            Source(_) => {
+                components.mark_source();
+            }
+            Param(_) | Params | Trailing => {
+                components.mark_params();
+            }
+            Command(_) => {
+                components.mark_command();
+            }
+            _ => {}
+        };
+    }
+
     pub fn command_field(&self, field: &Field) -> Option<LitStr> {
         match &self.kind {
             FieldKind::Command(cmd) => {
@@ -159,6 +216,13 @@ impl FieldAttribute {
                     }
                 }
             }
+            _ => None,
+        }
+    }
+
+    pub fn command_field_unit(&self) -> Option<LitStr> {
+        match &self.kind {
+            FieldKind::Command(cmd) => cmd.0.clone(),
             _ => None,
         }
     }
@@ -436,6 +500,24 @@ impl FieldKind {
                     }
                 }
             }
+        }
+    }
+
+    pub fn expand_struct_unit(
+        &self,
+        struct_name: &Ident,
+        with: &Option<LitStr>,
+    ) -> Result<proc_macro2::TokenStream> {
+        match &self {
+            Self::Tag(tag_type) => tag_type.expand_struct_unit(struct_name, with),
+            Self::Source(source) => source.expand_struct_unit(struct_name, with),
+            Self::Param(param) => param.expand_struct_unit(struct_name, with),
+            Self::Trailing => TrailingField::expand_struct_unit(struct_name, with),
+            Self::Command(cmd) => cmd.expand_struct_unit(struct_name, with),
+            _ => Err(Error::new_spanned(
+                struct_name,
+                format!("`{}` requires IRC attribute", struct_name),
+            )),
         }
     }
 

@@ -1,11 +1,11 @@
 error: required `tag` value
- --> tests/ui/fail/unnamed_missing_value_fail.rs:4:30
+ --> tests/ui/de/fail/unnamed_missing_value.rs:4:30
   |
 4 | struct MissingTagValue(#[irc(tag)] String);
   |                              ^^^
 
 error: required `tag_flag` value
- --> tests/ui/fail/unnamed_missing_value_fail.rs:7:34
+ --> tests/ui/de/fail/unnamed_missing_value.rs:7:34
   |
 7 | struct MissingTagFlagValue(#[irc(tag_flag)] String);
   |                                  ^^^^^^^^

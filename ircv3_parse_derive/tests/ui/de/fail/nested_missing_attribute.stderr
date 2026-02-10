@@ -1,5 +1,5 @@
 error: field `msg_id` requires an IRC attribute for ToMessage serialization
-  --> tests/ui/fail/both_revires.rs:10:5
+  --> tests/ui/de/fail/nested_missing_attribute.rs:10:5
    |
 10 |     msg_id: MsgId,
    |     ^^^^^^^^^^^^^

@@ -1,17 +1,17 @@
 error: FromMessage only supports structs
- --> tests/ui/fail/02_unsupported_data_fail.rs:4:6
+ --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:4:6
   |
 4 | enum M1 {
   |      ^^
 
 error: unit struct `M3` requires at least one IRC attribute
-  --> tests/ui/fail/02_unsupported_data_fail.rs:12:1
+  --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:12:1
    |
 12 | struct M3;
    | ^^^^^^^^^^
 
 error[E0599]: no function or associated item named `from_message` found for struct `String` in the current scope
- --> tests/ui/fail/02_unsupported_data_fail.rs:8:10
+ --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:8:10
   |
 8 | #[derive(FromMessage)]
   |          ^^^^^^^^^^^ function or associated item not found in `String`

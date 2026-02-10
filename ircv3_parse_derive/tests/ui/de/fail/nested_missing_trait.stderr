@@ -1,5 +1,5 @@
 error[E0599]: no function or associated item named `from_message` found for struct `Tag` in the current scope
- --> tests/ui/fail/not_implementation_nested_from_message_fail.rs:5:10
+ --> tests/ui/de/fail/nested_missing_trait.rs:5:10
   |
 3 | struct Tag(String);
   | ---------- function or associated item `from_message` not found for this struct

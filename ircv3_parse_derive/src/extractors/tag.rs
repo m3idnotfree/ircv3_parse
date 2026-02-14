@@ -29,10 +29,10 @@ impl Tag {
         match self {
             Self::Value(key) => match TypeKind::classify(&field.ty) {
                 Str => Ok(
-                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#field_name), #key))?.as_str() },
+                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::not_found_tag(#key))?.as_str() },
                 ),
                 String => Ok(
-                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#field_name), #key))?.to_string() },
+                    quote! { #field_name: #tags.ok_or(ircv3_parse::DeError::not_found_tag(#key))?.to_string() },
                 ),
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     Ok(quote! { #field_name: #tags.map(|s| s.as_str()) })
@@ -62,7 +62,7 @@ impl Tag {
     pub fn expand_unnamed(
         &self,
         field: &Field,
-        idx: usize,
+        _idx: usize,
         with: &Option<LitStr>,
     ) -> Result<proc_macro2::TokenStream> {
         if let Some(with_fn) = with {
@@ -77,11 +77,11 @@ impl Tag {
 
         match self {
             Self::Value(key) => match TypeKind::classify(&field.ty) {
-                Str => Ok(
-                    quote! { #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#idx), #key))?.as_str() },
-                ),
+                Str => {
+                    Ok(quote! { #tags.ok_or(ircv3_parse::DeError::not_found_tag(#key))?.as_str() })
+                }
                 String => Ok(
-                    quote! { #tags.ok_or(ircv3_parse::DeError::missing_tag(stringify!(#idx), #key))?.to_string() },
+                    quote! { #tags.ok_or(ircv3_parse::DeError::not_found_tag(#key))?.to_string() },
                 ),
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     Ok(quote! { #tags.map(|s| s.as_str()) })
@@ -124,14 +124,14 @@ impl Tag {
             Self::Value(key) => Ok(quote! {
                 match #tags {
                     Some(v) => Ok(#struct_name),
-                    None => Err(ircv3_parse::DeError::missing_tag(stringify!(#struct_name), #key))
+                    None => Err(ircv3_parse::DeError::not_found_tag(#key))
                 }
             }),
             Self::Flag(key) => Ok(quote! {
                 if #tags {
                     Ok(#struct_name)
                 } else {
-                    Err(ircv3_parse::DeError::missing_tag(stringify!(#struct_name), #key))
+                    Err(ircv3_parse::DeError::not_found_tag(#key))
                 }
             }),
         }

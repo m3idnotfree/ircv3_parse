@@ -32,10 +32,10 @@ impl ParamField {
 
         match TypeKind::classify(&field.ty) {
             Str => Ok(
-                quote! { #field_name: #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#field_name), #idx))? },
+                quote! { #field_name: #params.ok_or(ircv3_parse::DeError::not_found_param(#idx))? },
             ),
             String => Ok(
-                quote! { #field_name: #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#field_name), #idx))?.to_string() },
+                quote! { #field_name: #params.ok_or(ircv3_parse::DeError::not_found_param(#idx))?.to_string() },
             ),
             Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                 Ok(quote! { #field_name: #params })
@@ -69,11 +69,9 @@ impl ParamField {
         let params = self.expand_param();
 
         match TypeKind::classify(&field.ty) {
-            Str => Ok(
-                quote! { #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#idx), #idx))? },
-            ),
+            Str => Ok(quote! { #params.ok_or(ircv3_parse::DeError::not_found_param(#idx))? }),
             String => Ok(
-                quote! { #params.ok_or(ircv3_parse::DeError::missing_param_field(stringify!(#idx), #idx))?.to_string() },
+                quote! { #params.ok_or(ircv3_parse::DeError::not_found_param(#idx))?.to_string() },
             ),
             Option(inner) if matches!(TypeKind::classify(inner), Str) => Ok(quote! { #params }),
             Option(inner) if matches!(TypeKind::classify(inner), String) => {
@@ -104,7 +102,7 @@ impl ParamField {
             if #params.is_some() {
                 Ok(#struct_name)
             } else {
-                Err(ircv3_parse::DeError::missing_param_field(stringify!(#struct_name), #idx))
+                Err(ircv3_parse::DeError::not_found_param(#idx))
             }
         })
     }

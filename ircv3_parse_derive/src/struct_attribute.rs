@@ -60,7 +60,7 @@ impl StructAttribute {
             .map(|cmd| {
                 quote! {
                     if msg.command() != #cmd {
-                        return Err(ircv3_parse::DeError::invalid_command(
+                        return Err(ircv3_parse::DeError::command_mismatch(
                             #cmd,
                             msg.command().as_str()
                         ));

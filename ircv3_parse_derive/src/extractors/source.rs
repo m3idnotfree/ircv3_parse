@@ -57,10 +57,10 @@ impl SourceField {
 
                 match TypeKind::classify(&field.ty) {
                     Str => Ok(
-                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#field_name), #source_field_str))? },
+                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::not_found_source(#source_field_str))? },
                     ),
                     String => Ok(
-                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#field_name), #source_field_str))?.to_string() },
+                        quote! { #field_name: #source.ok_or(ircv3_parse::DeError::not_found_source(#source_field_str))?.to_string() },
                     ),
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         Ok(quote! { #field_name: #source})
@@ -81,7 +81,7 @@ impl SourceField {
     pub fn expand_unnamed(
         &self,
         field: &Field,
-        idx: usize,
+        _idx: usize,
         with: &Option<LitStr>,
     ) -> Result<proc_macro2::TokenStream> {
         if let Some(with_fn) = with {
@@ -112,10 +112,10 @@ impl SourceField {
 
                 match TypeKind::classify(&field.ty) {
                     Str => Ok(
-                        quote! { #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#idx), #source_field_str))? },
+                        quote! { #source.ok_or(ircv3_parse::DeError::not_found_source(#source_field_str))? },
                     ),
                     String => Ok(
-                        quote! { #source.ok_or(ircv3_parse::DeError::missing_source_field(stringify!(#idx), #source_field_str))?.to_string() },
+                        quote! { #source.ok_or(ircv3_parse::DeError::not_found_source(#source_field_str))?.to_string() },
                     ),
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         Ok(quote! { #source })
@@ -154,7 +154,7 @@ impl SourceField {
                     if #source.is_some() {
                         Ok(#struct_name)
                     } else {
-                        Err(ircv3_parse::DeError::missing_source_field(stringify!(#struct_name), #source_field_str))
+                        Err(ircv3_parse::DeError::not_found_source(#source_field_str))
                     }
                 })
             }

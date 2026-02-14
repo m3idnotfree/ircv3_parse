@@ -136,7 +136,7 @@
 //!         // Validate command
 //!         let command = msg.command();
 //!         if !command.is_privmsg() {
-//!             return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
+//!             return Err(DeError::command_mismatch("PRIVMSG", command.as_str()));
 //!         }
 //!
 //!         // Extract tags (optional)
@@ -146,13 +146,13 @@
 //!
 //!         // Extract source (required)
 //!         let source = msg.source()
-//!             .ok_or_else(|| DeError::missing_source())?;
+//!             .ok_or_else(|| DeError::source_component_not_found())?;
 //!         let nick = source.name;
 //!
 //!         // Extract parameters
 //!         let params = msg.params();
 //!         let channel = params.middles.first()
-//!             .ok_or_else(|| DeError::missing_param_field("channel", 0))?;
+//!             .ok_or_else(|| DeError::not_found_param(0))?;
 //!         let message = params.trailing.as_str();
 //!
 //!         Ok(Self {
@@ -337,23 +337,23 @@
 //!         println!("Invalid IRC message format: {e}");
 //!     }
 //!
-//!     if e.is_invalid_command() {
+//!     if e.is_command_mismatch() {
 //!         println!("Expected PRIVMSG, got {input}");
 //!     }
 //!
-//!     if e.is_missing_tags() {
+//!     if e.is_tags_component_not_found() {
 //!         println!("Message has no tags component");
 //!     }
 //!
-//!     if e.is_missing_source() {
+//!     if e.is_source_component_not_found() {
 //!         println!("Message has no source component");
 //!     }
 //!
-//!     if e.is_missing_param() {
+//!     if e.is_param_component_not_found() {
 //!         println!("Message has no parameters");
 //!     }
 //!
-//!     if e.is_missing_tag() {
+//!     if e.is_not_found_tag() {
 //!         println!("Specific tag not found");
 //!     }
 //! }

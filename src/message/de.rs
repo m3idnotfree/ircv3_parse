@@ -16,13 +16,13 @@
 ///     fn from_message(msg: &ircv3_parse::Message<'a>) -> Result<Self, ircv3_parse::DeError> {
 ///         let command = msg.command();
 ///         if !command.is_privmsg() {
-///             return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
+///             return Err(DeError::command_mismatch("PRIVMSG", command.as_str()));
 ///         }
 ///
-///         let tags = msg.tags().ok_or(DeError::missing_tags())?;
+///         let tags = msg.tags().ok_or(DeError::tags_component_not_found())?;
 ///         let color = tags.get("color").map(|v| v.as_str());
 ///
-///         let source = msg.source().ok_or(DeError::missing_source())?;
+///         let source = msg.source().ok_or(DeError::source_component_not_found())?;
 ///         let nick = source.name;
 ///
 ///         let params = msg.params();
@@ -74,14 +74,14 @@ mod tests {
         fn from_message(msg: &crate::Message<'a>) -> Result<Self, DeError> {
             let command = msg.command();
             if !command.is_privmsg() {
-                return Err(DeError::invalid_command("PRIVMSG", command.as_str()));
+                return Err(DeError::command_mismatch("PRIVMSG", command.as_str()));
             }
 
-            let tags = msg.tags().ok_or(DeError::missing_tags())?;
+            let tags = msg.tags().ok_or(DeError::tags_component_not_found())?;
             let aaa = tags.get("aaa").map(|e| e.as_str());
             let ccc = tags.get_flag("ccc");
 
-            let source = msg.source().ok_or(DeError::missing_source())?;
+            let source = msg.source().ok_or(DeError::source_component_not_found())?;
             let nick = source.name;
 
             let params = msg.params();
@@ -125,7 +125,7 @@ mod tests {
         let input = ":nick JOIN #channel";
         let error = TestMessage::from_str(input).expect_err("Expected invalid command error");
 
-        assert!(error.is_invalid_command());
+        assert!(error.is_command_mismatch());
     }
 
     #[test]
@@ -133,6 +133,6 @@ mod tests {
         let input = "@aaa=bbb PRIVMSG #channel :Hello";
         let error = TestMessage::from_str(input).expect_err("Expected missing source error");
 
-        assert!(error.is_missing_source());
+        assert!(error.is_source_component_not_found());
     }
 }

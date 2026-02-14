@@ -1,4 +1,4 @@
-use crate::compat::{Debug, FmtResult, Formatter, String};
+use crate::compat::{format, Debug, FmtResult, Formatter, String, ToString};
 
 #[derive(Clone, PartialEq, thiserror::Error)]
 pub enum IRCError {
@@ -177,25 +177,19 @@ impl HostnameError {
 
 #[derive(Clone, PartialEq, thiserror::Error)]
 pub enum DeError {
-    #[error("invalid command: expected `{expected}`, got `{actual}`")]
-    InvalidCommand { expected: String, actual: String },
+    #[error("command mismatch: expected `{expected}`, got `{actual}`")]
+    CommandMismatch { expected: String, actual: String },
 
-    #[error("missing required component: {component}")]
-    MissingComponent { component: &'static str },
-    #[error("missing required field: {field}")]
-    MissingField { field: &'static str },
-    #[error("missing tag `{tag_key}` for field `{field}`")]
-    MissingTag { field: String, tag_key: String },
+    #[error("component not found: {component}")]
+    ComponentNotFound { component: &'static str },
 
-    #[error("missing source `{component}` for field '{field}'")]
-    MissingSourceField {
-        field: String,
+    #[error("not found `{component}` value: `{key}`{}", .context.as_ref().map(|context| format!(" ({context})")).unwrap_or_default())]
+    NotFound {
         component: &'static str,
+        key: String,
+        context: Option<String>,
     },
-    #[error("missing parameter at index {index} for field '{field}'")]
-    MissingParam { field: String, index: usize },
-    #[error("invalid field value for field '{field}': {reason}")]
-    InvalidValue { field: String, reason: String },
+
     #[error("failed to parse IRC message: {0}")]
     ParseError(#[from] IRCError),
 }
@@ -209,13 +203,9 @@ impl Debug for DeError {
 impl DeError {
     pub fn code(&self) -> &'static str {
         match self {
-            Self::InvalidCommand { .. } => "INVALID_COMMAND",
-            Self::MissingComponent { .. } => "MISSING_COMPONENT",
-            Self::MissingField { .. } => "MISSING_FIELD",
-            Self::MissingTag { .. } => "MISSING_TAG",
-            Self::MissingSourceField { .. } => "MISSING_SOURCE",
-            Self::MissingParam { .. } => "MISSING_PARAM",
-            Self::InvalidValue { .. } => "INVALID_VALUE",
+            Self::CommandMismatch { .. } => "COMMAND_MISMATCH",
+            Self::ComponentNotFound { .. } => "COMPONENT_NOT_FOUND",
+            Self::NotFound { .. } => "NOT_FOUND",
             Self::ParseError(e) => e.code(),
         }
     }
@@ -224,87 +214,144 @@ impl DeError {
         matches!(self, DeError::ParseError(..))
     }
 
-    pub fn is_missing_tags(&self) -> bool {
-        matches!(self, DeError::MissingComponent { component: "tags" })
+    pub fn is_tags_component_not_found(&self) -> bool {
+        matches!(self, DeError::ComponentNotFound { component: "tags" })
     }
 
-    pub fn is_missing_source(&self) -> bool {
+    pub fn is_source_component_not_found(&self) -> bool {
         matches!(
             self,
-            DeError::MissingComponent {
+            DeError::ComponentNotFound {
                 component: "source"
             }
         )
     }
 
-    pub fn is_missing_param(&self) -> bool {
-        matches!(self, DeError::MissingComponent { component: "param" })
+    pub fn is_param_component_not_found(&self) -> bool {
+        matches!(self, DeError::ComponentNotFound { component: "param" })
     }
 
-    pub fn is_missing_tag(&self) -> bool {
-        matches!(self, DeError::MissingTag { .. })
+    pub fn is_trailing_component_not_found(&self) -> bool {
+        matches!(
+            self,
+            DeError::ComponentNotFound {
+                component: "trailing"
+            }
+        )
     }
 
-    pub fn is_invalid_command(&self) -> bool {
-        matches!(self, DeError::InvalidCommand { .. })
+    pub fn is_not_found_tag(&self) -> bool {
+        matches!(
+            self,
+            DeError::NotFound {
+                component: "tag",
+                ..
+            }
+        )
     }
 
-    pub fn invalid_command(expected: impl Into<String>, actual: impl Into<String>) -> Self {
-        Self::InvalidCommand {
+    pub fn is_not_found_source(&self) -> bool {
+        matches!(
+            self,
+            DeError::NotFound {
+                component: "source",
+                ..
+            }
+        )
+    }
+
+    pub fn is_not_found_param(&self) -> bool {
+        matches!(
+            self,
+            DeError::NotFound {
+                component: "param",
+                ..
+            }
+        )
+    }
+
+    pub fn is_not_found_trailing(&self) -> bool {
+        matches!(
+            self,
+            DeError::NotFound {
+                component: "trailing",
+                ..
+            }
+        )
+    }
+
+    pub fn is_command_mismatch(&self) -> bool {
+        matches!(self, DeError::CommandMismatch { .. })
+    }
+
+    pub fn command_mismatch(expected: impl Into<String>, actual: impl Into<String>) -> Self {
+        Self::CommandMismatch {
             expected: expected.into(),
             actual: actual.into(),
         }
     }
 
-    pub fn missing_tags() -> Self {
-        Self::MissingComponent { component: "tags" }
+    pub fn tags_component_not_found() -> Self {
+        Self::ComponentNotFound { component: "tags" }
     }
 
-    pub fn missing_source() -> Self {
-        Self::MissingComponent {
+    pub fn source_component_not_found() -> Self {
+        Self::ComponentNotFound {
             component: "source",
         }
     }
 
-    pub fn missing_command() -> Self {
-        Self::MissingComponent {
-            component: "command",
-        }
+    pub fn param_component_not_found() -> Self {
+        Self::ComponentNotFound { component: "param" }
     }
 
-    pub fn missing_param() -> Self {
-        Self::MissingComponent { component: "param" }
-    }
-
-    pub fn missing_field(field: &'static str) -> Self {
-        Self::MissingField { field }
-    }
-
-    pub fn missing_tag(field: impl Into<String>, tag_key: impl Into<String>) -> Self {
-        Self::MissingTag {
-            field: field.into(),
-            tag_key: tag_key.into(),
-        }
-    }
-
-    pub fn missing_source_field(field: impl Into<String>, component: &'static str) -> Self {
-        Self::MissingSourceField {
-            field: field.into(),
+    pub fn not_found(component: &'static str, key: impl Into<String>) -> Self {
+        Self::NotFound {
             component,
+            key: key.into(),
+            context: None,
         }
     }
 
-    pub fn missing_param_field(field: impl Into<String>, index: usize) -> Self {
-        Self::MissingParam {
-            field: field.into(),
-            index,
+    pub fn not_found_with_context(
+        component: &'static str,
+        key: impl Into<String>,
+        context: impl Into<String>,
+    ) -> Self {
+        Self::NotFound {
+            component,
+            key: key.into(),
+            context: Some(context.into()),
         }
     }
 
-    pub fn invalid_value(field: impl Into<String>, reason: impl Into<String>) -> Self {
-        Self::InvalidValue {
-            field: field.into(),
-            reason: reason.into(),
+    pub fn not_found_tag(key: impl Into<String>) -> Self {
+        Self::not_found("tag", key)
+    }
+
+    pub fn not_found_source(component: &'static str) -> Self {
+        Self::not_found("source", component)
+    }
+
+    pub fn not_found_param(index: usize) -> Self {
+        Self::not_found("param", index.to_string())
+    }
+
+    pub fn not_found_trailing() -> Self {
+        Self::ComponentNotFound {
+            component: "trailing",
         }
+    }
+
+    pub fn not_found_variant(
+        component: &'static str,
+        actual: impl Into<String>,
+        expected: impl Into<String>,
+    ) -> Self {
+        Self::not_found_with_context(
+            component,
+            actual,
+            format!("expected one of: {}", expected.into()),
+        )
     }
 }

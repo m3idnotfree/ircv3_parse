@@ -4,8 +4,20 @@ error: field cannot have multiple extraction attributes (found both `tag` and `t
 6 |     #[irc(tag = "key2")]
   |           ^^^^^^^^^^^^
 
+error: first `tag` defined here
+ --> tests/ui/de/fail/duplicate_attributes.rs:5:11
+  |
+5 |     #[irc(tag = "key1")]
+  |           ^^^
+
 error: field cannot have multiple extraction attributes (found both `tag` and `tag`)
   --> tests/ui/de/fail/duplicate_attributes.rs:12:25
    |
 12 |     #[irc(tag = "key1", tag = "key2")]
    |                         ^^^^^^^^^^^^
+
+error: first `tag` defined here
+  --> tests/ui/de/fail/duplicate_attributes.rs:12:11
+   |
+12 |     #[irc(tag = "key1", tag = "key2")]
+   |           ^^^

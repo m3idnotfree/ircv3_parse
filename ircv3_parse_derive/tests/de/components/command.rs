@@ -59,19 +59,20 @@ fn validation() {
 }
 
 #[test]
-fn overrides_validation() {
+fn validation_and_extraction() {
     #[derive(FromMessage)]
     #[irc(command = "PRIVMSG")]
     struct Cmd<'a> {
-        #[irc(command = "NOTICE")]
+        #[irc(command)]
         command: &'a str,
     }
 
     let input = "PRIVMSG #channel :hello";
-    assert!(ircv3_parse::from_str::<Cmd>(input).is_err());
+    let result = ircv3_parse::from_str::<Cmd>(input).unwrap();
+    assert_eq!(result.command, "PRIVMSG");
 
     let input = "NOTICE #channel :hello";
-    assert!(ircv3_parse::from_str::<Cmd>(input).is_ok());
+    assert!(ircv3_parse::from_str::<Cmd>(input).is_err());
 }
 
 #[test]
@@ -120,16 +121,17 @@ fn unnamed_validation() {
 }
 
 #[test]
-fn unnamed_overrides_validation() {
+fn unnamed_validation_and_extraction() {
     #[derive(FromMessage)]
     #[irc(command = "PRIVMSG")]
-    struct Message<'a>(#[irc(command = "NOTICE")] &'a str);
+    struct Message<'a>(#[irc(command)] &'a str);
 
     let input = "PRIVMSG #channel :hello";
-    assert!(ircv3_parse::from_str::<Message>(input).is_err());
+    let result = ircv3_parse::from_str::<Message>(input).unwrap();
+    assert_eq!(result.0, "PRIVMSG");
 
     let input = "NOTICE #channel :hello";
-    assert!(ircv3_parse::from_str::<Message>(input).is_ok());
+    assert!(ircv3_parse::from_str::<Message>(input).is_err());
 }
 
 #[test]
@@ -181,14 +183,14 @@ fn nested_command_with_validation() {
 }
 
 #[test]
-fn nested_outer_attribute_ignored() {
+fn field_attribute_ignored_for_nested_type() {
     #[derive(FromMessage, Debug, PartialEq)]
     #[irc(command = "PRIVMSG")]
     struct PrivMsg(#[irc(command)] String);
 
     #[derive(FromMessage)]
     struct Message {
-        #[irc(command = "NOTICE")]
+        #[irc(command)]
         cmd: PrivMsg,
     }
 

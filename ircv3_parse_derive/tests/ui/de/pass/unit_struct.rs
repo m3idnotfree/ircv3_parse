@@ -24,11 +24,8 @@ struct SS;
 struct SH;
 
 #[derive(FromMessage)]
-#[irc(command)]
+#[irc(command = "PRIVMSG")]
 struct C;
-#[derive(FromMessage)]
-#[irc(command = "CMD")]
-struct CV;
 
 #[derive(FromMessage)]
 #[irc(param)]

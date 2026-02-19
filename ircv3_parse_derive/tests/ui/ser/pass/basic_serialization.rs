@@ -34,7 +34,7 @@ struct FullMessage<'a> {
     #[irc(trailing)]
     message2: String,
 
-    #[irc(command = "NOTICE")]
+    #[irc(command)]
     cmd: String,
 }
 

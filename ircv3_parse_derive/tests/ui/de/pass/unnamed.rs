@@ -55,9 +55,6 @@ struct CommandStruct(#[irc(param)] String);
 struct CommandField(#[irc(command)] String);
 
 #[derive(FromMessage)]
-struct CommandFieldOverride(#[irc(command = "PRIVMSG")] String);
-
-#[derive(FromMessage)]
 struct ParamSingle(#[irc(param)] String);
 
 #[derive(FromMessage)]

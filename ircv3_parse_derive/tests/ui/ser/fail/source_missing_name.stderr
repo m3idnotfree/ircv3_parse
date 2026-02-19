@@ -1,4 +1,4 @@
-error: source `name` field is required when using `user` or `host fields
+error: source `name` field is required when using `user` or `host` fields
  --> tests/ui/ser/fail/source_missing_name.rs:4:8
   |
 4 | struct M<'a> {

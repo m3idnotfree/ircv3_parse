@@ -97,16 +97,20 @@ fn command_check() {
 }
 
 #[test]
-fn command_check_ignore_struct_level() {
+fn command_check_with_extraction() {
     #[allow(unused)]
     #[derive(FromMessage)]
     #[irc(command = "PRIVMSG")]
     struct CommandCheck<'a> {
-        #[irc(command = "NOTICE")]
+        #[irc(command)]
         comand: &'a str,
     }
 
     let input = "PRIVMSG #channel :hello";
+    let result = ircv3_parse::from_str::<CommandCheck>(input).unwrap();
+    assert_eq!("PRIVMSG", result.comand);
+
+    let input = "NOTICE #channel :hello";
     assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
 }
 

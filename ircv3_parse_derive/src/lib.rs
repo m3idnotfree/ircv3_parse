@@ -1,35 +1,14 @@
-pub(crate) mod error_msg;
-
-mod components;
-mod extractors;
-mod field_attribute;
-mod msg_lifetime;
+mod ast;
+mod attr;
+mod component_set;
+mod error_msg;
+mod expand;
 mod ser;
-mod struct_attribute;
 mod type_check;
-
-pub(crate) use type_check::TypeKind;
+mod valid;
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::LitStr;
-use syn::{parse_macro_input, DeriveInput, Error, Result};
-
-use components::MessageComponents;
-use extractors::{extract_named_fields, extract_unnamed_fields};
-use field_attribute::FieldAttribute;
-use msg_lifetime::get_or_create_msg_lifetime;
-use struct_attribute::StructAttribute;
-
-pub(crate) const IRC: &str = "irc";
-pub(crate) const COMMAND: &str = "command";
-pub(crate) const TAG: &str = "tag";
-pub(crate) const TAG_FLAG: &str = "tag_flag";
-pub(crate) const SOURCE: &str = "source";
-pub(crate) const PARAM: &str = "param";
-pub(crate) const PARAMS: &str = "params";
-pub(crate) const TRAILING: &str = "trailing";
-pub(crate) const WITH: &str = "with";
+use syn::{parse_macro_input, DeriveInput, Error};
 
 /// Derives `FromMessage` implementation for structs
 ///
@@ -63,9 +42,10 @@ pub(crate) const WITH: &str = "with";
 ///
 /// **Command Extraction:**
 /// - `#[irc(command)]` - Extract command value
-/// - `#[irc(command = "COMMAND)]` - Extract and validate command matches "COMMAND"
-///     - If field-level `command` is set, struct-level `command` is ignored
-///     - If multiple `command` attribute exist, the last one is used
+///
+/// **Note**: Field-level `#[irc(command)]` cannot have a value. Use struct-level
+/// `#[irc(command = "COMMAND")]` for validation. Both can be used together:
+/// struct-level validates, field-level extracts.
 ///
 /// **Custom Extraction:**
 /// - `#[irc(with = "function")]` - Use custom extraction function
@@ -84,247 +64,9 @@ pub(crate) const WITH: &str = "with";
 #[proc_macro_derive(FromMessage, attributes(irc))]
 pub fn derive_from_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derive_from_message_impl(input)
+    expand::derive_from_message(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
-}
-
-fn derive_from_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
-    match &input.data {
-        syn::Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(_) => expend_named_struct(input),
-            syn::Fields::Unnamed(_) => expend_unnamed_struct(input),
-            syn::Fields::Unit => expend_unit(input),
-        },
-        _ => Err(Error::new_spanned(
-            &input.ident,
-            "FromMessage only supports structs",
-        )),
-    }
-}
-
-fn expend_named_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
-    let (_, struct_ty_generics, _) = input.generics.split_for_impl();
-
-    let mut impl_block_generics = input.generics.clone();
-    let msg_lifetime = get_or_create_msg_lifetime(&mut impl_block_generics);
-    let (impl_generics, _, where_clause) = impl_block_generics.split_for_impl();
-
-    let struct_attrs = StructAttribute::parse(&input)?;
-
-    let fields = extract_named_fields(&input, "FromMessage")?;
-
-    let mut components = MessageComponents::default();
-    let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut errors = Vec::new();
-
-    let mut commands: Option<LitStr> = None;
-
-    for field in fields.iter() {
-        let field_name = match field.ident.as_ref() {
-            Some(field_name) => field_name,
-            None => continue,
-        };
-
-        let attribute = match FieldAttribute::parse(field, field_name) {
-            Ok(attr) => attr,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        attribute.mark_components(field, &mut components);
-
-        commands = attribute.command_field(field);
-
-        let expand = match attribute.expand(field, field_name) {
-            Ok(expand) => expand,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        expand_fields.push(expand);
-    }
-
-    if let Some(e) = combine_errors(errors) {
-        return Err(e);
-    }
-
-    let struct_name = &input.ident;
-    let command_validation = struct_attrs.expand_validation(commands);
-    let setup_code = components.expand();
-
-    Ok(quote! {
-        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
-            for #struct_name #struct_ty_generics #where_clause
-        {
-            fn from_message(
-                msg: &ircv3_parse::Message<#msg_lifetime>
-            ) -> Result<Self, ircv3_parse::DeError> {
-                #command_validation
-
-                #(#setup_code)*
-
-                Ok(Self {
-                    #(#expand_fields),*
-                })
-
-            }
-        }
-    })
-}
-
-fn expend_unnamed_struct(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
-    let (_, struct_ty_generics, _) = input.generics.split_for_impl();
-
-    let mut impl_block_generics = input.generics.clone();
-    let msg_lifetime = get_or_create_msg_lifetime(&mut impl_block_generics);
-    let (impl_generics, _, where_clause) = impl_block_generics.split_for_impl();
-
-    let struct_attrs = StructAttribute::parse(&input)?;
-
-    let fields = extract_unnamed_fields(&input, "FromMessage")?;
-
-    let mut components = MessageComponents::default();
-    let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut errors = Vec::new();
-
-    let mut commands: Option<LitStr> = None;
-
-    for (idx, field) in fields.iter().enumerate() {
-        let attribute = match FieldAttribute::parse_unnamed(field) {
-            Ok(attr) => attr,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        attribute.mark_components(field, &mut components);
-
-        commands = attribute.command_field(field);
-
-        let expand = match attribute.expand_unnamed(field, idx) {
-            Ok(expand) => expand,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        expand_fields.push(expand);
-    }
-
-    if let Some(e) = combine_errors(errors) {
-        return Err(e);
-    }
-
-    let struct_name = &input.ident;
-    let command_validation = struct_attrs.expand_validation(commands);
-    let setup_code = components.expand();
-
-    Ok(quote! {
-        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
-            for #struct_name #struct_ty_generics #where_clause
-        {
-            fn from_message(
-                msg: &ircv3_parse::Message<#msg_lifetime>
-            ) -> Result<Self, ircv3_parse::DeError> {
-                #command_validation
-
-                #(#setup_code)*
-
-                Ok(Self(
-                    #(#expand_fields),*
-                ))
-
-            }
-        }
-    })
-}
-
-fn expend_unit(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
-    if input.attrs.is_empty() {
-        let name = &input.ident.to_string();
-        return Err(Error::new_spanned(
-            input,
-            format!("unit struct `{name}` requires at least one IRC attribute"),
-        ));
-    }
-
-    let (_, struct_ty_generics, _) = input.generics.split_for_impl();
-
-    let mut impl_block_generics = input.generics.clone();
-    let msg_lifetime = get_or_create_msg_lifetime(&mut impl_block_generics);
-    let (impl_generics, _, where_clause) = impl_block_generics.split_for_impl();
-
-    let mut components = MessageComponents::default();
-    let mut expand_fields: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut errors = Vec::new();
-    let mut commands: Option<LitStr> = None;
-
-    for attr in &input.attrs {
-        if !attr.path().is_ident(IRC) {
-            continue;
-        }
-
-        let attribute = match FieldAttribute::parse_unit(attr) {
-            Ok(attr) => attr,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        attribute.mark_components_unit(&mut components);
-
-        commands = attribute.command_field_unit();
-
-        let expand = match attribute.expand_struct_unit(&input.ident) {
-            Ok(expand) => expand,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        expand_fields.push(expand);
-    }
-
-    if let Some(e) = combine_errors(errors) {
-        return Err(e);
-    }
-
-    let struct_name = &input.ident;
-    let struct_attrs = StructAttribute::default();
-    let command_validation = struct_attrs.expand_validation(commands);
-    let setup_code = components.expand();
-
-    Ok(quote! {
-        impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
-            for #struct_name #struct_ty_generics #where_clause
-        {
-            fn from_message(
-                msg: &ircv3_parse::Message<#msg_lifetime>
-            ) -> Result<Self, ircv3_parse::DeError> {
-                #command_validation
-
-                #(#setup_code)*
-
-                #(#expand_fields),*
-            }
-        }
-    })
-}
-
-fn combine_errors(errors: Vec<Error>) -> Option<Error> {
-    errors.into_iter().reduce(|mut a, b| {
-        a.combine(b);
-        a
-    })
 }
 
 /// Derives `ToMessage` implementation for structs to serialize IRC messages.
@@ -363,15 +105,16 @@ fn combine_errors(errors: Vec<Error>) -> Option<Error> {
 /// - `#[irc(trailing)]` - Serializes field as the trailing parameter
 ///
 /// ### Command
-/// - `#[irc(command)]` - Serializes field as the IRC command
-/// - `#[irc(command = "COMMAND")]` - Uses the specified command string
-///   - If field-level `command` is set, struct-level `command` is ignored
-///   - If multiple `command` attributes exist, the last one takes precedence
+/// - `#[irc(command)]` - Serializes field value as the IRC command
+///
+/// **Priority**: Field-level `#[irc(command)]` takes precedence over struct-level
+/// `#[irc(command = "COMMAND")]`. If both are present, the field value is used.
+/// If only struct-level is set, that value is used as the default command.
 ///
 #[proc_macro_derive(ToMessage, attributes(irc))]
-pub fn derive_to_message(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    ser::derive_to_message_impl(input)
+pub fn derive_to_message(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    expand::derive_to_message(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }

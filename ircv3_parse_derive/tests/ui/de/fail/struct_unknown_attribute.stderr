@@ -1,4 +1,4 @@
-error: unknown IRC attribute: cmd
+error: unknown `#[irc]` attribute `cmd`
  --> tests/ui/de/fail/struct_unknown_attribute.rs:4:7
   |
 4 | #[irc(cmd = "PrivMsg")]

@@ -1,4 +1,10 @@
-error: invalid source field (valid options: `name`, `user`, or `host`)
+error: `tag` value cannot be empty
+ --> tests/ui/de/fail/empty_attribute_value.rs:5:17
+  |
+5 |     #[irc(tag = "")]
+  |                 ^^
+
+error: `source` value cannot be empty
   --> tests/ui/de/fail/empty_attribute_value.rs:11:20
    |
 11 |     #[irc(source = "")]

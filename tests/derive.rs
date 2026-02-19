@@ -6,12 +6,13 @@ fn roundtip() {
 
     #[derive(FromMessage, ToMessage)]
     #[irc(crlf)]
+    #[irc(command = "PRIVMSG")]
     struct Message<'a> {
         #[irc(tag)]
         subscriper: String,
         #[irc(tag)]
         msgid: Option<&'a str>,
-        #[irc(command = "PRIVMSG")]
+        #[irc(command)]
         command: Commands<'a>,
         #[irc(trailing)]
         message: &'a str,

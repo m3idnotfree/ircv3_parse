@@ -5,10 +5,10 @@ error: FromMessage only supports structs
   |      ^^
 
 error: unit struct `M3` requires at least one IRC attribute
-  --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:12:1
+  --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:12:8
    |
 12 | struct M3;
-   | ^^^^^^^^^^
+   |        ^^
 
 error[E0599]: no function or associated item named `from_message` found for struct `String` in the current scope
  --> tests/ui/de/fail/enum_and_unit_missing_attrs.rs:8:10

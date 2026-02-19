@@ -1,4 +1,4 @@
-error: field `tag` requires an IRC attribute for ToMessage serialization
+error: field `tag` requires an #[irc(...)] attribute for ToMessage serialization
  --> tests/ui/ser/fail/nested_missing_attribute.rs:7:5
   |
 7 |     tag: Option<Tag>,

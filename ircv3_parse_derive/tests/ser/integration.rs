@@ -7,28 +7,19 @@ use ircv3_parse_derive::ToMessage;
 fn struct_level_command() {
     #[derive(ToMessage)]
     #[irc(command = "PRIVMSG")]
-    struct PrivMsg {}
+    struct PrivMsg {
+        #[irc(trailing)]
+        text: String,
+    }
 
-    let priv_msg = PrivMsg {};
-
-    let size = priv_msg.serialized_size();
-    let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("PRIVMSG", msg);
-    assert_eq!(7, size)
-}
-
-#[test]
-fn struct_level_command_crlf() {
-    #[derive(ToMessage)]
-    #[irc(command = "PRIVMSG", crlf)]
-    struct PrivMsg {};
-
-    let priv_msg = PrivMsg {};
+    let priv_msg = PrivMsg {
+        text: "hello".to_string(),
+    };
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("PRIVMSG\r\n", msg);
-    assert_eq!(9, size)
+    assert_eq!("PRIVMSG :hello", msg);
+    assert_eq!(14, size);
 }
 
 #[test]
@@ -36,7 +27,7 @@ fn struct_level_command_with_field_command() {
     #[derive(ToMessage)]
     #[irc(command = "PRIVMSG")]
     struct PrivMsg {
-        #[irc(command = "NOTICE")]
+        #[irc(command)]
         command: String,
     }
 
@@ -54,7 +45,7 @@ fn struct_level_command_with_field_command() {
 fn field_command() {
     #[derive(ToMessage)]
     struct PrivMsg {
-        #[irc(command = "NOTICE")]
+        #[irc(command)]
         command: String,
     }
 

@@ -1,68 +1,30 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::LitStr;
-use syn::{DeriveInput, Error, Result};
+use syn::{DeriveInput, Error, LitStr, Result};
 
-use crate::extract_named_fields;
-use crate::FieldAttribute;
-use crate::StructAttribute;
+use crate::attr::StructAttrs;
 
-pub fn derive_to_message_impl(input: DeriveInput) -> Result<TokenStream> {
-    let fields = extract_named_fields(&input, "ToMessage")?;
-
-    let mut errors = Vec::new();
-    let mut builder = SerializationBuilder::new(&input)?;
-
-    for field in fields.iter() {
-        let field_name = match field.ident.as_ref() {
-            Some(field_name) => field_name,
-            None => continue,
-        };
-
-        let attribute = match FieldAttribute::parse(field, field_name) {
-            Ok(attr) => attr,
-            Err(e) => {
-                errors.push(e);
-                continue;
-            }
-        };
-
-        match attribute.expand_de(field, field_name, &mut builder) {
-            Ok(_) => {}
-            Err(e) => {
-                errors.push(e);
-            }
-        };
-    }
-
-    if let Some(e) = crate::combine_errors(errors) {
-        return Err(e);
-    }
-
-    builder.expand(&input)
-}
-
-struct SerializeCommand(Option<LitStr>);
+struct SerializeCommand(Option<TokenStream>);
 
 impl SerializeCommand {
     pub fn new() -> Self {
         Self(None)
     }
 
-    pub fn set(&mut self, code: Option<LitStr>) {
-        self.0 = code;
+    pub fn set(&mut self, code: TokenStream) {
+        self.0 = Some(code);
     }
 
-    pub fn expend(self, struct_command: &Option<LitStr>) -> TokenStream {
-        self.0
-            .as_ref()
-            .or(struct_command.as_ref())
-            .map(|cmd| {
-                quote! {
-                    { serialize.command(ircv3_parse::Commands::from(#cmd)); }
-                }
-            })
-            .unwrap_or_default()
+    pub fn expand(self, struct_command: Option<&LitStr>) -> TokenStream {
+        if let Some(field_code) = self.0 {
+            field_code
+        } else if let Some(cmd) = struct_command {
+            quote! {
+                { serialize.command(ircv3_parse::Commands::from(#cmd)); }
+            }
+        } else {
+            quote! {}
+        }
     }
 }
 
@@ -102,13 +64,13 @@ impl Source {
         if self.name.is_none() && (self.user.is_some() || self.host.is_some()) {
             return Err(Error::new_spanned(
                 &input.ident,
-                "source `name` field is required when using `user` or `host fields",
+                "source `name` field is required when using `user` or `host` fields",
             ));
         }
         Ok(())
     }
 
-    pub fn expend(self, input: &DeriveInput) -> Result<TokenStream> {
+    pub fn expand(self, input: &DeriveInput) -> Result<TokenStream> {
         if !self.has_components() {
             return Ok(quote! {});
         }
@@ -131,7 +93,7 @@ impl Source {
     }
 }
 
-pub struct SerializationBuilder {
+pub struct SerializationBuilder<'a> {
     tag_fields: Vec<TokenStream>,
     custom_tags: Vec<TokenStream>,
     source: Source,
@@ -141,13 +103,12 @@ pub struct SerializationBuilder {
     trailing: Option<TokenStream>,
     custom_trailing: Vec<TokenStream>,
     field_command: SerializeCommand,
-    struct_attrs: StructAttribute,
+    struct_attrs: &'a StructAttrs,
 }
 
-impl SerializationBuilder {
-    pub fn new(input: &DeriveInput) -> Result<Self> {
-        let struct_attrs = StructAttribute::parse(input)?;
-        Ok(Self {
+impl<'a> SerializationBuilder<'a> {
+    pub fn new(struct_attrs: &'a StructAttrs) -> Self {
+        Self {
             tag_fields: Vec::new(),
             custom_tags: Vec::new(),
             source: Source::new(),
@@ -158,7 +119,7 @@ impl SerializationBuilder {
             custom_trailing: Vec::new(),
             field_command: SerializeCommand::new(),
             struct_attrs,
-        })
+        }
     }
 
     pub fn tag(&mut self, code: TokenStream) {
@@ -169,7 +130,7 @@ impl SerializationBuilder {
         self.custom_tags.push(code);
     }
 
-    pub fn field_command(&mut self, code: Option<LitStr>) {
+    pub fn field_command(&mut self, code: TokenStream) {
         self.field_command.set(code);
     }
 
@@ -220,8 +181,8 @@ impl SerializationBuilder {
             quote! {}
         };
 
-        let source_code = self.source.expend(input)?;
-        let command_code = self.field_command.expend(self.struct_attrs.command());
+        let source_code = self.source.expand(input)?;
+        let command_code = self.field_command.expand(self.struct_attrs.command());
         let params_code = if !self.params.is_empty() {
             let p = &self.params;
             quote! {
@@ -230,7 +191,6 @@ impl SerializationBuilder {
                     let mut params = serialize.params();
                     #(#p)*
                     params.end();
-
                 }
             }
         } else {
@@ -274,7 +234,6 @@ impl SerializationBuilder {
                     #crlf_expand
                     Ok(())
                 }
-
             }
         })
     }

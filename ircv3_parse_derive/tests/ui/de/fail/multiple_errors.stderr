@@ -1,10 +1,10 @@
-error: unknown IRC attribute: invalid
+error: unknown `#[irc]` attribute `invalid`
  --> tests/ui/de/fail/multiple_errors.rs:5:11
   |
 5 |     #[irc(invalid)]
   |           ^^^^^^^
 
-error: unknown IRC attribute: invalid2
+error: unknown `#[irc]` attribute `invalid2`
  --> tests/ui/de/fail/multiple_errors.rs:7:11
   |
 7 |     #[irc(invalid2)]

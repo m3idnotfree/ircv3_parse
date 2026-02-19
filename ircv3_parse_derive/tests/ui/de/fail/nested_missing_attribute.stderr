@@ -1,4 +1,4 @@
-error: field `msg_id` requires an IRC attribute for ToMessage serialization
+error: field `msg_id` requires an #[irc(...)] attribute for ToMessage serialization
   --> tests/ui/de/fail/nested_missing_attribute.rs:10:5
    |
 10 |     msg_id: MsgId,

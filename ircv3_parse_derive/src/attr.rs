@@ -16,6 +16,7 @@ pub const TRAILING: &str = "trailing";
 pub const COMMAND: &str = "command";
 pub const WITH: &str = "with";
 pub const CRLF: &str = "crlf";
+pub const DEFAULT: &str = "default";
 
 pub struct UnitStructAttrs {
     pub command: Option<LitStr>,
@@ -32,6 +33,7 @@ pub struct StructAttrs {
 pub struct FieldAttrs {
     pub kind: Option<FieldKind>,
     pub with: Option<LitStr>,
+    pub default: Option<FieldDefault>,
     pub unknown: Vec<Path>,
 }
 
@@ -49,6 +51,11 @@ pub enum Source {
     Name,
     User,
     Host,
+}
+
+pub enum FieldDefault {
+    Path(LitStr),
+    Trait,
 }
 
 impl UnitStructAttrs {
@@ -225,6 +232,8 @@ impl FieldAttrs {
         let mut kind_span: Option<Span> = None;
         let mut with: Option<LitStr> = None;
         let mut with_span: Option<Span> = None;
+        let mut default: Option<FieldDefault> = None;
+        let mut default_span: Option<Span> = None;
         let mut unknown = Vec::new();
 
         let field_name = field.ident.as_ref();
@@ -251,8 +260,39 @@ impl FieldAttrs {
                         return Err(err);
                     }
 
-                    with_span = Some(meta.path.span());
                     with = Some(lit);
+                    with_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                if meta.path.is_ident(DEFAULT) {
+                    let value = if meta.input.peek(Eq) {
+                        let lit: LitStr = meta.value()?.parse()?;
+
+                        if lit.value().is_empty() {
+                            return Err(Error::new(
+                                lit.span(),
+                                error_msg::cannot_be_empty(DEFAULT),
+                            ));
+                        }
+
+                        FieldDefault::Path(lit)
+                    } else {
+                        FieldDefault::Trait
+                    };
+
+                    if default.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(DEFAULT));
+                        if let Some(first) = default_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(DEFAULT)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    default = Some(value);
+                    default_span = Some(meta.path.span());
 
                     return Ok(());
                 }
@@ -274,8 +314,8 @@ impl FieldAttrs {
                         return Err(err);
                     }
 
-                    kind_span = Some(meta.path.span());
                     kind = Some(field_kind);
+                    kind_span = Some(meta.path.span());
 
                     return Ok(());
                 }
@@ -289,15 +329,30 @@ impl FieldAttrs {
             })?;
         }
 
+        if default.is_some() && kind.is_none() {
+            if let Some(span) = default_span {
+                return Err(Error::new(span, error_msg::default_requires_component()));
+            }
+        }
+
         Ok(Self {
             kind,
             with,
+            default,
             unknown,
         })
     }
 
     pub fn add_to(&self, components: &mut ComponentSet) {
         if let Some(kind) = &self.kind {
+            if self.default.is_some() {
+                match kind {
+                    FieldKind::Tag(_) | FieldKind::TagFlag(_) => return,
+                    FieldKind::Source(_) => return,
+                    _ => {}
+                }
+            }
+
             kind.add_to(components);
         }
     }

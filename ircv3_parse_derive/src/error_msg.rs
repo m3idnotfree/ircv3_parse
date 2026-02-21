@@ -45,6 +45,11 @@ pub fn duplicate_unit_struct_attribute(first: &str, second: &str) -> String {
     )
 }
 
+pub fn default_requires_component() -> &'static str {
+    "`default` can only be used together with a component attribute \
+    (`tag`, `tag_flag`, `source`, `param`, `params`, or `trailing`)"
+}
+
 pub fn command_field_cannot_be_option() -> &'static str {
     "command field cannot be Option<&str> or Option<String> (use &str or String instead)"
 }

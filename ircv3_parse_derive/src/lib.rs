@@ -12,43 +12,56 @@ use syn::{parse_macro_input, DeriveInput, Error};
 
 /// Derives `FromMessage` implementation for structs
 ///
-/// # Attributes
-///
 /// ## Struct-level
 ///
 /// - `#[irc(command = "COMMAND")]` - Validates command matches
 ///
 /// ## Field-level
 ///
-/// **Tag Extraction:**
+/// ### Tag Extraction
 /// - `#[irc(tag)]` - Extract tag value using field name as key
 /// - `#[irc(tag = "key")]` - Extract tag value with custom key
 ///
-/// **Tag Flag Extraction:**
+/// ### Tag Flag Extraction
 /// - `#[irc(tag_flag)]` - Extract tag flag using field name as key (returns `bool`)
 /// - `#[irc(tag_flag = "key")]` - Extract tag flag with custom key (returns `bool`)
 ///
-/// **Source Extraction:**
+/// ### Source Extraction
 /// - `#[irc(source)]` - Extract source `name` component
 /// - `#[irc(source = "name|user|host")]` - Extract source component
 ///
-/// **Parameter Extraction:**
+/// ### Parameter Extraction
 /// - `#[irc(param)]` - Extract first parameter (index 0)
 /// - `#[irc(param = N)]` - Extract parameter at index N
 /// - `#[irc(params)]` - Extract all parameter into a `Vec`
 ///
-/// **Trailing Parameter:**
+/// ### Trailing Parameter
 /// - `#[irc(trailing)]` - Extract trailing parameter
 ///
-/// **Command Extraction:**
+/// ### Command Extraction
 /// - `#[irc(command)]` - Extract command value
 ///
 /// **Note**: Field-level `#[irc(command)]` cannot have a value. Use struct-level
 /// `#[irc(command = "COMMAND")]` for validation. Both can be used together:
 /// struct-level validates, field-level extracts.
 ///
-/// **Custom Extraction:**
+/// ### Custom Extraction
 /// - `#[irc(with = "function")]` - Use custom extraction function
+///
+/// ### Default Value
+///
+/// - `#[irc(tag = "key", default)]` — Uses `Default::default()` when the component is absent
+/// - `#[irc(tag = "key", default = "function")]` — Calls `function()` when the component is absent
+///
+/// **`Option<T>` fields**: `default` is ignored. `Option<T>` already returns `None`
+/// when the component is absent, regardless of whether `default` is present.
+///
+/// **Trailing**: When `default` is used with `trailing`, an empty trailing parameter
+/// (`:` with no content) is treated as absent and the default value is used.
+///
+/// **Constraints**:
+/// - `default` requires a component attribute (`tag`, `source`, `param`, etc.)
+/// - `default` cannot be specified more than once
 ///
 /// ## Nested Types
 ///
@@ -91,13 +104,15 @@ pub fn derive_from_message(input: TokenStream) -> TokenStream {
 /// ### Source
 /// - `#[irc(source)]` - Serializes field as source name component (`source = "name"`)
 /// - `#[irc(source = "name|user|host")]` - Serializes field as source component
-///     - **Note**: `name` is **required** when using `user` or `host`
+///
+///   **Note**: `name` is **required** when using `user` or `host`
 ///
 /// ### Parameters
 /// - `#[irc(param)]` - Serializes field as a middle parameter
 /// - `#[irc(params)]` - Serializes field as multiple middle parameters
 /// - `#[irc(param = N)]` - Serializes field as a middle parameter
-///     - **Note**: The index `N` is ignored during serialization
+///
+///   **Note**: The index `N` is ignored during serialization
 ///     - `FromMessage` uses the index to extract the Nth parameter
 ///     - `ToMessage` always serializes fields in declaration order
 ///
@@ -107,9 +122,9 @@ pub fn derive_from_message(input: TokenStream) -> TokenStream {
 /// ### Command
 /// - `#[irc(command)]` - Serializes field value as the IRC command
 ///
-/// **Priority**: Field-level `#[irc(command)]` takes precedence over struct-level
-/// `#[irc(command = "COMMAND")]`. If both are present, the field value is used.
-/// If only struct-level is set, that value is used as the default command.
+///   **Priority**: Field-level `#[irc(command)]` takes precedence over struct-level
+///   `#[irc(command = "COMMAND")]`. If both are present, the field value is used.
+///   If only struct-level is set, that value is used as the default command.
 ///
 #[proc_macro_derive(ToMessage, attributes(irc))]
 pub fn derive_to_message(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

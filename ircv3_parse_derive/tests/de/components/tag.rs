@@ -222,3 +222,152 @@ fn unit_struct() {
     let msg: MsgId = ircv3_parse::from_str(input).unwrap();
     assert_eq!(MsgId, msg);
 }
+
+#[test]
+fn default_trait_no_component() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default)]
+        msg_id: String,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.msg_id);
+}
+
+#[test]
+fn default_fn_no_component() {
+    fn default_id() -> String {
+        "0".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default = "default_id")]
+        msg_id: String,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("0", msg.msg_id);
+}
+
+#[test]
+fn tag_flag_default_trait_no_component() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag_flag = "msgid", default)]
+        msg_id: bool,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert!(!msg.msg_id);
+}
+
+#[test]
+fn default_trait_present() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default)]
+        msg_id: String,
+    }
+
+    let input = "@msgid=123 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("123", msg.msg_id);
+}
+
+#[test]
+fn default_fn_present() {
+    fn default_id() -> String {
+        "0".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default = "default_id")]
+        msg_id: String,
+    }
+
+    let input = "@msgid=123 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("123", msg.msg_id);
+}
+
+#[test]
+fn tag_flag_default_trait_present() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag_flag = "msgid", default)]
+        msg_id: bool,
+    }
+
+    let input = "@msgid PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert!(msg.msg_id);
+}
+
+#[test]
+fn optional_with_default() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default)]
+        msg_id: Option<String>,
+    }
+
+    let input = "@f=456 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.msg_id);
+}
+
+#[test]
+fn optional_with_default_present() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default)]
+        msg_id: Option<String>,
+    }
+
+    let input = "@msgid=123 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Some("123".to_string()), msg.msg_id);
+}
+
+#[test]
+fn optional_with_default_no_component() {
+    #[derive(FromMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", default)]
+        msg_id: Option<String>,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.msg_id);
+}
+
+#[test]
+fn unnamed_default_trait() {
+    #[derive(FromMessage)]
+    struct Tag(#[irc(tag = "msgid", default)] String);
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.0);
+}
+
+#[test]
+fn unnamed_default_fn() {
+    fn default_id() -> String {
+        "0".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Tag(#[irc(tag = "msgid", default = "default_id")] String);
+
+    let input = "PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("0", msg.0);
+}

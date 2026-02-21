@@ -184,3 +184,101 @@ fn unit_struct() {
     let msg: Content = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Content, msg);
 }
+
+#[test]
+fn default_trait_no_component() {
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default)]
+        msg: String,
+    }
+
+    let input = "PRIVMSG #channel";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.msg);
+
+    let input = "PRIVMSG #channel :";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.msg);
+}
+
+#[test]
+fn default_fn_no_component() {
+    fn default_message() -> String {
+        "welcome".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default = "default_message")]
+        msg: String,
+    }
+
+    let input = "PRIVMSG #channel";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("welcome", msg.msg);
+
+    let input = "PRIVMSG #channel :";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("welcome", msg.msg);
+}
+
+#[test]
+fn default_trait_present() {
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default)]
+        msg: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("hi", msg.msg);
+}
+
+#[test]
+fn default_fn_present() {
+    fn default_message() -> String {
+        "welcome".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default = "default_message")]
+        msg: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("hi", msg.msg);
+}
+
+#[test]
+fn optional_with_default() {
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default)]
+        msg: Option<String>,
+    }
+
+    let input = "PRIVMSG #channel";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.msg);
+
+    let input = "PRIVMSG #channel :";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.msg);
+}
+
+#[test]
+fn optional_with_default_present() {
+    #[derive(FromMessage)]
+    struct Message {
+        #[irc(trailing, default)]
+        msg: Option<String>,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Some("hi".to_string()), msg.msg);
+}

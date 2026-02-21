@@ -4,7 +4,7 @@ use syn::{DeriveInput, Error, Ident, LitStr, Result};
 
 use crate::{
     ast::{Enum, Field, FieldStruct, Input, Struct, UnitStruct},
-    attr::{FieldAttrs, FieldKind, Source, StructAttrs, UnitStructAttrs},
+    attr::{FieldAttrs, FieldDefault, FieldKind, Source, StructAttrs, UnitStructAttrs},
     component_set::ComponentSet,
     ser::SerializationBuilder,
     type_check::TypeKind,
@@ -225,7 +225,7 @@ impl<'a> Field<'a> {
 impl FieldAttrs {
     pub fn expand_de(&self, field: &syn::Field) -> TokenStream {
         if let Some(kind) = &self.kind {
-            kind.expand_de(field, self.with.as_ref())
+            kind.expand_de(field, self.with.as_ref(), self.default.as_ref())
         } else if let Some(with_fn) = &self.with {
             expand_with(field, with_fn)
         } else {
@@ -247,12 +247,17 @@ impl FieldAttrs {
 }
 
 impl FieldKind {
-    fn expand_de(&self, field: &syn::Field, with: Option<&LitStr>) -> TokenStream {
+    fn expand_de(
+        &self,
+        field: &syn::Field,
+        with: Option<&LitStr>,
+        default: Option<&FieldDefault>,
+    ) -> TokenStream {
         if let Some(with_fn) = with {
             return self.expand_with(field, with_fn);
         }
 
-        let value = self.expand_value(field);
+        let value = self.expand_value(field, default);
         if let Some(field_name) = &field.ident {
             quote! { #field_name: #value }
         } else {
@@ -528,52 +533,125 @@ impl FieldKind {
         }
     }
 
-    fn expand_value(&self, field: &syn::Field) -> TokenStream {
+    fn expand_value(&self, field: &syn::Field, default: Option<&FieldDefault>) -> TokenStream {
         use TypeKind::*;
         match self {
             Self::Tag(key) => match TypeKind::classify(&field.ty) {
-                Str => quote! {
-                    tags.get(#key)
-                        .ok_or_else(|| ircv3_parse::DeError::not_found_tag(#key))?
-                        .as_str()
-                },
-                String => quote! {
-                    tags.get(#key)
-                        .ok_or_else(|| ircv3_parse::DeError::not_found_tag(#key))?
-                        .to_string()
-                },
+                Str => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            msg.tags()
+                                .and_then(|tags| tags.get(#key))
+                                .map(|s| s.as_str())
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            tags.get(#key)
+                                .ok_or_else(|| ircv3_parse::DeError::not_found_tag(#key))?
+                                .as_str()
+                        }
+                    }
+                }
+                String => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            msg.tags()
+                                .and_then(|tags| tags.get(#key))
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            tags.get(#key)
+                                .ok_or_else(|| ircv3_parse::DeError::not_found_tag(#key))?
+                                .to_string()
+                        }
+                    }
+                }
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                    quote! { tags.get(#key).map(|s| s.as_str()) }
+                    if default.is_some() {
+                        quote! {
+                            msg.tags()
+                                .and_then(|tags| tags.get(#key))
+                                .map(|s| s.as_str())
+                        }
+                    } else {
+                        quote! { tags.get(#key).map(|s| s.as_str()) }
+                    }
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                    quote! { tags.get(#key).map(|s| s.to_string()) }
+                    if default.is_some() {
+                        quote! {
+                            msg.tags()
+                                .and_then(|tags| tags.get(#key))
+                                .map(|s| s.to_string())
+                        }
+                    } else {
+                        quote! { tags.get(#key).map(|s| s.to_string()) }
+                    }
                 }
                 Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
-                }
+                _ => expand_from_message(&field.ty, default),
             },
             Self::TagFlag(key) => match TypeKind::classify(&field.ty) {
-                Bool => quote! { tags.get_flag(#key) },
-                Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
+                Bool => {
+                    if default.is_some() {
+                        quote! {
+                            msg.tags()
+                                .map(|tags| tags.get_flag(#key))
+                                .unwrap_or_default()
+                        }
+                    } else {
+                        quote! { tags.get_flag(#key) }
+                    }
                 }
+                Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
+                _ => expand_from_message(&field.ty, default),
             },
             Self::Source(component) => {
-                let (accessor, is_opt) = match component {
-                    Source::Name => (quote! { source.name }, false),
-                    Source::User => (quote! { source.user }, true),
-                    Source::Host => (quote! { source.host }, true),
+                let (accessor, is_opt, closure_accessor) = match component {
+                    Source::Name => (
+                        quote! { source.name },
+                        false,
+                        quote! { |source| source.name },
+                    ),
+                    Source::User => (
+                        quote! { source.user },
+                        true,
+                        quote! { |source| source.user },
+                    ),
+                    Source::Host => (
+                        quote! { source.host },
+                        true,
+                        quote! { |source| source.host },
+                    ),
                 };
+
                 match TypeKind::classify(&field.ty) {
                     Str => {
                         if is_opt {
+                            if let Some(d) = default {
+                                let fallback = expand_default_fallback(d);
+                                quote! {
+                                    msg.source()
+                                        .and_then(#closure_accessor)
+                                        .unwrap_or_else(|| #fallback)
+                                }
+                            } else {
+                                quote! {
+                                    #accessor
+                                        .ok_or_else(|| ircv3_parse::DeError::source_component_not_found())?
+                                }
+                            }
+                        } else if let Some(d) = default {
+                            let fallback = expand_default_fallback(d);
                             quote! {
-                                #accessor
-                                    .ok_or_else(|| ircv3_parse::DeError::source_component_not_found())?
+                                msg.source()
+                                    .map(#closure_accessor)
+                                    .unwrap_or_else(|| #fallback)
                             }
                         } else {
                             quote! { #accessor }
@@ -581,38 +659,93 @@ impl FieldKind {
                     }
                     String => {
                         if is_opt {
+                            if let Some(d) = default {
+                                let fallback = expand_default_fallback(d);
+                                quote! {
+                                    msg.source()
+                                        .and_then(#closure_accessor)
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| #fallback)
+                                }
+                            } else {
+                                quote! {
+                                    #accessor
+                                        .ok_or_else(|| ircv3_parse::DeError::source_component_not_found())?
+                                        .to_string()
+                                }
+                            }
+                        } else if let Some(d) = default {
+                            let fallback = expand_default_fallback(d);
                             quote! {
-                                #accessor
-                                    .ok_or_else(|| ircv3_parse::DeError::source_component_not_found())?
-                                    .to_string()
+                                msg.source()
+                                    .map(|source| source.name.to_string())
+                                    .unwrap_or_else(|| #fallback)
                             }
                         } else {
                             quote! { #accessor.to_string() }
                         }
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                        quote! { #accessor }
+                        if default.is_some() {
+                            if is_opt {
+                                quote! { msg.source().and_then(#closure_accessor) }
+                            } else {
+                                quote! { msg.source().map(#closure_accessor) }
+                            }
+                        } else {
+                            quote! { #accessor }
+                        }
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                        quote! { #accessor.map(|s| s.to_string()) }
+                        if default.is_some() {
+                            if is_opt {
+                                quote! {
+                                    msg.source()
+                                        .and_then(#closure_accessor)
+                                        .map(|s| s.to_string())
+                                }
+                            } else {
+                                quote! { msg.source().map(|source| source.name.to_string()) }
+                            }
+                        } else {
+                            quote! { #accessor.map(|s| s.to_string()) }
+                        }
                     }
                     Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                    _ => {
-                        let ty = &field.ty;
-                        quote! { <#ty>::from_message(&msg)? }
-                    }
+                    _ => expand_from_message(&field.ty, default),
                 }
             }
             Self::Param(idx) => match TypeKind::classify(&field.ty) {
-                Str => quote! {
-                    params.middles.iter().nth(#idx)
-                        .ok_or_else(|| ircv3_parse::DeError::not_found_param(#idx))?
-                },
-                String => quote! {
-                    params.middles.iter().nth(#idx)
-                        .ok_or_else(|| ircv3_parse::DeError::not_found_param(#idx))?
-                        .to_string()
-                },
+                Str => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            params.middles.iter().nth(#idx)
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            params.middles.iter().nth(#idx)
+                                .ok_or_else(|| ircv3_parse::DeError::not_found_param(#idx))?
+                        }
+                    }
+                }
+                String => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            params.middles.iter().nth(#idx)
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            params.middles.iter().nth(#idx)
+                                .ok_or_else(|| ircv3_parse::DeError::not_found_param(#idx))?
+                                .to_string()
+                        }
+                    }
+                }
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     quote! { params.middles.iter().nth(#idx) }
                 }
@@ -620,51 +753,73 @@ impl FieldKind {
                     quote! { params.middles.iter().nth(#idx).map(|s| s.to_string()) }
                 }
                 Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
-                }
+                _ => expand_from_message(&field.ty, default),
             },
             Self::Params => match TypeKind::classify(&field.ty) {
                 Vec(inner) if matches!(TypeKind::classify(inner), Str) => {
                     quote! { params.middles.to_vec() }
                 }
                 Vec(inner) if matches!(TypeKind::classify(inner), String) => {
-                    quote! { params.middles.iter().map(|s| s.to_string()).collect::<Vec<_>>() }
+                    quote! {
+                        params.middles.iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<_>>()
+                    }
                 }
                 Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
-                }
+                _ => expand_from_message(&field.ty, default),
             },
             Self::Trailing => match TypeKind::classify(&field.ty) {
-                Str => quote! {
-                    params.trailing.as_str()
-                },
-                String => quote! {
-                    params.trailing.to_string()
-                },
+                Str => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            params.trailing.raw()
+                                .filter(|s| !s.is_empty())
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            params.trailing.as_str()
+                        }
+                    }
+                }
+                String => {
+                    if let Some(d) = default {
+                        let fallback = expand_default_fallback(d);
+                        quote! {
+                            params.trailing.raw()
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| #fallback)
+                        }
+                    } else {
+                        quote! {
+                            params.trailing.to_string()
+                        }
+                    }
+                }
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                    quote! { params.trailing.raw().filter(|s| !s.is_empty()) }
+                    quote! {
+                        params.trailing.raw().
+                            filter(|s| !s.is_empty())
+                    }
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                    quote! { params.trailing.raw().filter(|s| !s.is_empty()).map(|s| s.to_string()) }
+                    quote! {
+                        params.trailing.raw()
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string())
+                    }
                 }
                 Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
-                }
+                _ => expand_from_message(&field.ty, default),
             },
             Self::Command => match TypeKind::classify(&field.ty) {
                 Str => quote! { command.as_str() },
                 String => quote! { command.to_string() },
                 Option(inner) => quote! { <#inner>::from_message(&msg).ok() },
-                _ => {
-                    let ty = &field.ty;
-                    quote! { <#ty>::from_message(&msg)? }
-                }
+                _ => expand_from_message(&field.ty, default),
             },
         }
     }
@@ -728,6 +883,25 @@ fn expand_with(field: &syn::Field, with_fn: &LitStr) -> TokenStream {
         quote! { #field_name: #with_ident(&msg) }
     } else {
         quote! { #with_ident(&msg) }
+    }
+}
+
+fn expand_from_message(ty: &syn::Type, default: Option<&FieldDefault>) -> TokenStream {
+    if let Some(d) = default {
+        let fallback = expand_default_fallback(d);
+        quote! { <#ty>::from_message(&msg).unwrap_or_else(|_| #fallback) }
+    } else {
+        quote! { <#ty>::from_message(&msg)? }
+    }
+}
+
+fn expand_default_fallback(default: &FieldDefault) -> TokenStream {
+    match default {
+        FieldDefault::Trait => quote! { Default::default() },
+        FieldDefault::Path(path) => {
+            let path_ident = Ident::new(&path.value(), path.span());
+            quote! { #path_ident() }
+        }
     }
 }
 

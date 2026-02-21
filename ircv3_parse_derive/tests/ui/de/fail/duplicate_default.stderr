@@ -1,0 +1,23 @@
+error: duplicate `default` attribute
+ --> tests/ui/de/fail/duplicate_default.rs:5:34
+  |
+5 |     #[irc(tag = "key1", default, default)]
+  |                                  ^^^^^^^
+
+error: first `default` defined here
+ --> tests/ui/de/fail/duplicate_default.rs:5:25
+  |
+5 |     #[irc(tag = "key1", default, default)]
+  |                         ^^^^^^^
+
+error: duplicate `default` attribute
+  --> tests/ui/de/fail/duplicate_default.rs:12:11
+   |
+12 |     #[irc(default)]
+   |           ^^^^^^^
+
+error: first `default` defined here
+  --> tests/ui/de/fail/duplicate_default.rs:11:24
+   |
+11 |     #[irc(tag = "key", default)]
+   |                        ^^^^^^^

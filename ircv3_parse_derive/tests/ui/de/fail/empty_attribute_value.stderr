@@ -9,3 +9,9 @@ error: `source` value cannot be empty
    |
 11 |     #[irc(source = "")]
    |                    ^^
+
+error: `default` value cannot be empty
+  --> tests/ui/de/fail/empty_attribute_value.rs:17:34
+   |
+17 |     #[irc(tag = "key", default = "")]
+   |                                  ^^

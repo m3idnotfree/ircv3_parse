@@ -244,3 +244,161 @@ fn unit_struct() {
     let msg: Nick = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Nick, msg);
 }
+
+#[test]
+fn name_default_trait_no_component() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source, default)]
+        nick: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.nick);
+}
+
+#[test]
+fn name_default_fn_no_component() {
+    fn default_nick() -> String {
+        "anonymous".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source, default = "default_nick")]
+        nick: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("anonymous", msg.nick);
+}
+
+#[test]
+fn user_default_trait_no_component() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source = "user", default)]
+        user: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.user);
+}
+
+#[test]
+fn user_default_fn_no_component() {
+    fn default_user() -> String {
+        "anonymous".to_string()
+    }
+
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source = "user", default = "default_user")]
+        user: String,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("anonymous", msg.user);
+}
+
+#[test]
+fn name_default_trait_present() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source, default)]
+        nick: String,
+    }
+
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("nick", msg.nick);
+}
+
+#[test]
+fn user_default_trait_present() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source = "user", default)]
+        user: String,
+    }
+
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("user", msg.user);
+}
+
+#[test]
+fn name_optional_with_default_no_component() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source, default)]
+        user: Option<String>,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.user);
+}
+
+#[test]
+fn user_optional_with_default_no_component() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source = "user", default)]
+        user: Option<String>,
+    }
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.user);
+}
+
+#[test]
+fn name_optional_with_default_present() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source, default)]
+        nick: Option<String>,
+    }
+
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Some("nick".to_string()), msg.nick);
+}
+
+#[test]
+fn user_optional_with_default_present() {
+    #[derive(FromMessage)]
+    struct Source {
+        #[irc(source = "user", default)]
+        user: Option<String>,
+    }
+
+    let input = ":nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Some("user".to_string()), msg.user);
+}
+
+#[test]
+fn unnamed_name_default_trait() {
+    #[derive(FromMessage)]
+    struct Source(#[irc(source, default)] String);
+
+    let input = "PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.0);
+}
+
+#[test]
+fn unnamed_user_default_trait() {
+    #[derive(FromMessage)]
+    struct Source(#[irc(source = "user", default)] String);
+
+    let input = ":nick PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("", msg.0);
+}

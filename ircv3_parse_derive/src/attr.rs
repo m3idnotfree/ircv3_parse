@@ -74,14 +74,7 @@ impl UnitStructAttrs {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(COMMAND) {
                     if meta.input.peek(Eq) {
-                        let lit: LitStr = meta.value()?.parse()?;
-
-                        if lit.value().is_empty() {
-                            return Err(Error::new(
-                                lit.span(),
-                                error_msg::cannot_be_empty(COMMAND),
-                            ));
-                        }
+                        let lit = parse_lit_str(&meta, COMMAND)?;
 
                         if command.is_some() {
                             let mut err = meta.error(error_msg::duplicate_attribute(COMMAND));
@@ -160,14 +153,7 @@ impl StructAttrs {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(COMMAND) {
                     if meta.input.peek(Eq) {
-                        let lit: LitStr = meta.value()?.parse()?;
-
-                        if lit.value().is_empty() {
-                            return Err(Error::new(
-                                lit.span(),
-                                error_msg::cannot_be_empty(COMMAND),
-                            ));
-                        }
+                        let lit = parse_lit_str(&meta, COMMAND)?;
 
                         if command.is_some() {
                             let mut err = meta.error(error_msg::duplicate_attribute(COMMAND));
@@ -245,11 +231,7 @@ impl FieldAttrs {
 
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(WITH) {
-                    let lit: LitStr = meta.value()?.parse()?;
-
-                    if lit.value().is_empty() {
-                        return Err(Error::new(lit.span(), error_msg::cannot_be_empty(WITH)));
-                    }
+                    let lit = parse_lit_str(&meta, WITH)?;
 
                     if with.is_some() {
                         let mut err = meta.error(error_msg::duplicate_attribute(WITH));
@@ -268,14 +250,7 @@ impl FieldAttrs {
 
                 if meta.path.is_ident(DEFAULT) {
                     let value = if meta.input.peek(Eq) {
-                        let lit: LitStr = meta.value()?.parse()?;
-
-                        if lit.value().is_empty() {
-                            return Err(Error::new(
-                                lit.span(),
-                                error_msg::cannot_be_empty(DEFAULT),
-                            ));
-                        }
+                        let lit = parse_lit_str(&meta, DEFAULT)?;
 
                         FieldDefault::Path(lit)
                     } else {
@@ -362,13 +337,7 @@ impl FieldKind {
     pub fn try_parse(meta: &ParseNestedMeta, field_name: Option<&Ident>) -> Result<Option<Self>> {
         if meta.path.is_ident(TAG) {
             let key = if meta.input.peek(Eq) {
-                let lit: LitStr = meta.value()?.parse()?;
-
-                if lit.value().is_empty() {
-                    return Err(Error::new(lit.span(), error_msg::cannot_be_empty(TAG)));
-                }
-
-                lit
+                parse_lit_str(meta, TAG)?
             } else if let Some(name) = field_name {
                 LitStr::new(&name.to_string(), name.span())
             } else {
@@ -380,13 +349,7 @@ impl FieldKind {
 
         if meta.path.is_ident(TAG_FLAG) {
             let key = if meta.input.peek(Eq) {
-                let lit: LitStr = meta.value()?.parse()?;
-
-                if lit.value().is_empty() {
-                    return Err(Error::new(lit.span(), error_msg::cannot_be_empty(TAG_FLAG)));
-                }
-
-                lit
+                parse_lit_str(meta, TAG_FLAG)?
             } else if let Some(name) = field_name {
                 LitStr::new(&name.to_string(), name.span())
             } else {
@@ -483,4 +446,14 @@ impl Source {
             Self::Host => "host",
         }
     }
+}
+
+fn parse_lit_str(meta: &ParseNestedMeta, attr: &str) -> Result<LitStr> {
+    let lit: LitStr = meta.value()?.parse()?;
+
+    if lit.value().is_empty() {
+        return Err(Error::new(lit.span(), error_msg::cannot_be_empty(attr)));
+    }
+
+    Ok(lit)
 }

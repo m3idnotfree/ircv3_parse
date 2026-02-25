@@ -1,0 +1,23 @@
+error: `default` can only be used together with a component attribute (`tag`, `tag_flag`, `source`, `param`, `params`, or `trailing`)
+ --> tests/ui/de/fail/default.rs:5:11
+  |
+5 |     #[irc(default)]
+  |           ^^^^^^^
+
+error: `default` can only be used together with a component attribute (`tag`, `tag_flag`, `source`, `param`, `params`, or `trailing`)
+  --> tests/ui/de/fail/default.rs:15:11
+   |
+15 |     #[irc(default = "default_fn")]
+   |           ^^^^^^^
+
+error: default variant `Unknown` must be a unit variant (no fields)
+  --> tests/ui/de/fail/default.rs:29:5
+   |
+29 |     Unknown(String),
+   |     ^^^^^^^
+
+error[E0425]: cannot find function `nonexistent_fn` in this scope
+  --> tests/ui/de/fail/default.rs:21:34
+   |
+21 |     #[irc(tag = "key", default = "nonexistent_fn")]
+   |                                  ^^^^^^^^^^^^^^^^ not found in this scope

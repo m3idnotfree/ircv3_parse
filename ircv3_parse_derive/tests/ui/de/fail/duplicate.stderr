@@ -1,0 +1,95 @@
+error: field cannot have multiple extraction attributes (found both `tag` and `tag`)
+ --> tests/ui/de/fail/duplicate.rs:6:11
+  |
+6 |     #[irc(tag = "key2")]
+  |           ^^^^^^^^^^^^
+
+error: first `tag` defined here
+ --> tests/ui/de/fail/duplicate.rs:5:11
+  |
+5 |     #[irc(tag = "key1")]
+  |           ^^^
+
+error: field cannot have multiple extraction attributes (found both `tag` and `tag`)
+  --> tests/ui/de/fail/duplicate.rs:12:25
+   |
+12 |     #[irc(tag = "key1", tag = "key2")]
+   |                         ^^^^^^^^^^^^
+
+error: first `tag` defined here
+  --> tests/ui/de/fail/duplicate.rs:12:11
+   |
+12 |     #[irc(tag = "key1", tag = "key2")]
+   |           ^^^
+
+error: field cannot have multiple extraction attributes (found both `tag` and `param`)
+  --> tests/ui/de/fail/duplicate.rs:19:11
+   |
+19 |     #[irc(param)]
+   |           ^^^^^
+
+error: first `tag` defined here
+  --> tests/ui/de/fail/duplicate.rs:18:11
+   |
+18 |     #[irc(tag = "key")]
+   |           ^^^
+
+error: duplicate `with`
+  --> tests/ui/de/fail/duplicate.rs:26:11
+   |
+26 |     #[irc(with = "fn2")]
+   |           ^^^^^^^^^^^^
+
+error: first `with` defined here
+  --> tests/ui/de/fail/duplicate.rs:25:24
+   |
+25 |     #[irc(tag = "key", with = "fn1")]
+   |                        ^^^^
+
+error: duplicate `default`
+  --> tests/ui/de/fail/duplicate.rs:32:33
+   |
+32 |     #[irc(tag = "key", default, default)]
+   |                                 ^^^^^^^
+
+error: first `default` defined here
+  --> tests/ui/de/fail/duplicate.rs:32:24
+   |
+32 |     #[irc(tag = "key", default, default)]
+   |                        ^^^^^^^
+
+error: duplicate `default`
+  --> tests/ui/de/fail/duplicate.rs:39:11
+   |
+39 |     #[irc(default)]
+   |           ^^^^^^^
+
+error: first `default` defined here
+  --> tests/ui/de/fail/duplicate.rs:38:24
+   |
+38 |     #[irc(tag = "key", default)]
+   |                        ^^^^^^^
+
+error: unit struct can only have one of `tag`, `tag_flag`, `source`, `param`, `params` or `trailing` (found both `tag` and `source`)
+  --> tests/ui/de/fail/duplicate.rs:44:20
+   |
+44 | #[irc(tag = "key", source)]
+   |                    ^^^^^^
+
+error: first `tag` defined here
+  --> tests/ui/de/fail/duplicate.rs:44:7
+   |
+44 | #[irc(tag = "key", source)]
+   |       ^^^
+
+error: first `present` defined here
+  --> tests/ui/de/fail/duplicate.rs:50:11
+   |
+50 |     #[irc(present)]
+   |           ^^^^^^^
+
+error: duplicate `present`
+  --> tests/ui/de/fail/duplicate.rs:52:11
+   |
+52 |     #[irc(present)]
+   |           ^^^^^^^

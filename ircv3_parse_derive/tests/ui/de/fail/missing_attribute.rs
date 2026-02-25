@@ -1,14 +1,15 @@
 use ircv3_parse_derive::FromMessage;
 
 #[derive(FromMessage)]
-enum M1 {
-    Field,
+struct A(String);
+
+#[derive(FromMessage)]
+struct B;
+
+#[derive(FromMessage)]
+enum C {
+    A,
+    B,
 }
-
-#[derive(FromMessage)]
-struct M2(String);
-
-#[derive(FromMessage)]
-struct M3;
 
 fn main() {}

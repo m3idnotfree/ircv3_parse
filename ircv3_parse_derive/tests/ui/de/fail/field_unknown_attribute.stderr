@@ -1,5 +1,0 @@
-error: unknown `#[irc]` attribute `unknown`
- --> tests/ui/de/fail/field_unknown_attribute.rs:5:11
-  |
-5 |     #[irc(unknown)]
-  |           ^^^^^^^

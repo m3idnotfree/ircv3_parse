@@ -1,13 +1,14 @@
 use ircv3_parse_derive::FromMessage;
 
 #[derive(FromMessage)]
-struct M1 {
+struct A {
+    #[irc(source = "invalid")]
     field: String,
 }
 
 #[derive(FromMessage)]
-struct M2 {
-    #[irc()]
+struct B {
+    #[irc(param = "first")]
     field: String,
 }
 

@@ -1,0 +1,11 @@
+error: invalid source field (valid options: `name`, `user`, or `host`)
+ --> tests/ui/de/fail/invalid_value.rs:5:20
+  |
+5 |     #[irc(source = "invalid")]
+  |                    ^^^^^^^^^
+
+error: expected integer literal
+  --> tests/ui/de/fail/invalid_value.rs:11:19
+   |
+11 |     #[irc(param = "first")]
+   |                   ^^^^^^^

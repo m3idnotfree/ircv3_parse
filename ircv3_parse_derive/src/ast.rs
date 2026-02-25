@@ -1,11 +1,11 @@
 use proc_macro2::Span;
 use syn::{
-    Data, DataStruct, DeriveInput, Error, GenericParam, Ident, ImplGenerics, Lifetime,
+    Data, DataEnum, DataStruct, DeriveInput, Error, GenericParam, Ident, ImplGenerics, Lifetime,
     LifetimeParam, Result, TypeGenerics, WhereClause,
 };
 
 use crate::{
-    attr::{FieldAttrs, StructAttrs, UnitStructAttrs},
+    attr::{EnumAttrs, FieldAttrs, StructAttrs, UnitStructAttrs, VariantAttrs},
     component_set::ComponentSet,
 };
 
@@ -22,6 +22,9 @@ pub enum Struct<'a> {
 
 pub struct Enum<'a> {
     pub ident: &'a Ident,
+    pub generics: Generics<'a>,
+    pub attrs: EnumAttrs,
+    pub variants: Vec<Variant<'a>>,
 }
 
 pub struct UnitStruct<'a> {
@@ -35,6 +38,18 @@ pub struct FieldStruct<'a> {
     pub generics: Generics<'a>,
     pub attrs: StructAttrs,
     pub fields: Vec<Field<'a>>,
+}
+
+pub struct Variant<'a> {
+    pub ident: &'a Ident,
+    pub attrs: VariantAttrs,
+    pub fields: VariantFields<'a>,
+}
+
+pub enum VariantFields<'a> {
+    Unit,
+    Named(Vec<Field<'a>>),
+    Unnamed(Vec<Field<'a>>),
 }
 
 pub struct Field<'a> {
@@ -51,10 +66,10 @@ impl<'a> Input<'a> {
     pub fn from_syn(input: &'a DeriveInput, name: &str) -> Result<Self> {
         match &input.data {
             Data::Struct(data_struct) => Struct::from_syn(input, data_struct).map(Input::Struct),
-            Data::Enum(_) => Enum::from_syn(input).map(Input::Enum),
+            Data::Enum(data_enum) => Enum::from_syn(input, data_enum).map(Input::Enum),
             _ => Err(Error::new_spanned(
                 &input.ident,
-                format!("{name} only supports structs"),
+                format!("{name} is not supported for unions"),
             )),
         }
     }
@@ -110,11 +125,23 @@ impl<'a> Struct<'a> {
 }
 
 impl<'a> Enum<'a> {
-    pub fn from_syn(input: &'a DeriveInput) -> Result<Self> {
-        Err(Error::new_spanned(
-            &input.ident,
-            "FromMessage only supports structs",
-        ))
+    pub fn from_syn(input: &'a DeriveInput, data_enum: &'a DataEnum) -> Result<Self> {
+        let ident = &input.ident;
+
+        let attrs = EnumAttrs::parse(&input.attrs)?;
+
+        let variants = data_enum
+            .variants
+            .iter()
+            .map(Variant::parse)
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self {
+            ident,
+            generics: Generics::new(&input.generics),
+            attrs,
+            variants,
+        })
     }
 }
 
@@ -127,6 +154,39 @@ impl<'a> FieldStruct<'a> {
         }
 
         components
+    }
+}
+
+impl<'a> Variant<'a> {
+    pub fn parse(variant: &'a syn::Variant) -> Result<Self> {
+        let attrs = VariantAttrs::parse(&variant.attrs)?;
+        let fields = VariantFields::parse(&variant.fields)?;
+
+        Ok(Self {
+            ident: &variant.ident,
+            attrs,
+            fields,
+        })
+    }
+}
+
+impl<'a> VariantFields<'a> {
+    pub fn parse(fields: &'a syn::Fields) -> Result<Self> {
+        match fields {
+            syn::Fields::Unit => Ok(Self::Unit),
+            syn::Fields::Named(fields) => fields
+                .named
+                .iter()
+                .map(Field::parse)
+                .collect::<Result<Vec<_>>>()
+                .map(Self::Named),
+            syn::Fields::Unnamed(fields) => fields
+                .unnamed
+                .iter()
+                .map(Field::parse)
+                .collect::<Result<Vec<_>>>()
+                .map(Self::Unnamed),
+        }
     }
 }
 

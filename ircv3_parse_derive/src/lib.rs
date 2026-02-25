@@ -10,7 +10,7 @@ mod valid;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput, Error};
 
-/// Derives `FromMessage` implementation for structs
+/// Derives `FromMessage` implementation for structs and enums
 ///
 /// ## Struct-level
 ///
@@ -50,8 +50,8 @@ use syn::{parse_macro_input, DeriveInput, Error};
 ///
 /// ### Default Value
 ///
-/// - `#[irc(tag = "key", default)]` — Uses `Default::default()` when the component is absent
-/// - `#[irc(tag = "key", default = "function")]` — Calls `function()` when the component is absent
+/// - `#[irc(tag = "key", default)]` - Uses `Default::default()` when the component is absent
+/// - `#[irc(tag = "key", default = "function")]` - Calls `function()` when the component is absent
 ///
 /// **`Option<T>` fields**: `default` is ignored. `Option<T>` already returns `None`
 /// when the component is absent, regardless of whether `default` is present.
@@ -62,6 +62,43 @@ use syn::{parse_macro_input, DeriveInput, Error};
 /// **Constraints**:
 /// - `default` requires a component attribute (`tag`, `source`, `param`, etc.)
 /// - `default` cannot be specified more than once
+///
+/// ## Enum-level
+///
+/// Exactly one of the following is required on the enum itself:
+///
+/// - `#[irc(tag = "key")]` - Extract tag value
+/// - `#[irc(tag_flag = "key")]` - Boolean flag match (see **Tag Flag Enum** below)
+/// - `#[irc(source = "name|user|host")]` - Extract source component
+/// - `#[irc(param = N)]` - Extract parameter at index N
+/// - `#[irc(trailing)]` - Extract trailing parameter
+/// - `#[irc(command)]` - Match the command
+///
+/// ### Default variant
+/// - `#[irc(default = "VariantNamea")]` - appended to fall back
+///
+/// ### Rename
+/// - `#[irc(rename = "lowercase|UPPERCASE|kebab-case")]` - controls how
+///   variant names are converted to match strings.
+///
+/// **Note**: The default is `lowercase` for all components except `command`, which defaults to `UPPERCASE`.
+///
+/// `rename` is not allowed on `command` enums. Use `#[irc(value = "...")]` on
+/// individual variants instead.
+///
+/// ### Variant-level
+///
+/// - `#[irc(value = "pattern")]` - Use `pattern` as the match string instead of
+///   the renamed variant name. Multiple `value` attributes can be specified on a
+///   single variant to match multiple strings:
+///   When `#[irc(value)]` is present, `rename` is ignored for that variant.
+///
+/// ### Tag Flag Enum
+///
+/// `tag_flag` enums must have **exactly 2 variants**. Exactly one variant must carry
+///
+/// - `#[irc(present)]` - marks the "flag is set" variant (required, exactly once)
+/// - `#[irc(value)]` is not allowed on `tag_flag` variants
 ///
 /// ## Nested Types
 ///

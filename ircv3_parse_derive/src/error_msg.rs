@@ -5,7 +5,7 @@ pub fn cannot_be_empty(attribute: &str) -> String {
 }
 
 pub fn duplicate_attribute(attribute: &str) -> String {
-    format!("duplicate `{attribute}` attribute")
+    format!("duplicate `{attribute}`")
 }
 
 pub fn first_defined_here(attribute: &str) -> String {
@@ -31,7 +31,35 @@ pub fn multiple_extraction_attributes(first: &str, second: &str) -> String {
 }
 
 pub fn cannot_have_a_value_command() -> &'static str {
-    "field-level #[irc(command)] cannot have a value (use struct-level #[irc(command = \"CMD\" for validation instead)])"
+    "field-level `#[irc(command)]` cannot have a value (use struct-level `#[irc(command = \"CMD\")]` for validation instead)"
+}
+
+pub fn cannot_have_value(attribute: &str) -> String {
+    format!("`{attribute}` does not take a value")
+}
+
+pub fn present_only_for_tag_flag() -> &'static str {
+    "#[irc(present)] is only valid on `tag_flag` enum variants"
+}
+
+pub fn tag_flag_enum_requires() -> &'static str {
+    "tag_flag enum requires exactly 2 variants"
+}
+
+pub fn value_not_allowed_on_tag_flag() -> &'static str {
+    "#[irc(value)] is not allowed on `tag_flag` enum variants, use #[irc(present)] instead"
+}
+
+pub fn tag_flag_requires_present() -> &'static str {
+    "tag_flag enum requires exactly one variant marked with #[irc(present)]"
+}
+
+pub fn tag_flag_absent_must_be_unit() -> &'static str {
+    "the absent variant of a `tag_flag` enum must be a unit variant (no fields)"
+}
+
+pub fn default_variant_must_be_unit(name: &str) -> String {
+    format!("default variant `{name}` must be a unit variant (no fields)")
 }
 
 pub fn unit_struct_requires_at_least_one(name: &Ident) -> String {
@@ -50,24 +78,23 @@ pub fn default_requires_component() -> &'static str {
     (`tag`, `tag_flag`, `source`, `param`, `params`, or `trailing`)"
 }
 
+pub fn default_variant_not_found(name: &str) -> String {
+    format!("default variant `{name}` not found in enum")
+}
+
 pub fn command_field_cannot_be_option() -> &'static str {
     "command field cannot be Option<&str> or Option<String> (use &str or String instead)"
 }
 
-pub fn unsupported_type(component: &str, field: &Ident, ty: proc_macro2::TokenStream) -> String {
-    let ty_str = ty.to_string().replace(" ", "");
-    format!("unsupported type for {component} field `{field}`: {ty_str}")
+pub fn rename_not_allowed_with_command() -> &'static str {
+    "`rename` is not allowed with `command` (commands are always matched as uppercase)"
 }
 
-pub fn unsupported_unnamed_type(
-    component: &str,
-    idx: usize,
-    ty: proc_macro2::TokenStream,
-) -> String {
-    let ty_str = ty.to_string().replace(" ", "");
-    format!("unsupported type for {component} field `{idx}`: {ty_str}")
+pub fn unknown_rename_rule(other: &str) -> String {
+    format!("unknown rename rule `{other}` (valid: lowercase, UPPERCASE, or kebab-case)")
 }
 
-pub fn nested_field_requires_attribute(field: &Ident) -> String {
-    format!("field `{field}` requires an IRC attribute for ToMessage serialization")
+pub fn enum_requires_component() -> &'static str {
+    "enum `#[irc(...)]` requires a component attribute \
+    (`tag`, `tag_flag`, `source`, `param`, `trailing`, or `command`)"
 }

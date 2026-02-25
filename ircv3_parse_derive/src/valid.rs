@@ -2,8 +2,11 @@ use quote::ToTokens;
 use syn::{Error, Ident, Result};
 
 use crate::{
-    ast::{Field, FieldStruct, Input, Struct, UnitStruct},
-    attr::{FieldAttrs, FieldKind, StructAttrs, UnitStructAttrs},
+    ast::{Enum, Field, FieldStruct, Input, Struct, UnitStruct, Variant, VariantFields},
+    attr::{
+        EnumAttrs, EnumKind, FieldAttrs, FieldKind, StructAttrs, UnitStructAttrs, VariantAttrs,
+        PRESENT,
+    },
     error_msg,
     type_check::TypeKind,
 };
@@ -12,10 +15,7 @@ impl<'a> Input<'a> {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Struct(strut) => strut.validate(),
-            Self::Enum(e) => Err(Error::new_spanned(
-                e.ident,
-                "FromMessage only supports structs",
-            )),
+            Self::Enum(e) => e.validate(),
         }
     }
 
@@ -180,6 +180,187 @@ impl FieldKind {
             },
             _ => Ok(()),
         }
+    }
+}
+
+impl<'a> Enum<'a> {
+    pub fn validate(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        self.check_default(&mut errors);
+        self.check_tag_flag(&mut errors);
+
+        if let Err(err) = self.attrs.validate() {
+            errors.push(err)
+        }
+
+        for variant in &self.variants {
+            if let Err(err) = variant.validate() {
+                errors.push(err);
+            }
+        }
+
+        combine_errors(errors)
+    }
+
+    fn check_default(&self, errors: &mut Vec<Error>) {
+        if let Some(default) = &self.attrs.default {
+            let name = default.value();
+            match self
+                .variants
+                .iter()
+                .find(|variant| *variant.ident.to_string() == name)
+            {
+                None => errors.push(Error::new_spanned(
+                    default,
+                    error_msg::default_variant_not_found(&name),
+                )),
+                Some(variant) if !matches!(variant.fields, VariantFields::Unit) => {
+                    errors.push(Error::new_spanned(
+                        variant.ident,
+                        error_msg::default_variant_must_be_unit(&name),
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+    }
+
+    fn check_tag_flag(&self, errors: &mut Vec<Error>) {
+        if matches!(self.attrs.kind, EnumKind::TagFlag(_)) {
+            if self.variants.len() != 2 {
+                errors.push(Error::new_spanned(
+                    self.ident,
+                    error_msg::tag_flag_enum_requires(),
+                ));
+            }
+
+            for variant in &self.variants {
+                if variant.attrs.present.is_none() && !matches!(variant.fields, VariantFields::Unit)
+                {
+                    errors.push(Error::new_spanned(
+                        variant.ident,
+                        error_msg::tag_flag_absent_must_be_unit(),
+                    ));
+                }
+            }
+
+            for variant in &self.variants {
+                for value in &variant.attrs.values {
+                    errors.push(Error::new_spanned(
+                        value,
+                        error_msg::value_not_allowed_on_tag_flag(),
+                    ));
+                }
+            }
+
+            let present_count = self
+                .variants
+                .iter()
+                .filter(|v| v.attrs.present.is_some())
+                .count();
+            match present_count {
+                0 => errors.push(Error::new_spanned(
+                    self.ident,
+                    error_msg::tag_flag_requires_present(),
+                )),
+                1 => {}
+                _ => {
+                    let mut iter = self.variants.iter().filter(|v| v.attrs.present.is_some());
+
+                    let first = iter.next().unwrap();
+                    errors.push(Error::new(
+                        first.attrs.present.unwrap(),
+                        error_msg::first_defined_here(PRESENT),
+                    ));
+
+                    for variant in iter {
+                        errors.push(Error::new(
+                            variant.attrs.present.unwrap(),
+                            error_msg::duplicate_attribute(PRESENT),
+                        ));
+                    }
+                }
+            }
+        } else {
+            for variant in &self.variants {
+                if let Some(span) = variant.attrs.present {
+                    errors.push(Error::new(span, error_msg::present_only_for_tag_flag()));
+                }
+            }
+        }
+    }
+}
+
+impl EnumAttrs {
+    pub fn validate(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        for path in &self.unknown {
+            errors.push(Error::new_spanned(
+                path,
+                error_msg::unknown_irc_attribute(path.to_token_stream()),
+            ));
+        }
+
+        combine_errors(errors)
+    }
+}
+
+impl<'a> Variant<'a> {
+    pub fn validate(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        if let Err(err) = self.attrs.validate() {
+            errors.push(err);
+        }
+
+        if let Err(err) = self.fields.validate() {
+            errors.push(err);
+        }
+
+        combine_errors(errors)
+    }
+}
+
+impl VariantAttrs {
+    pub fn validate(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        for path in &self.unknown {
+            errors.push(Error::new_spanned(
+                path,
+                error_msg::unknown_irc_attribute(path.to_token_stream()),
+            ));
+        }
+
+        combine_errors(errors)
+    }
+}
+
+impl<'a> VariantFields<'a> {
+    pub fn validate(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        match self {
+            Self::Unit => {}
+            Self::Named(fields) => {
+                for field in fields {
+                    if let Err(err) = field.validate() {
+                        errors.push(err);
+                    }
+                }
+            }
+            Self::Unnamed(fields) => {
+                for field in fields {
+                    if let Err(err) = field.validate() {
+                        errors.push(err);
+                    }
+                }
+            }
+        };
+
+        combine_errors(errors)
     }
 }
 

@@ -18,3 +18,21 @@ mod de_structs_named;
 
 #[path = "de/structs/unnamed.rs"]
 mod de_structs_unnamed;
+
+#[path = "de/enums/tag.rs"]
+mod de_enums_tag;
+
+#[path = "de/enums/tag_flag.rs"]
+mod de_enums_tag_flag;
+
+#[path = "de/enums/source.rs"]
+mod de_enums_source;
+
+#[path = "de/enums/param.rs"]
+mod de_enums_param;
+
+#[path = "de/enums/trailing.rs"]
+mod de_enums_trailing;
+
+#[path = "de/enums/command.rs"]
+mod de_enums_command;

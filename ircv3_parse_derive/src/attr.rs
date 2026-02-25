@@ -17,6 +17,10 @@ pub const COMMAND: &str = "command";
 pub const WITH: &str = "with";
 pub const CRLF: &str = "crlf";
 pub const DEFAULT: &str = "default";
+pub const PRESENT: &str = "present";
+
+const RENAME: &str = "rename";
+const VALUE: &str = "value";
 
 pub struct UnitStructAttrs {
     pub command: Option<LitStr>,
@@ -30,10 +34,23 @@ pub struct StructAttrs {
     pub unknown: Vec<Path>,
 }
 
+pub struct EnumAttrs {
+    pub kind: EnumKind,
+    pub rename: Rename,
+    pub default: Option<LitStr>,
+    pub unknown: Vec<Path>,
+}
+
 pub struct FieldAttrs {
     pub kind: Option<FieldKind>,
     pub with: Option<LitStr>,
     pub default: Option<FieldDefault>,
+    pub unknown: Vec<Path>,
+}
+
+pub struct VariantAttrs {
+    pub values: Vec<LitStr>,
+    pub present: Option<Span>,
     pub unknown: Vec<Path>,
 }
 
@@ -47,6 +64,15 @@ pub enum FieldKind {
     Command,
 }
 
+pub enum EnumKind {
+    Tag(LitStr),
+    TagFlag(LitStr),
+    Source(Source),
+    Param(LitInt),
+    Trailing,
+    Command,
+}
+
 pub enum Source {
     Name,
     User,
@@ -56,6 +82,12 @@ pub enum Source {
 pub enum FieldDefault {
     Path(LitStr),
     Trait,
+}
+
+pub enum Rename {
+    Lowercase,
+    Uppercase,
+    KebabCase,
 }
 
 impl UnitStructAttrs {
@@ -445,6 +477,274 @@ impl Source {
             Self::User => "user",
             Self::Host => "host",
         }
+    }
+}
+
+impl EnumAttrs {
+    pub fn parse(attrs: &[Attribute]) -> Result<Self> {
+        let mut kind: Option<EnumKind> = None;
+        let mut kind_span: Option<Span> = None;
+        let mut rename: Option<Rename> = None;
+        let mut rename_span: Option<Span> = None;
+        let mut default: Option<LitStr> = None;
+        let mut default_span: Option<Span> = None;
+        let mut unknown = Vec::new();
+
+        for attr in attrs {
+            if !attr.path().is_ident(IRC) {
+                continue;
+            }
+
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(RENAME) {
+                    let key = parse_required_lit_str(&meta, RENAME)?;
+
+                    if rename.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(RENAME));
+                        if let Some(first) = rename_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(RENAME)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    rename = Some(Rename::parse(&key)?);
+                    rename_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                if meta.path.is_ident(DEFAULT) {
+                    let name = parse_required_lit_str(&meta, DEFAULT)?;
+
+                    if default.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(DEFAULT));
+                        if let Some(first) = default_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(DEFAULT)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    default = Some(name);
+                    default_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                if let Some(enum_kind) = EnumKind::try_parse(&meta)? {
+                    if let Some(existing) = &kind {
+                        let mut err = meta.error(error_msg::multiple_extraction_attributes(
+                            existing.name(),
+                            enum_kind.name(),
+                        ));
+
+                        if let Some(first) = kind_span {
+                            err.combine(Error::new(
+                                first,
+                                error_msg::first_defined_here(existing.name()),
+                            ));
+                        }
+
+                        return Err(err);
+                    }
+
+                    kind = Some(enum_kind);
+                    kind_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                unknown.push(meta.path.clone());
+                if meta.input.peek(Eq) {
+                    meta.value()?.parse::<TokenTree>()?;
+                }
+
+                Ok(())
+            })?;
+        }
+
+        let kind = kind
+            .ok_or_else(|| Error::new(Span::call_site(), error_msg::enum_requires_component()))?;
+
+        if matches!(kind, EnumKind::Command) {
+            if let Some(span) = rename_span {
+                return Err(Error::new(
+                    span,
+                    error_msg::rename_not_allowed_with_command(),
+                ));
+            }
+        }
+
+        let rename = rename.unwrap_or(match kind {
+            EnumKind::Command => Rename::Uppercase,
+            _ => Rename::Lowercase,
+        });
+
+        Ok(Self {
+            kind,
+            rename,
+            default,
+            unknown,
+        })
+    }
+}
+
+impl EnumKind {
+    pub fn try_parse(meta: &ParseNestedMeta) -> Result<Option<Self>> {
+        if meta.path.is_ident(TAG) {
+            let key = parse_required_lit_str(meta, TAG)?;
+            return Ok(Some(Self::Tag(key)));
+        }
+
+        if meta.path.is_ident(TAG_FLAG) {
+            let key = parse_required_lit_str(meta, TAG_FLAG)?;
+            return Ok(Some(Self::TagFlag(key)));
+        }
+
+        if meta.path.is_ident(SOURCE) {
+            let source = if meta.input.peek(Eq) {
+                let lit = parse_lit_str(meta, SOURCE)?;
+
+                Source::parse(lit)?
+            } else {
+                Source::Name
+            };
+
+            return Ok(Some(Self::Source(source)));
+        }
+
+        if meta.path.is_ident(PARAM) {
+            let idx = if meta.input.peek(Eq) {
+                meta.value()?.parse()?
+            } else {
+                LitInt::new("0", Span::call_site())
+            };
+
+            return Ok(Some(Self::Param(idx)));
+        }
+
+        if meta.path.is_ident(TRAILING) {
+            return Ok(Some(Self::Trailing));
+        }
+
+        if meta.path.is_ident(COMMAND) {
+            return Ok(Some(Self::Command));
+        }
+
+        Ok(None)
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Tag(_) => TAG,
+            Self::TagFlag(_) => TAG_FLAG,
+            Self::Source(_) => SOURCE,
+            Self::Param(_) => PARAM,
+            Self::Trailing => TRAILING,
+            Self::Command => COMMAND,
+        }
+    }
+
+    pub fn add_to(&self, components: &mut ComponentSet) {
+        match self {
+            Self::Tag(_) | Self::TagFlag(_) => components.add_tags(),
+            Self::Source(_) => components.add_source(),
+            Self::Param(_) | Self::Trailing => components.add_params(),
+            Self::Command => components.add_command(),
+        }
+    }
+}
+
+impl VariantAttrs {
+    pub fn parse(attrs: &[Attribute]) -> Result<Self> {
+        let mut values: Vec<LitStr> = Vec::new();
+        let mut present: Option<Span> = None;
+        let mut unknown = Vec::new();
+
+        for attr in attrs {
+            if !attr.path().is_ident(IRC) {
+                continue;
+            }
+
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(VALUE) {
+                    let lit = parse_required_lit_str(&meta, VALUE)?;
+
+                    values.push(lit);
+                    return Ok(());
+                }
+
+                if meta.path.is_ident(PRESENT) {
+                    if meta.input.peek(Eq) {
+                        return Err(Error::new(
+                            meta.path.span(),
+                            error_msg::cannot_have_value(PRESENT),
+                        ));
+                    }
+
+                    if let Some(first_span) = present {
+                        let mut err = meta.error(error_msg::duplicate_attribute(PRESENT));
+                        err.combine(Error::new(
+                            first_span,
+                            error_msg::first_defined_here(PRESENT),
+                        ));
+
+                        return Err(err);
+                    }
+
+                    present = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                unknown.push(meta.path.clone());
+                if meta.input.peek(Eq) {
+                    meta.value()?.parse::<TokenTree>()?;
+                }
+
+                Ok(())
+            })?;
+        }
+
+        Ok(Self {
+            values,
+            present,
+            unknown,
+        })
+    }
+}
+
+impl Rename {
+    pub fn parse(lit: &LitStr) -> Result<Self> {
+        match lit.value().as_str() {
+            "lowercase" => Ok(Self::Lowercase),
+            "UPPERCASE" => Ok(Self::Uppercase),
+            "kebab-case" => Ok(Self::KebabCase),
+            other => Err(Error::new(
+                lit.span(),
+                error_msg::unknown_rename_rule(other),
+            )),
+        }
+    }
+
+    pub fn apply(&self, ident: &str) -> String {
+        match self {
+            Self::Lowercase => ident.to_lowercase(),
+            Self::Uppercase => ident.to_uppercase(),
+            Self::KebabCase => {
+                use heck::ToKebabCase;
+                ident.to_kebab_case()
+            }
+        }
+    }
+}
+
+fn parse_required_lit_str(meta: &ParseNestedMeta, attr: &str) -> Result<LitStr> {
+    if meta.input.peek(Eq) {
+        parse_lit_str(meta, attr)
+    } else {
+        Err(meta.error(error_msg::required_value(attr)))
     }
 }
 

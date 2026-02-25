@@ -270,6 +270,16 @@ impl DeError {
         )
     }
 
+    pub fn is_not_found_command(&self) -> bool {
+        matches!(
+            self,
+            DeError::NotFound {
+                component: "command",
+                ..
+            }
+        )
+    }
+
     pub fn is_not_found_trailing(&self) -> bool {
         matches!(
             self,

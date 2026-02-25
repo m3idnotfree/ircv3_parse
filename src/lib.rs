@@ -293,7 +293,9 @@
 //! ```rust
 //! use ircv3_parse::{Commands, MessageBuilder};
 //!
-//! let mut msg = MessageBuilder::new(Commands::PRIVMSG);
+//! let mut msg = MessageBuilder::new();
+//! msg.set_command(Commands::PRIVMSG);
+//!
 //! msg.add_tag("tag1", Some("value1"))?
 //!     .add_tag("tag2", None)?
 //!     .add_tag_flag("flag")?;
@@ -305,7 +307,7 @@
 //!
 //! msg.set_trailing("hi")?;
 //!
-//! let actual = msg.build();
+//! let actual = msg.build().unwrap();
 //! assert_eq!(
 //!     b"@tag1=value1;tag2=;flag :nick!user@example.com PRIVMSG :hi\r\n",
 //!     actual.as_ref()

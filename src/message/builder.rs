@@ -250,16 +250,26 @@ impl<'a> Components<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct MessageBuilder<'a> {
-    command: Commands<'a>,
+    command: Option<Commands<'a>>,
     components: Components<'a>,
 }
 
 impl<'a> MessageBuilder<'a> {
-    pub fn new(command: Commands<'a>) -> Self {
+    pub fn new() -> Self {
         Self {
-            command,
+            command: None,
             components: Components::new(),
+        }
+    }
+
+    pub fn set_command(&mut self, command: Commands<'a>) -> Result<&mut Self, IRCError> {
+        if self.command.is_some() {
+            Err(IRCError::DuplicateCommand)
+        } else {
+            self.command = Some(command);
+            Ok(self)
         }
     }
 
@@ -369,15 +379,17 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn build(self) -> Bytes {
-        let size = self.components.serialized_size(self.command);
-        let mut buffer = IRCSerializer::with_capacity(size);
+    pub fn build(self) -> Result<Bytes, IRCError> {
+        if let Some(command) = self.command {
+            let size = self.components.serialized_size(command);
+            let mut buffer = IRCSerializer::with_capacity(size);
 
-        self.components
-            .to_message(&mut buffer, self.command)
-            .unwrap();
+            self.components.to_message(&mut buffer, command)?;
 
-        buffer.into_bytes()
+            Ok(buffer.into_bytes())
+        } else {
+            Err(IRCError::MissingCommand)
+        }
     }
 
     pub fn validator(&self) -> Result<(), IRCError> {
@@ -387,7 +399,12 @@ impl<'a> MessageBuilder<'a> {
 
 impl<'a> ToMessage for MessageBuilder<'a> {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        self.components.to_message(serialize, self.command)
+        if let Some(command) = self.command {
+            self.components.to_message(serialize, command)?;
+            Ok(())
+        } else {
+            Err(IRCError::MissingCommand)
+        }
     }
 }
 
@@ -505,7 +522,8 @@ mod tests {
 
     #[test]
     fn base() {
-        let mut msg = MessageBuilder::new(Commands::PRIVMSG);
+        let mut msg = MessageBuilder::new();
+        msg.set_command(Commands::PRIVMSG).unwrap();
         msg.add_tag("tag1", Some("value1"))
             .unwrap()
             .add_tag("tag2", None)
@@ -520,7 +538,7 @@ mod tests {
         msg.set_trailing("").unwrap();
 
         let size = msg.serialized_size();
-        let actual = msg.build();
+        let actual = msg.build().unwrap();
         assert_eq!(
             "@tag1=value1;tag2=;flag :nick!user@example.com PRIVMSG :\r\n",
             actual

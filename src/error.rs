@@ -11,6 +11,8 @@ pub enum IRCError {
     SourceNotSet { component: &'static str },
     #[error("command is required")]
     MissingCommand,
+    #[error("command already set")]
+    DuplicateCommand,
 
     #[error(transparent)]
     Tag(#[from] TagError),
@@ -38,7 +40,7 @@ impl IRCError {
             Self::MissingSpace { component } => component,
 
             Self::SourceNotSet { .. } => "BUILD_SOURCE",
-            Self::MissingCommand => "BUILD_COMMAND",
+            Self::MissingCommand | Self::DuplicateCommand => "BUILD_COMMAND",
 
             Self::Tag(tag) => tag.code(),
             Self::Source(src) => src.code(),

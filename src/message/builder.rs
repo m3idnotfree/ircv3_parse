@@ -37,7 +37,7 @@ impl<'a> TagTy<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Tags<'a>(Vec<TagTy<'a>>);
 
 impl<'a> Tags<'a> {
@@ -85,24 +85,29 @@ impl<'a> ToMessage for Tags<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 struct SourceParts<'a> {
-    name: &'a str,
+    pub name: Option<&'a str>,
     pub user: Option<&'a str>,
     pub host: Option<&'a str>,
 }
 
 impl<'a> SourceParts<'a> {
-    fn new(name: &'a str) -> Self {
+    fn new() -> Self {
         Self {
-            name,
+            name: None,
             user: None,
             host: None,
         }
     }
 
     pub fn validate(&self) -> Result<(), SourceError> {
-        validators::nick(self.name)?;
+        if let Some(name) = &self.name {
+            validators::nick(name)?;
+        } else {
+            return Err(SourceError::MissingNick);
+        }
+
         if let Some(user) = self.user {
             validators::user(user)?;
         }
@@ -117,7 +122,13 @@ impl<'a> SourceParts<'a> {
 
 impl<'a> ToMessage for SourceParts<'a> {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let mut source = serialize.source(self.name)?;
+        let mut source = serialize.source();
+
+        if let Some(name) = self.name {
+            source.name(name)?;
+        } else {
+            return Err(IRCError::Source(SourceError::MissingNick));
+        }
 
         if let Some(user) = self.user {
             source.user(user)?;
@@ -132,7 +143,7 @@ impl<'a> ToMessage for SourceParts<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Params<'a>(Vec<&'a str>);
 
 impl<'a> Params<'a> {
@@ -171,7 +182,7 @@ impl<'a> ToMessage for Params<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Components<'a> {
     tags: Tags<'a>,
     source: Option<SourceParts<'a>>,
@@ -288,9 +299,17 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn set_source_name(&mut self, name: &'a str) -> Result<&mut Self, IRCError> {
-        validators::nick(name)?;
-        self.components.source = Some(SourceParts::new(name));
-        Ok(self)
+        if self.components.source.is_some() {
+            Err(IRCError::Source(SourceError::DublicateComponent {
+                component: "name",
+            }))
+        } else {
+            validators::nick(name)?;
+            let mut source = SourceParts::new();
+            source.name = Some(name);
+            self.components.source = Some(source);
+            Ok(self)
+        }
     }
 
     pub fn set_source_user(&mut self, user: &'a str) -> Result<&mut Self, IRCError> {
@@ -319,7 +338,8 @@ impl<'a> MessageBuilder<'a> {
         user: Option<&'a str>,
         host: Option<&'a str>,
     ) -> Result<&mut Self, IRCError> {
-        let mut source = SourceParts::new(name);
+        let mut source = SourceParts::new();
+        source.name = Some(name);
         source.user = user;
         source.host = host;
 
@@ -420,7 +440,8 @@ mod tests {
 
     #[test]
     fn source() {
-        let mut source = SourceParts::new("nick");
+        let mut source = SourceParts::new();
+        source.name = Some("nick");
         source.user = Some("user");
         source.host = Some("example.com");
 
@@ -433,7 +454,8 @@ mod tests {
 
     #[test]
     fn source_user() {
-        let mut source = SourceParts::new("nick");
+        let mut source = SourceParts::new();
+        source.name = Some("nick");
         source.user = Some("user");
 
         let mut buffer = IRCSerializer::new();
@@ -445,7 +467,8 @@ mod tests {
 
     #[test]
     fn source_host() {
-        let mut source = SourceParts::new("nick");
+        let mut source = SourceParts::new();
+        source.name = Some("nick");
         source.host = Some("example.com");
 
         let mut buffer = IRCSerializer::new();
@@ -457,7 +480,8 @@ mod tests {
 
     #[test]
     fn source_server() {
-        let source = SourceParts::new("irc.example.com");
+        let mut source = SourceParts::new();
+        source.name = Some("irc.example.com");
 
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
@@ -524,7 +548,8 @@ mod tests {
                 }
                 tags.end();
 
-                let source = serialize.source(&self.source)?;
+                let mut source = serialize.source();
+                source.name(&self.source)?;
                 source.end();
 
                 serialize.command(Commands::PRIVMSG);

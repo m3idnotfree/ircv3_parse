@@ -84,6 +84,7 @@ impl Source {
         Ok(quote! {
             {
                 use ircv3_parse::message::ser::SerializeSource;
+                let mut source = serialize.source();
                 #name
                 #user
                 #host

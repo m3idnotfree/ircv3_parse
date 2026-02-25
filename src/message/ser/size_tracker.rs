@@ -69,14 +69,13 @@ impl MessageSerializer for SizeTracker {
         SizeTagsTracker { tracker: self }
     }
 
-    fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError> {
+    fn source(&mut self) -> Self::Source<'_> {
         self.add_space_if_needed();
-        self.put_u8(COLON);
-        self.put_slice(name.as_bytes());
-        Ok(SizeSourceTracker {
+        SizeSourceTracker {
             tracker: self,
+            has_name: false,
             ended: false,
-        })
+        }
     }
 
     fn command(&mut self, command: Commands) {
@@ -158,10 +157,20 @@ impl Drop for SizeTagsTracker<'_> {
 
 pub struct SizeSourceTracker<'a> {
     tracker: &'a mut SizeTracker,
+    has_name: bool,
     ended: bool,
 }
 
 impl SerializeSource for SizeSourceTracker<'_> {
+    fn name(&mut self, name: &str) -> Result<(), IRCError> {
+        self.tracker.put_u8(COLON);
+        self.tracker.put_slice(name.as_bytes());
+
+        self.has_name = true;
+
+        Ok(())
+    }
+
     fn user(&mut self, user: &str) -> Result<(), IRCError> {
         self.tracker.put_u8(BANG);
         self.tracker.put_slice(user.as_bytes());
@@ -175,7 +184,7 @@ impl SerializeSource for SizeSourceTracker<'_> {
     }
 
     fn end(mut self) {
-        if !self.ended {
+        if self.has_name && !self.ended {
             self.tracker.needs_space = true;
             self.ended = true;
         }
@@ -184,7 +193,7 @@ impl SerializeSource for SizeSourceTracker<'_> {
 
 impl Drop for SizeSourceTracker<'_> {
     fn drop(&mut self) {
-        if !self.ended {
+        if self.has_name && !self.ended {
             self.tracker.needs_space = true;
         }
     }

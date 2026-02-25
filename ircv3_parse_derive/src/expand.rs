@@ -683,25 +683,25 @@ impl FieldKind {
                 Source::Name => match TypeKind::classify(&field.ty) {
                     Str => {
                         builder.set_source_name(quote! {
-                            let mut source = serialize.source(self.#field_name)?;
+                            source.name(self.#field_name)?;
                         });
                     }
                     String => {
                         builder.set_source_name(quote! {
-                            let mut source = serialize.source(self.#field_name.as_ref())?;
+                            source.name(self.#field_name.as_ref())?;
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         builder.set_source_name(quote! {
                             if let Some(field) = self.#field_name {
-                                let mut source = serialize.source(field)?;
+                                source.name(field)?;
                             }
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         builder.set_source_name(quote! {
                             if let Some(field) = &self.#field_name {
-                                let mut source = serialize.source(field.as_ref())?;
+                                source.name(field.as_ref())?;
                             }
                         });
                     }

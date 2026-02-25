@@ -105,6 +105,11 @@ pub enum SourceError {
 
     #[error(transparent)]
     Hostname(#[from] HostnameError),
+
+    #[error("missing source name")]
+    MissingNick,
+    #[error("source {component} already set")]
+    DublicateComponent { component: &'static str },
 }
 
 impl SourceError {

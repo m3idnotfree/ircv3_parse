@@ -4,6 +4,7 @@ pub use size_tracker::SizeTracker;
 
 use bytes::{BufMut, Bytes, BytesMut};
 
+use crate::error::SourceError;
 use crate::{validators, Commands, IRCError};
 use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
 
@@ -54,7 +55,7 @@ pub trait MessageSerializer: private::Sealed + Sized {
         Self: 'a;
 
     fn tags(&mut self) -> Self::Tags<'_>;
-    fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError>;
+    fn source(&mut self) -> Self::Source<'_>;
     fn command(&mut self, command: Commands);
     fn params(&mut self) -> Self::Params<'_>;
     fn trailing(&mut self, value: &str) -> Result<(), IRCError>;
@@ -68,6 +69,7 @@ pub trait SerializeTags: private::Sealed {
 }
 
 pub trait SerializeSource: private::Sealed {
+    fn name(&mut self, name: &str) -> Result<(), IRCError>;
     fn user(&mut self, user: &str) -> Result<(), IRCError>;
     fn host(&mut self, host: &str) -> Result<(), IRCError>;
     fn end(self);
@@ -148,19 +150,15 @@ impl MessageSerializer for IRCSerializer {
         }
     }
 
-    fn source(&mut self, name: &str) -> Result<Self::Source<'_>, IRCError> {
-        if validators::host(name).is_err() {
-            validators::nick(name)?;
-        }
-
+    fn source(&mut self) -> Self::Source<'_> {
         self.add_space_if_needed();
-
-        self.buffer.put_u8(COLON);
-        self.buffer.put_slice(name.as_bytes());
-        Ok(IRCSourceSerializer {
+        IRCSourceSerializer {
             buffer: &mut self.buffer,
+            has_name: false,
+            has_user: false,
+            has_host: false,
             needs_space: &mut self.needs_space,
-        })
+        }
     }
 
     fn command(&mut self, command: Commands) {
@@ -256,32 +254,75 @@ impl Drop for IRCTagsSerializer<'_> {
 
 pub struct IRCSourceSerializer<'a> {
     buffer: &'a mut BytesMut,
+    has_name: bool,
+    has_user: bool,
+    has_host: bool,
     needs_space: &'a mut bool,
 }
 
 impl<'a> SerializeSource for IRCSourceSerializer<'a> {
+    fn name(&mut self, name: &str) -> Result<(), IRCError> {
+        if self.has_name {
+            return Err(IRCError::Source(SourceError::DublicateComponent {
+                component: "name",
+            }));
+        }
+
+        if validators::host(name).is_err() {
+            validators::nick(name)?;
+        }
+
+        self.has_name = true;
+        self.buffer.put_u8(COLON);
+        self.buffer.put_slice(name.as_bytes());
+
+        Ok(())
+    }
+
     fn user(&mut self, user: &str) -> Result<(), IRCError> {
+        if self.has_user {
+            return Err(IRCError::Source(SourceError::DublicateComponent {
+                component: "user",
+            }));
+        }
+
         validators::user(user)?;
+
+        self.has_user = true;
         self.buffer.put_u8(BANG);
         self.buffer.put_slice(user.as_bytes());
+
         Ok(())
     }
 
     fn host(&mut self, host: &str) -> Result<(), IRCError> {
+        if self.has_host {
+            return Err(IRCError::Source(SourceError::DublicateComponent {
+                component: "host",
+            }));
+        }
+
         validators::host(host)?;
+
+        self.has_host = true;
         self.buffer.put_u8(AT);
         self.buffer.put_slice(host.as_bytes());
+
         Ok(())
     }
 
     fn end(self) {
-        *self.needs_space = true;
+        if self.has_name {
+            *self.needs_space = true;
+        }
     }
 }
 
 impl Drop for IRCSourceSerializer<'_> {
     fn drop(&mut self) {
-        *self.needs_space = true;
+        if self.has_name {
+            *self.needs_space = true;
+        }
     }
 }
 
@@ -472,7 +513,8 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut source = serialize.source("nick")?;
+                let mut source = serialize.source();
+                source.name("nick")?;
                 source.user("user")
             }
         }

@@ -431,8 +431,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         tags.to_message(&mut buffer).unwrap();
 
-        assert_eq!("@key=value", buffer.into_bytes());
-        assert_eq!(10, tags.serialized_size());
+        assert_eq!("@key=value ", buffer.into_bytes());
+        assert_eq!(11, tags.serialized_size());
     }
 
     #[test]
@@ -451,8 +451,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         tags.to_message(&mut buffer).unwrap();
 
-        assert_eq!("@key=value;key2=;flag", buffer.into_bytes());
-        assert_eq!(21, tags.serialized_size());
+        assert_eq!("@key=value;key2=;flag ", buffer.into_bytes());
+        assert_eq!(22, tags.serialized_size());
     }
 
     #[test]
@@ -465,8 +465,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
 
-        assert_eq!(":nick!user@example.com", buffer.into_bytes());
-        assert_eq!(22, source.serialized_size());
+        assert_eq!(":nick!user@example.com ", buffer.into_bytes());
+        assert_eq!(23, source.serialized_size());
     }
 
     #[test]
@@ -478,8 +478,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
 
-        assert_eq!(":nick!user", buffer.into_bytes());
-        assert_eq!(10, source.serialized_size());
+        assert_eq!(":nick!user ", buffer.into_bytes());
+        assert_eq!(11, source.serialized_size());
     }
 
     #[test]
@@ -491,8 +491,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
 
-        assert_eq!(":nick@example.com", buffer.into_bytes());
-        assert_eq!(17, source.serialized_size());
+        assert_eq!(":nick@example.com ", buffer.into_bytes());
+        assert_eq!(18, source.serialized_size());
     }
 
     #[test]
@@ -503,8 +503,8 @@ mod tests {
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
 
-        assert_eq!(":irc.example.com", buffer.into_bytes());
-        assert_eq!(16, source.serialized_size());
+        assert_eq!(":irc.example.com ", buffer.into_bytes());
+        assert_eq!(17, source.serialized_size());
     }
 
     #[test]

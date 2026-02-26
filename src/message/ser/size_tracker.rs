@@ -13,7 +13,6 @@ pub struct SizeTracker {
     params_flushed: bool,
     has_command: bool,
     has_trailing: bool,
-    needs_space: bool,
 }
 
 impl SizeTracker {
@@ -29,7 +28,6 @@ impl SizeTracker {
             params: SizeParamsTracker::new(),
             params_flushed: false,
             has_trailing: false,
-            needs_space: false,
         }
     }
 
@@ -59,8 +57,8 @@ impl SizeTracker {
         if !self.tags_flushed {
             let size = self.tags.byte_len();
             if size > 0 {
-                self.count += size;
-                self.needs_space = true;
+                // tags + ' '
+                self.count += size + 1;
             }
             self.tags_flushed = true;
         }
@@ -71,8 +69,8 @@ impl SizeTracker {
         if !self.source_flushed {
             let size = self.source.byte_len();
             if size > 0 {
-                self.count += size;
-                self.needs_space = true;
+                // source + ' '
+                self.count += size + 1;
             }
             self.source_flushed = true;
         }
@@ -83,14 +81,6 @@ impl SizeTracker {
         if !self.params_flushed {
             self.count += self.params.byte_len();
             self.params_flushed = true;
-        }
-    }
-
-    #[inline]
-    fn add_space_if_needed(&mut self) {
-        if self.needs_space {
-            self.put_u8(SPACE);
-            self.needs_space = false;
         }
     }
 }
@@ -106,15 +96,12 @@ impl MessageSerializer for SizeTracker {
 
     fn source(&mut self) -> &mut Self::Source {
         self.flush_tags();
-        self.add_space_if_needed();
         &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
         self.flush_tags();
-        self.add_space_if_needed();
         self.flush_source();
-        self.add_space_if_needed();
         self.has_command = true;
         self.put_slice(command.as_bytes());
     }
@@ -137,9 +124,7 @@ impl MessageSerializer for SizeTracker {
 
     fn end(&mut self) -> Result<(), IRCError> {
         self.flush_tags();
-        self.add_space_if_needed();
         self.flush_source();
-        self.add_space_if_needed();
         self.flush_params();
         self.put_slice(b"\r\n");
         Ok(())

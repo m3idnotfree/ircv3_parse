@@ -73,8 +73,8 @@ fn tag() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("@field=value", msg);
-    assert_eq!(12, size)
+    assert_eq!("@field=value ", msg);
+    assert_eq!(13, size)
 }
 
 #[test]
@@ -89,8 +89,8 @@ fn tag_str() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("@key=value", msg);
-    assert_eq!(10, size)
+    assert_eq!("@key=value ", msg);
+    assert_eq!(11, size)
 }
 
 #[test]
@@ -105,8 +105,8 @@ fn tag_opt_none() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("@field=", msg);
-    assert_eq!(7, size)
+    assert_eq!("@field= ", msg);
+    assert_eq!(8, size)
 }
 
 #[test]
@@ -123,8 +123,8 @@ fn tag_opt_some() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("@field=value", msg);
-    assert_eq!(12, size)
+    assert_eq!("@field=value ", msg);
+    assert_eq!(13, size)
 }
 
 #[test]
@@ -149,8 +149,8 @@ fn tag_opt_ser() {
 
     let size = tag.serialized_size();
     let msg = tag.to_bytes().unwrap();
-    assert_eq!("@field=value", msg);
-    assert_eq!(12, size)
+    assert_eq!("@field=value ", msg);
+    assert_eq!(13, size)
 }
 
 #[test]
@@ -170,8 +170,8 @@ fn tag_multi() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!("@field=value;field2=value2", msg);
-    assert_eq!(26, size)
+    assert_eq!("@field=value;field2=value2 ", msg);
+    assert_eq!(27, size)
 }
 
 #[test]
@@ -188,8 +188,8 @@ fn source() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!(":name", msg);
-    assert_eq!(5, size)
+    assert_eq!(":name ", msg);
+    assert_eq!(6, size)
 }
 
 #[test]
@@ -209,8 +209,8 @@ fn source_with_user() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!(":name!user", msg);
-    assert_eq!(10, size)
+    assert_eq!(":name!user ", msg);
+    assert_eq!(11, size)
 }
 
 #[test]
@@ -230,8 +230,8 @@ fn source_with_host() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!(":name@example.com", msg);
-    assert_eq!(17, size)
+    assert_eq!(":name@example.com ", msg);
+    assert_eq!(18, size)
 }
 
 #[test]
@@ -254,8 +254,8 @@ fn source_with_all() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!(":name!user@example.com", msg);
-    assert_eq!(22, size)
+    assert_eq!(":name!user@example.com ", msg);
+    assert_eq!(23, size)
 }
 
 #[test]
@@ -278,8 +278,8 @@ fn source_with_all2() {
 
     let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
-    assert_eq!(":name!user@example.com", msg);
-    assert_eq!(22, size)
+    assert_eq!(":name!user@example.com ", msg);
+    assert_eq!(23, size)
 }
 
 #[test]

@@ -87,7 +87,6 @@ pub struct IRCSerializer {
     params: IRCParamsSerializer,
     params_flushed: bool,
     has_trailing: bool,
-    needs_space: bool,
     buffer: BytesMut,
 }
 
@@ -103,7 +102,6 @@ impl IRCSerializer {
             params: IRCParamsSerializer::default(),
             params_flushed: false,
             has_trailing: false,
-            needs_space: false,
             buffer: BytesMut::new(),
         }
     }
@@ -118,7 +116,6 @@ impl IRCSerializer {
             params_flushed: false,
             has_command: false,
             has_trailing: false,
-            needs_space: false,
             buffer: BytesMut::with_capacity(capacity),
         }
     }
@@ -126,7 +123,7 @@ impl IRCSerializer {
     fn flush_tags(&mut self) {
         if !self.tags_flushed {
             if self.tags.write_to(&mut self.buffer) {
-                self.needs_space = true;
+                self.buffer.put_u8(SPACE);
             }
             self.tags_flushed = true;
         }
@@ -135,7 +132,7 @@ impl IRCSerializer {
     fn flush_source(&mut self) {
         if !self.source_flushed {
             if self.source.write_to(&mut self.buffer) {
-                self.needs_space = true;
+                self.buffer.put_u8(SPACE);
             }
             self.source_flushed = true;
         }
@@ -145,13 +142,6 @@ impl IRCSerializer {
         if !self.params_flushed {
             self.params.write_to(&mut self.buffer);
             self.params_flushed = true;
-        }
-    }
-
-    fn add_space_if_needed(&mut self) {
-        if self.needs_space {
-            self.buffer.put_u8(SPACE);
-            self.needs_space = false;
         }
     }
 
@@ -174,15 +164,12 @@ impl MessageSerializer for IRCSerializer {
 
     fn source(&mut self) -> &mut Self::Source {
         self.flush_tags();
-        self.add_space_if_needed();
         &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
         self.flush_tags();
-        self.add_space_if_needed();
         self.flush_source();
-        self.add_space_if_needed();
         self.has_command = true;
         self.buffer.put_slice(command.as_bytes());
     }
@@ -643,8 +630,8 @@ mod tests {
 
         let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
-        assert_eq!("@field=value1;field2=value2", actual);
-        assert_eq!(27, size);
+        assert_eq!("@field=value1;field2=value2 ", actual);
+        assert_eq!(28, size);
     }
 
     #[test]

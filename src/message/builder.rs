@@ -1,6 +1,6 @@
 use bytes::Bytes;
 
-use crate::compat::Debug;
+use crate::compat::{Debug, String, ToOwned};
 
 use crate::{error::IRCError, validators, Commands};
 
@@ -10,14 +10,14 @@ use crate::message::ser::{
 };
 
 #[derive(Debug, Default, Clone)]
-struct Components<'a> {
+struct Components {
     tags: IRCTagsSerializer,
     source: IRCSourceSerializer,
     params: IRCParamsSerializer,
-    trailing: Option<&'a str>,
+    trailing: Option<String>,
 }
 
-impl<'a> Components<'a> {
+impl Components {
     pub fn new() -> Self {
         Self {
             tags: IRCTagsSerializer::default(),
@@ -42,7 +42,7 @@ impl<'a> Components<'a> {
 
         self.params.to_message(serialize)?;
 
-        if let Some(trailing) = self.trailing {
+        if let Some(trailing) = &self.trailing {
             serialize.trailing(trailing)?;
         }
 
@@ -63,7 +63,7 @@ impl<'a> Components<'a> {
         self.tags.validate()?;
         self.source.validate()?;
 
-        if let Some(trailing) = self.trailing {
+        if let Some(trailing) = &self.trailing {
             validators::trailing(trailing)?;
         }
 
@@ -74,7 +74,7 @@ impl<'a> Components<'a> {
 #[derive(Default)]
 pub struct MessageBuilder<'a> {
     command: Option<Commands<'a>>,
-    components: Components<'a>,
+    components: Components,
 }
 
 impl<'a> MessageBuilder<'a> {
@@ -178,7 +178,7 @@ impl<'a> MessageBuilder<'a> {
 
     pub fn set_trailing(&mut self, trailing: &'a str) -> Result<&mut Self, IRCError> {
         validators::trailing(trailing)?;
-        self.components.trailing = Some(trailing);
+        self.components.trailing = Some(trailing.to_owned());
         Ok(self)
     }
 

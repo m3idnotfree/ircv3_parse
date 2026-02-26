@@ -1,18 +1,14 @@
-use crate::error::SourceError;
 use crate::message::ser::{MessageSerializer, SerializeParams, SerializeSource, SerializeTags};
-use crate::{validators, Commands, IRCError};
+use crate::{Commands, IRCError};
 use crate::{COLON, SPACE};
 
 pub struct SizeTracker {
     count: usize,
     tags: SizeTagsTracker,
-    tags_flushed: bool,
     source: SizeSourceTracker,
-    source_flushed: bool,
     params: SizeParamsTracker,
-    params_flushed: bool,
-    has_command: bool,
     has_trailing: bool,
+    finished: bool,
 }
 
 impl SizeTracker {
@@ -21,13 +17,10 @@ impl SizeTracker {
         Self {
             count: 0,
             tags: SizeTagsTracker::new(),
-            tags_flushed: false,
             source: SizeSourceTracker::new(),
-            source_flushed: false,
-            has_command: false,
             params: SizeParamsTracker::new(),
-            params_flushed: false,
             has_trailing: false,
+            finished: false,
         }
     }
 
@@ -35,6 +28,11 @@ impl SizeTracker {
         self.flush_tags();
         self.flush_source();
         self.flush_params();
+
+        if self.finished {
+            self.put_slice(b"\r\n");
+        }
+
         self.count
     }
 
@@ -54,34 +52,25 @@ impl SizeTracker {
 
     #[inline]
     fn flush_tags(&mut self) {
-        if !self.tags_flushed {
-            let size = self.tags.byte_len();
-            if size > 0 {
-                // tags + ' '
-                self.count += size + 1;
-            }
-            self.tags_flushed = true;
+        let size = self.tags.byte_len();
+        if size > 0 {
+            // tags + ' '
+            self.count += size + 1;
         }
     }
 
     #[inline]
     fn flush_source(&mut self) {
-        if !self.source_flushed {
-            let size = self.source.byte_len();
-            if size > 0 {
-                // source + ' '
-                self.count += size + 1;
-            }
-            self.source_flushed = true;
+        let size = self.source.byte_len();
+        if size > 0 {
+            // source + ' '
+            self.count += size + 1;
         }
     }
 
     #[inline]
     fn flush_params(&mut self) {
-        if !self.params_flushed {
-            self.count += self.params.byte_len();
-            self.params_flushed = true;
-        }
+        self.count += self.params.byte_len();
     }
 }
 
@@ -95,14 +84,10 @@ impl MessageSerializer for SizeTracker {
     }
 
     fn source(&mut self) -> &mut Self::Source {
-        self.flush_tags();
         &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
-        self.flush_tags();
-        self.flush_source();
-        self.has_command = true;
         self.put_slice(command.as_bytes());
     }
 
@@ -111,7 +96,6 @@ impl MessageSerializer for SizeTracker {
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
-        self.flush_params();
         if !self.has_trailing {
             self.put_u8(SPACE);
             self.put_u8(COLON);
@@ -123,10 +107,7 @@ impl MessageSerializer for SizeTracker {
     }
 
     fn end(&mut self) -> Result<(), IRCError> {
-        self.flush_tags();
-        self.flush_source();
-        self.flush_params();
-        self.put_slice(b"\r\n");
+        self.finished = true;
         Ok(())
     }
 }
@@ -151,15 +132,7 @@ impl SizeTagsTracker {
 
 impl SerializeTags for SizeTagsTracker {
     fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError> {
-        validators::tag_key(key)?;
-
-        let val_len = value
-            .map(|v| -> Result<usize, IRCError> {
-                validators::tag_value(v)?;
-                Ok(v.len())
-            })
-            .transpose()?
-            .unwrap_or(0);
+        let val_len = value.map_or(0, str::len);
 
         if !self.has_tags {
             // @
@@ -176,8 +149,6 @@ impl SerializeTags for SizeTagsTracker {
     }
 
     fn flag(&mut self, key: &str) -> Result<(), IRCError> {
-        validators::tag_key(key)?;
-
         if !self.has_tags {
             // @
             self.count += 1;
@@ -196,15 +167,11 @@ impl SerializeTags for SizeTagsTracker {
 
 pub struct SizeSourceTracker {
     count: usize,
-    has_name: bool,
 }
 
 impl SizeSourceTracker {
     pub fn new() -> Self {
-        Self {
-            count: 0,
-            has_name: false,
-        }
+        Self { count: 0 }
     }
 
     fn byte_len(&self) -> usize {
@@ -214,15 +181,8 @@ impl SizeSourceTracker {
 
 impl SerializeSource for SizeSourceTracker {
     fn name(&mut self, name: &str) -> Result<(), IRCError> {
-        if self.has_name {
-            return Err(IRCError::Source(SourceError::DublicateComponent {
-                component: "name",
-            }));
-        }
-
         // : + name
         self.count += 1 + name.len();
-
         Ok(())
     }
 

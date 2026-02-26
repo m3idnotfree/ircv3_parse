@@ -80,13 +80,11 @@ pub trait SerializeParams: private::Sealed {
 
 pub struct IRCSerializer {
     tags: IRCTagsSerializer,
-    tags_flushed: bool,
     source: IRCSourceSerializer,
-    source_flushed: bool,
-    has_command: bool,
+    command: Option<String>,
     params: IRCParamsSerializer,
-    params_flushed: bool,
-    has_trailing: bool,
+    trailing: Option<String>,
+    finished: bool,
     buffer: BytesMut,
 }
 
@@ -95,13 +93,11 @@ impl IRCSerializer {
     pub fn new() -> Self {
         Self {
             tags: IRCTagsSerializer::default(),
-            tags_flushed: false,
             source: IRCSourceSerializer::default(),
-            source_flushed: false,
-            has_command: false,
+            command: None,
             params: IRCParamsSerializer::default(),
-            params_flushed: false,
-            has_trailing: false,
+            trailing: None,
+            finished: false,
             buffer: BytesMut::new(),
         }
     }
@@ -109,46 +105,56 @@ impl IRCSerializer {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             tags: IRCTagsSerializer::default(),
-            tags_flushed: false,
             source: IRCSourceSerializer::default(),
-            source_flushed: false,
+            command: None,
             params: IRCParamsSerializer::default(),
-            params_flushed: false,
-            has_command: false,
-            has_trailing: false,
+            trailing: None,
+            finished: false,
             buffer: BytesMut::with_capacity(capacity),
         }
     }
 
     fn flush_tags(&mut self) {
-        if !self.tags_flushed {
-            if self.tags.write_to(&mut self.buffer) {
-                self.buffer.put_u8(SPACE);
-            }
-            self.tags_flushed = true;
+        if self.tags.write_to(&mut self.buffer) {
+            self.buffer.put_u8(SPACE);
         }
     }
 
     fn flush_source(&mut self) {
-        if !self.source_flushed {
-            if self.source.write_to(&mut self.buffer) {
-                self.buffer.put_u8(SPACE);
-            }
-            self.source_flushed = true;
+        if self.source.write_to(&mut self.buffer) {
+            self.buffer.put_u8(SPACE);
+        }
+    }
+
+    fn flush_command(&mut self) {
+        if let Some(command) = &self.command {
+            self.buffer.put_slice(command.as_bytes());
         }
     }
 
     fn flush_params(&mut self) {
-        if !self.params_flushed {
-            self.params.write_to(&mut self.buffer);
-            self.params_flushed = true;
+        self.params.write_to(&mut self.buffer);
+    }
+
+    fn flush_trailing(&mut self) {
+        if let Some(trailing) = &self.trailing {
+            self.buffer.put_u8(SPACE);
+            self.buffer.put_u8(COLON);
+            self.buffer.put_slice(trailing.as_bytes());
         }
     }
 
     pub fn into_bytes(mut self) -> Bytes {
         self.flush_tags();
         self.flush_source();
+        self.flush_command();
         self.flush_params();
+        self.flush_trailing();
+
+        if self.finished {
+            self.buffer.put_slice(b"\r\n");
+        }
+
         self.buffer.freeze()
     }
 }
@@ -163,15 +169,11 @@ impl MessageSerializer for IRCSerializer {
     }
 
     fn source(&mut self) -> &mut Self::Source {
-        self.flush_tags();
         &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
-        self.flush_tags();
-        self.flush_source();
-        self.has_command = true;
-        self.buffer.put_slice(command.as_bytes());
+        self.command = Some(command.as_str().to_owned());
     }
 
     fn params(&mut self) -> &mut Self::Params {
@@ -179,24 +181,20 @@ impl MessageSerializer for IRCSerializer {
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
-        self.flush_params();
         validators::trailing(value)?;
-        if !self.has_trailing {
-            self.buffer.put_u8(SPACE);
-            self.buffer.put_u8(COLON);
-            self.has_trailing = true;
+        match &mut self.trailing {
+            Some(t) => t.push_str(value),
+            None => self.trailing = Some(value.to_owned()),
         }
-
-        self.buffer.put_slice(value.as_bytes());
         Ok(())
     }
 
     fn end(&mut self) -> Result<(), IRCError> {
-        if !self.has_command {
+        if self.command.is_none() {
             return Err(IRCError::MissingCommand);
         }
 
-        self.buffer.put_slice(b"\r\n");
+        self.finished = true;
         Ok(())
     }
 }

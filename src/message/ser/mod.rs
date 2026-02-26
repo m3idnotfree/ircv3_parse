@@ -4,6 +4,8 @@ pub use size_tracker::SizeTracker;
 
 use bytes::{BufMut, Bytes, BytesMut};
 
+use crate::compat::{String, ToOwned, Vec};
+
 use crate::error::SourceError;
 use crate::{validators, Commands, IRCError};
 use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
@@ -31,20 +33,18 @@ mod private {
     pub trait Sealed {}
 
     impl Sealed for super::IRCSerializer {}
-    impl<'a> Sealed for super::IRCTagsSerializer<'a> {}
+    impl Sealed for super::IRCTagsSerializer {}
     impl<'a> Sealed for super::IRCSourceSerializer<'a> {}
     impl<'a> Sealed for super::IRCParamsSerializer<'a> {}
 
     impl Sealed for super::SizeTracker {}
-    impl<'a> Sealed for super::size_tracker::SizeTagsTracker<'a> {}
+    impl Sealed for super::size_tracker::SizeTagsTracker {}
     impl<'a> Sealed for super::size_tracker::SizeSourceTracker<'a> {}
     impl<'a> Sealed for super::size_tracker::SizeParamsTracker<'a> {}
 }
 
 pub trait MessageSerializer: private::Sealed + Sized {
-    type Tags<'a>: SerializeTags
-    where
-        Self: 'a;
+    type Tags: SerializeTags;
 
     type Source<'a>: SerializeSource
     where
@@ -54,7 +54,7 @@ pub trait MessageSerializer: private::Sealed + Sized {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Self::Tags<'_>;
+    fn tags(&mut self) -> &mut Self::Tags;
     fn source(&mut self) -> Self::Source<'_>;
     fn command(&mut self, command: Commands);
     fn params(&mut self) -> Self::Params<'_>;
@@ -65,7 +65,7 @@ pub trait MessageSerializer: private::Sealed + Sized {
 pub trait SerializeTags: private::Sealed {
     fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError>;
     fn flag(&mut self, key: &str) -> Result<(), IRCError>;
-    fn end(self);
+    fn end(&self);
 }
 
 pub trait SerializeSource: private::Sealed {
@@ -85,7 +85,8 @@ pub trait SerializeParams: private::Sealed {
 }
 
 pub struct IRCSerializer {
-    has_tags: bool,
+    tags: IRCTagsSerializer,
+    tags_flushed: bool,
     has_command: bool,
     has_trailing: bool,
     needs_space: bool,
@@ -96,7 +97,8 @@ impl IRCSerializer {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            has_tags: false,
+            tags: IRCTagsSerializer::default(),
+            tags_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
@@ -106,11 +108,21 @@ impl IRCSerializer {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            has_tags: false,
+            tags: IRCTagsSerializer::default(),
+            tags_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
             buffer: BytesMut::with_capacity(capacity),
+        }
+    }
+
+    fn flush_tags(&mut self) {
+        if !self.tags_flushed {
+            if self.tags.write_to(&mut self.buffer) {
+                self.needs_space = true;
+            }
+            self.tags_flushed = true;
         }
     }
 
@@ -121,16 +133,14 @@ impl IRCSerializer {
         }
     }
 
-    pub fn into_bytes(self) -> Bytes {
+    pub fn into_bytes(mut self) -> Bytes {
+        self.flush_tags();
         self.buffer.freeze()
     }
 }
 
 impl MessageSerializer for IRCSerializer {
-    type Tags<'a>
-        = IRCTagsSerializer<'a>
-    where
-        Self: 'a;
+    type Tags = IRCTagsSerializer;
 
     type Source<'a>
         = IRCSourceSerializer<'a>
@@ -142,15 +152,12 @@ impl MessageSerializer for IRCSerializer {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Self::Tags<'_> {
-        IRCTagsSerializer {
-            buffer: &mut self.buffer,
-            has_tags: &mut self.has_tags,
-            needs_space: &mut self.needs_space,
-        }
+    fn tags(&mut self) -> &mut Self::Tags {
+        &mut self.tags
     }
 
     fn source(&mut self) -> Self::Source<'_> {
+        self.flush_tags();
         self.add_space_if_needed();
         IRCSourceSerializer {
             buffer: &mut self.buffer,
@@ -162,6 +169,7 @@ impl MessageSerializer for IRCSerializer {
     }
 
     fn command(&mut self, command: Commands) {
+        self.flush_tags();
         self.add_space_if_needed();
         self.has_command = true;
         self.buffer.put_slice(command.as_bytes());
@@ -195,61 +203,74 @@ impl MessageSerializer for IRCSerializer {
     }
 }
 
-pub struct IRCTagsSerializer<'a> {
-    buffer: &'a mut BytesMut,
-    has_tags: &'a mut bool,
-    needs_space: &'a mut bool,
+#[derive(Debug, Clone)]
+enum TagTy {
+    Value { key: String, value: Option<String> },
+    Flag(String),
 }
 
-impl<'a> SerializeTags for IRCTagsSerializer<'a> {
+#[derive(Debug, Default, Clone)]
+pub struct IRCTagsSerializer {
+    tags: Vec<TagTy>,
+}
+
+impl IRCTagsSerializer {
+    fn write_to(&self, buffer: &mut BytesMut) -> bool {
+        if self.tags.is_empty() {
+            return false;
+        }
+
+        buffer.put_u8(AT);
+        let mut first = true;
+        for tag in &self.tags {
+            if !first {
+                buffer.put_u8(SEMICOLON);
+            }
+            first = false;
+
+            match tag {
+                TagTy::Value { key, value } => {
+                    buffer.put_slice(key.as_bytes());
+                    buffer.put_u8(EQ);
+                    if let Some(val) = value {
+                        buffer.put_slice(val.as_bytes());
+                    }
+                }
+                TagTy::Flag(key) => {
+                    buffer.put_slice(key.as_bytes());
+                }
+            }
+        }
+
+        true
+    }
+}
+
+impl SerializeTags for IRCTagsSerializer {
     fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError> {
         validators::tag_key(key)?;
 
-        if !*self.has_tags {
-            self.buffer.put_u8(AT);
-            *self.has_tags = true;
-        } else {
-            self.buffer.put_u8(SEMICOLON);
-        }
+        let value = value
+            .map(|v| -> Result<String, IRCError> {
+                validators::tag_value(v)?;
+                Ok(v.to_owned())
+            })
+            .transpose()?;
 
-        self.buffer.put_slice(key.as_bytes());
-        self.buffer.put_u8(EQ);
-
-        if let Some(val) = value {
-            validators::tag_value(val)?;
-            self.buffer.put_slice(val.as_bytes());
-        }
-
+        self.tags.push(TagTy::Value {
+            key: key.to_owned(),
+            value,
+        });
         Ok(())
     }
 
     fn flag(&mut self, key: &str) -> Result<(), IRCError> {
         validators::tag_key(key)?;
-
-        if !*self.has_tags {
-            self.buffer.put_u8(AT);
-            *self.has_tags = true;
-        } else {
-            self.buffer.put_u8(SEMICOLON);
-        }
-
-        self.buffer.put_slice(key.as_bytes());
+        self.tags.push(TagTy::Flag(key.to_owned()));
         Ok(())
     }
 
-    fn end(self) {
-        if !self.buffer.is_empty() {
-            *self.needs_space = true;
-        }
-    }
-}
-
-impl Drop for IRCTagsSerializer<'_> {
-    fn drop(&mut self) {
-        if !self.buffer.is_empty() {
-            *self.needs_space = true;
-        }
-    }
+    fn end(&self) {}
 }
 
 pub struct IRCSourceSerializer<'a> {
@@ -372,7 +393,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags();
+                let tags = serialize.tags();
                 tags.tag("field", Some(&self.field))?;
                 tags.end();
 
@@ -429,7 +450,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags();
+                let tags = serialize.tags();
                 tags.tag("field", Some("value"))?;
 
                 Ok(())
@@ -550,7 +571,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags();
+                let tags = serialize.tags();
                 tags.tag("field", Some("value1"))?;
                 tags.end();
 
@@ -565,7 +586,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags();
+                let tags = serialize.tags();
                 tags.tag("field2", Some("value2"))?;
                 tags.end();
 

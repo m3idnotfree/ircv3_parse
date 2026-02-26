@@ -396,6 +396,7 @@ pub(crate) mod compat {
 
     #[cfg(not(feature = "std"))]
     pub use alloc::{
+        borrow::ToOwned,
         format,
         string::{String, ToString},
         vec::Vec,
@@ -403,6 +404,7 @@ pub(crate) mod compat {
 
     #[cfg(feature = "std")]
     pub use std::{
+        borrow::ToOwned,
         format,
         string::{String, ToString},
         vec::Vec,

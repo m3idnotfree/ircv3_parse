@@ -68,7 +68,7 @@ impl<'a> ToMessage for Tags<'a> {
             return Ok(());
         }
 
-        let mut tags = serialize.tags();
+        let tags = serialize.tags();
         for tag in self.0.iter() {
             match tag {
                 TagTy::Value { key, value } => {
@@ -560,7 +560,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut tags = serialize.tags();
+                let tags = serialize.tags();
                 for (key, value) in &self.tag {
                     tags.tag(key, value.as_deref())?;
                 }

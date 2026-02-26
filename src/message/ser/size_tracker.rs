@@ -1,10 +1,11 @@
 use crate::message::ser::{MessageSerializer, SerializeParams, SerializeSource, SerializeTags};
-use crate::{Commands, IRCError};
-use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
+use crate::{validators, Commands, IRCError};
+use crate::{AT, BANG, COLON, SPACE};
 
 pub struct SizeTracker {
     count: usize,
-    has_tags: bool,
+    tags: SizeTagsTracker,
+    tags_flushed: bool,
     has_command: bool,
     has_trailing: bool,
     needs_space: bool,
@@ -15,14 +16,16 @@ impl SizeTracker {
     pub fn new() -> Self {
         Self {
             count: 0,
-            has_tags: false,
+            tags: SizeTagsTracker::new(),
+            tags_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
         }
     }
 
-    pub fn total(&self) -> usize {
+    pub fn total(&mut self) -> usize {
+        self.flush_tags();
         self.count
     }
 
@@ -41,6 +44,18 @@ impl SizeTracker {
     }
 
     #[inline]
+    fn flush_tags(&mut self) {
+        if !self.tags_flushed {
+            let size = self.tags.byte_len();
+            if size > 0 {
+                self.count += size;
+                self.needs_space = true;
+            }
+            self.tags_flushed = true;
+        }
+    }
+
+    #[inline]
     fn add_space_if_needed(&mut self) {
         if self.needs_space {
             self.put_u8(SPACE);
@@ -50,10 +65,7 @@ impl SizeTracker {
 }
 
 impl MessageSerializer for SizeTracker {
-    type Tags<'a>
-        = SizeTagsTracker<'a>
-    where
-        Self: 'a;
+    type Tags = SizeTagsTracker;
 
     type Source<'a>
         = SizeSourceTracker<'a>
@@ -65,11 +77,12 @@ impl MessageSerializer for SizeTracker {
     where
         Self: 'a;
 
-    fn tags(&mut self) -> Self::Tags<'_> {
-        SizeTagsTracker { tracker: self }
+    fn tags(&mut self) -> &mut Self::Tags {
+        &mut self.tags
     }
 
     fn source(&mut self) -> Self::Source<'_> {
+        self.flush_tags();
         self.add_space_if_needed();
         SizeSourceTracker {
             tracker: self,
@@ -79,6 +92,7 @@ impl MessageSerializer for SizeTracker {
     }
 
     fn command(&mut self, command: Commands) {
+        self.flush_tags();
         self.add_space_if_needed();
         self.has_command = true;
         self.put_slice(command.as_bytes());
@@ -100,59 +114,73 @@ impl MessageSerializer for SizeTracker {
     }
 
     fn end(&mut self) -> Result<(), IRCError> {
+        self.flush_tags();
         self.put_slice(b"\r\n");
         Ok(())
     }
 }
 
-pub struct SizeTagsTracker<'a> {
-    tracker: &'a mut SizeTracker,
+pub struct SizeTagsTracker {
+    count: usize,
+    has_tags: bool,
 }
 
-impl SerializeTags for SizeTagsTracker<'_> {
+impl SizeTagsTracker {
+    fn new() -> Self {
+        Self {
+            count: 0,
+            has_tags: false,
+        }
+    }
+
+    fn byte_len(&self) -> usize {
+        self.count
+    }
+}
+
+impl SerializeTags for SizeTagsTracker {
     fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError> {
-        if !self.tracker.has_tags {
-            self.tracker.put_u8(AT);
-            self.tracker.has_tags = true;
+        validators::tag_key(key)?;
+
+        let val_len = value
+            .map(|v| -> Result<usize, IRCError> {
+                validators::tag_value(v)?;
+                Ok(v.len())
+            })
+            .transpose()?
+            .unwrap_or(0);
+
+        if !self.has_tags {
+            // @
+            self.count += 1;
+            self.has_tags = true;
         } else {
-            self.tracker.put_u8(SEMICOLON);
+            // ;
+            self.count += 1;
         }
-
-        self.tracker.put_slice(key.as_bytes());
-        self.tracker.put_u8(EQ);
-
-        if let Some(val) = value {
-            self.tracker.put_slice(val.as_bytes());
-        }
+        // key + = + value
+        self.count += key.len() + 1 + val_len;
 
         Ok(())
     }
 
     fn flag(&mut self, key: &str) -> Result<(), IRCError> {
-        if !self.tracker.has_tags {
-            self.tracker.put_u8(AT);
-            self.tracker.has_tags = true;
-        } else {
-            self.tracker.put_u8(SEMICOLON);
-        }
+        validators::tag_key(key)?;
 
-        self.tracker.put_slice(key.as_bytes());
+        if !self.has_tags {
+            // @
+            self.count += 1;
+            self.has_tags = true;
+        } else {
+            // ;
+            self.count += 1;
+        }
+        self.count += key.len();
+
         Ok(())
     }
 
-    fn end(self) {
-        if !self.tracker.is_empty() {
-            self.tracker.needs_space = true;
-        }
-    }
-}
-
-impl Drop for SizeTagsTracker<'_> {
-    fn drop(&mut self) {
-        if !self.tracker.is_empty() {
-            self.tracker.needs_space = true;
-        }
-    }
+    fn end(&self) {}
 }
 
 pub struct SizeSourceTracker<'a> {

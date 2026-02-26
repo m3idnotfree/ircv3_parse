@@ -6,7 +6,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::compat::{String, ToOwned, Vec};
 
-use crate::error::SourceError;
+use crate::error::{SourceError, TagError};
 use crate::{validators, Commands, IRCError};
 use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
 
@@ -211,6 +211,20 @@ impl TagTy {
             Self::Value { key, .. } | Self::Flag(key) => key,
         }
     }
+
+    pub fn validate(&self) -> Result<(), TagError> {
+        match self {
+            Self::Value { key, value } => {
+                validators::tag_key(key)?;
+                if let Some(value) = value {
+                    validators::tag_value(value)
+                } else {
+                    Ok(())
+                }
+            }
+            Self::Flag(key) => validators::tag_key(key),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -219,6 +233,58 @@ pub struct IRCTagsSerializer {
 }
 
 impl IRCTagsSerializer {
+    pub fn insert_tag(&mut self, key: &str, value: Option<&str>) -> Result<(), TagError> {
+        validators::tag_key(key)?;
+
+        let value = value
+            .map(|v| -> Result<String, TagError> {
+                validators::tag_value(v)?;
+                Ok(v.to_owned())
+            })
+            .transpose()?;
+
+        let new_tag = TagTy::Value {
+            key: key.to_owned(),
+            value,
+        };
+
+        match self.tags.iter_mut().find(|tag| tag.key() == key) {
+            Some(existing) => *existing = new_tag,
+            None => self.push(new_tag),
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_flag(&mut self, key: &str) -> Result<(), TagError> {
+        validators::tag_key(key)?;
+
+        let new_tag = TagTy::Flag(key.to_owned());
+
+        match self.tags.iter_mut().find(|tag| tag.key() == key) {
+            Some(existing) => *existing = new_tag,
+            None => self.push(new_tag),
+        }
+
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), TagError> {
+        for tag in &self.tags {
+            tag.validate()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tags.is_empty()
+    }
+
+    fn push(&mut self, ty: TagTy) {
+        self.tags.push(ty);
+    }
+
     fn write_to(&self, buffer: &mut BytesMut) -> bool {
         if self.tags.is_empty() {
             return false;
@@ -252,34 +318,37 @@ impl IRCTagsSerializer {
 
 impl SerializeTags for IRCTagsSerializer {
     fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError> {
-        validators::tag_key(key)?;
-
-        let value = value
-            .map(|v| -> Result<String, IRCError> {
-                validators::tag_value(v)?;
-                Ok(v.to_owned())
-            })
-            .transpose()?;
-
-        let new_tag = TagTy::Value {
-            key: key.to_owned(),
-            value,
-        };
-
-        match self.tags.iter_mut().find(|tag| tag.key() == key) {
-            Some(existing) => *existing = new_tag,
-            None => self.tags.push(new_tag),
-        }
-        Ok(())
+        self.insert_tag(key, value).map_err(IRCError::from)
     }
 
     fn flag(&mut self, key: &str) -> Result<(), IRCError> {
-        validators::tag_key(key)?;
-        self.tags.push(TagTy::Flag(key.to_owned()));
-        Ok(())
+        self.insert_flag(key).map_err(IRCError::from)
     }
 
     fn end(&self) {}
+}
+
+impl ToMessage for IRCTagsSerializer {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        let tags = serialize.tags();
+        for tag in self.tags.iter() {
+            match tag {
+                TagTy::Value { key, value } => {
+                    tags.tag(key, value.as_deref())?;
+                }
+                TagTy::Flag(key) => {
+                    tags.flag(key)?;
+                }
+            };
+        }
+
+        tags.end();
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default)]

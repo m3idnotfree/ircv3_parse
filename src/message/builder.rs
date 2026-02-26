@@ -3,87 +3,14 @@ use bytes::Bytes;
 use crate::compat::{Debug, Vec};
 
 use crate::{
-    error::{IRCError, ParamError, SourceError, TagError},
+    error::{IRCError, ParamError, SourceError},
     validators, Commands,
 };
 
 use crate::message::ser::{
-    IRCSerializer, MessageSerializer, SerializeParams, SerializeSource, SerializeTags, SizeTracker,
-    ToMessage,
+    IRCSerializer, IRCTagsSerializer, MessageSerializer, SerializeParams, SerializeSource,
+    SizeTracker, ToMessage,
 };
-
-#[derive(Debug, Clone, Copy)]
-enum TagTy<'a> {
-    Value {
-        key: &'a str,
-        value: Option<&'a str>,
-    },
-    Flag(&'a str),
-}
-
-impl<'a> TagTy<'a> {
-    pub fn validate(&self) -> Result<(), TagError> {
-        match self {
-            Self::Value { key, value } => {
-                validators::tag_key(key)?;
-                if let Some(value) = value {
-                    validators::tag_value(value)
-                } else {
-                    Ok(())
-                }
-            }
-            Self::Flag(key) => validators::tag_key(key),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-struct Tags<'a>(Vec<TagTy<'a>>);
-
-impl<'a> Tags<'a> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn push(&mut self, ty: TagTy<'a>) {
-        self.0.push(ty);
-    }
-
-    pub fn validate(&self) -> Result<(), TagError> {
-        for tag in &self.0 {
-            tag.validate()?;
-        }
-
-        Ok(())
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-impl<'a> ToMessage for Tags<'a> {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        if self.is_empty() {
-            return Ok(());
-        }
-
-        let tags = serialize.tags();
-        for tag in self.0.iter() {
-            match tag {
-                TagTy::Value { key, value } => {
-                    tags.tag(key, *value)?;
-                }
-                TagTy::Flag(key) => {
-                    tags.flag(key)?;
-                }
-            };
-        }
-
-        tags.end();
-        Ok(())
-    }
-}
 
 #[derive(Debug, Default, Clone, Copy)]
 struct SourceParts<'a> {
@@ -184,7 +111,7 @@ impl<'a> ToMessage for Params<'a> {
 
 #[derive(Debug, Default, Clone)]
 struct Components<'a> {
-    tags: Tags<'a>,
+    tags: IRCTagsSerializer,
     source: Option<SourceParts<'a>>,
     params: Params<'a>,
     trailing: Option<&'a str>,
@@ -193,7 +120,7 @@ struct Components<'a> {
 impl<'a> Components<'a> {
     pub fn new() -> Self {
         Self {
-            tags: Tags::new(),
+            tags: IRCTagsSerializer::default(),
             source: None,
             params: Params::new(),
             trailing: None,
@@ -274,13 +201,7 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn add_tag(&mut self, key: &'a str, value: Option<&'a str>) -> Result<&mut Self, IRCError> {
-        validators::tag_key(key)?;
-
-        if let Some(value) = value {
-            validators::tag_value(value)?;
-        }
-
-        self.components.tags.push(TagTy::Value { key, value });
+        self.components.tags.insert_tag(key, value)?;
 
         Ok(self)
     }
@@ -294,9 +215,7 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn add_tag_flag(&mut self, key: &'a str) -> Result<&mut Self, IRCError> {
-        validators::tag_key(key)?;
-
-        self.components.tags.push(TagTy::Flag(key));
+        self.components.tags.insert_flag(key)?;
         Ok(self)
     }
 
@@ -413,20 +332,18 @@ mod tests {
     use crate::{
         components::Commands,
         message::ser::{
-            self, IRCSerializer, SerializeParams, SerializeSource, SerializeTags, ToMessage,
+            self, IRCSerializer, IRCTagsSerializer, SerializeParams, SerializeSource,
+            SerializeTags, ToMessage,
         },
         MessageBuilder,
     };
 
-    use super::{Params, SourceParts, TagTy, Tags};
+    use super::{Params, SourceParts};
 
     #[test]
     fn tags_single() {
-        let mut tags = Tags::new();
-        tags.push(TagTy::Value {
-            key: "key",
-            value: Some("value"),
-        });
+        let mut tags = IRCTagsSerializer::default();
+        tags.insert_tag("key", Some("value")).unwrap();
 
         let mut buffer = IRCSerializer::new();
         tags.to_message(&mut buffer).unwrap();
@@ -437,16 +354,10 @@ mod tests {
 
     #[test]
     fn tags_multiple() {
-        let mut tags = Tags::new();
-        tags.push(TagTy::Value {
-            key: "key",
-            value: Some("value"),
-        });
-        tags.push(TagTy::Value {
-            key: "key2",
-            value: None,
-        });
-        tags.push(TagTy::Flag("flag"));
+        let mut tags = IRCTagsSerializer::default();
+        tags.insert_tag("key", Some("value")).unwrap();
+        tags.insert_tag("key2", None).unwrap();
+        tags.insert_flag("flag").unwrap();
 
         let mut buffer = IRCSerializer::new();
         tags.to_message(&mut buffer).unwrap();

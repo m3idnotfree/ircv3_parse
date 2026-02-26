@@ -3,72 +3,14 @@ use bytes::Bytes;
 use crate::compat::{Debug, Vec};
 
 use crate::{
-    error::{IRCError, ParamError, SourceError},
+    error::{IRCError, ParamError},
     validators, Commands,
 };
 
 use crate::message::ser::{
-    IRCSerializer, IRCTagsSerializer, MessageSerializer, SerializeParams, SerializeSource,
+    IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer, SerializeParams,
     SizeTracker, ToMessage,
 };
-
-#[derive(Debug, Default, Clone, Copy)]
-struct SourceParts<'a> {
-    pub name: Option<&'a str>,
-    pub user: Option<&'a str>,
-    pub host: Option<&'a str>,
-}
-
-impl<'a> SourceParts<'a> {
-    fn new() -> Self {
-        Self {
-            name: None,
-            user: None,
-            host: None,
-        }
-    }
-
-    pub fn validate(&self) -> Result<(), SourceError> {
-        if let Some(name) = &self.name {
-            validators::nick(name)?;
-        } else {
-            return Err(SourceError::MissingNick);
-        }
-
-        if let Some(user) = self.user {
-            validators::user(user)?;
-        }
-
-        if let Some(host) = self.host {
-            validators::host(host)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> ToMessage for SourceParts<'a> {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let source = serialize.source();
-
-        if let Some(name) = self.name {
-            source.name(name)?;
-        } else {
-            return Err(IRCError::Source(SourceError::MissingNick));
-        }
-
-        if let Some(user) = self.user {
-            source.user(user)?;
-        }
-
-        if let Some(host) = self.host {
-            source.host(host)?;
-        }
-
-        source.end();
-        Ok(())
-    }
-}
 
 #[derive(Debug, Default, Clone)]
 struct Params<'a>(Vec<&'a str>);
@@ -112,7 +54,7 @@ impl<'a> ToMessage for Params<'a> {
 #[derive(Debug, Default, Clone)]
 struct Components<'a> {
     tags: IRCTagsSerializer,
-    source: Option<SourceParts<'a>>,
+    source: IRCSourceSerializer,
     params: Params<'a>,
     trailing: Option<&'a str>,
 }
@@ -121,7 +63,7 @@ impl<'a> Components<'a> {
     pub fn new() -> Self {
         Self {
             tags: IRCTagsSerializer::default(),
-            source: None,
+            source: IRCSourceSerializer::default(),
             params: Params::new(),
             trailing: None,
         }
@@ -136,9 +78,7 @@ impl<'a> Components<'a> {
             self.tags.to_message(serialize)?;
         }
 
-        if let Some(source) = self.source {
-            source.to_message(serialize)?;
-        }
+        self.source.to_message(serialize)?;
 
         serialize.command(command);
 
@@ -163,10 +103,7 @@ impl<'a> Components<'a> {
 
     pub fn validate(&self) -> Result<(), IRCError> {
         self.tags.validate()?;
-        if let Some(source) = &self.source {
-            source.validate()?;
-        }
-
+        self.source.validate()?;
         self.params.validate()?;
 
         if let Some(trailing) = self.trailing {
@@ -228,37 +165,27 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn set_source_name(&mut self, name: &'a str) -> Result<&mut Self, IRCError> {
-        if self.components.source.is_some() {
-            Err(IRCError::Source(SourceError::DublicateComponent {
-                component: "name",
-            }))
-        } else {
-            validators::nick(name)?;
-            let mut source = SourceParts::new();
-            source.name = Some(name);
-            self.components.source = Some(source);
-            Ok(self)
-        }
+        self.components
+            .source
+            .set_name(name)
+            .map_err(IRCError::from)?;
+        Ok(self)
     }
 
     pub fn set_source_user(&mut self, user: &'a str) -> Result<&mut Self, IRCError> {
-        if let Some(ref mut source_parts) = self.components.source {
-            validators::user(user)?;
-            source_parts.user = Some(user);
-            Ok(self)
-        } else {
-            Err(IRCError::SourceNotSet { component: "user" })
-        }
+        self.components
+            .source
+            .set_user(user)
+            .map_err(IRCError::from)?;
+        Ok(self)
     }
 
-    pub fn set_source_host(&mut self, host: &'a str) -> Result<(), IRCError> {
-        if let Some(ref mut source_parts) = self.components.source {
-            validators::host(host)?;
-            source_parts.host = Some(host);
-            Ok(())
-        } else {
-            Err(IRCError::SourceNotSet { component: "host" })
-        }
+    pub fn set_source_host(&mut self, host: &'a str) -> Result<&mut Self, IRCError> {
+        self.components
+            .source
+            .set_host(host)
+            .map_err(IRCError::from)?;
+        Ok(self)
     }
 
     pub fn set_source(
@@ -267,14 +194,15 @@ impl<'a> MessageBuilder<'a> {
         user: Option<&'a str>,
         host: Option<&'a str>,
     ) -> Result<&mut Self, IRCError> {
-        let mut source = SourceParts::new();
-        source.name = Some(name);
-        source.user = user;
-        source.host = host;
+        self.set_source_name(name)?;
+        if let Some(user) = user {
+            self.set_source_user(user)?;
+        }
 
-        source.validate()?;
+        if let Some(host) = host {
+            self.set_source_host(host)?;
+        }
 
-        self.components.source = Some(source);
         Ok(self)
     }
 
@@ -332,13 +260,13 @@ mod tests {
     use crate::{
         components::Commands,
         message::ser::{
-            self, IRCSerializer, IRCTagsSerializer, SerializeParams, SerializeSource,
-            SerializeTags, ToMessage,
+            self, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, SerializeParams,
+            SerializeSource, SerializeTags, ToMessage,
         },
         MessageBuilder,
     };
 
-    use super::{Params, SourceParts};
+    use super::Params;
 
     #[test]
     fn tags_single() {
@@ -368,10 +296,10 @@ mod tests {
 
     #[test]
     fn source() {
-        let mut source = SourceParts::new();
-        source.name = Some("nick");
-        source.user = Some("user");
-        source.host = Some("example.com");
+        let mut source = IRCSourceSerializer::default();
+        source.set_name("nick").unwrap();
+        source.set_user("user").unwrap();
+        source.set_host("example.com").unwrap();
 
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
@@ -382,9 +310,9 @@ mod tests {
 
     #[test]
     fn source_user() {
-        let mut source = SourceParts::new();
-        source.name = Some("nick");
-        source.user = Some("user");
+        let mut source = IRCSourceSerializer::default();
+        source.set_name("nick").unwrap();
+        source.set_user("user").unwrap();
 
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
@@ -395,9 +323,9 @@ mod tests {
 
     #[test]
     fn source_host() {
-        let mut source = SourceParts::new();
-        source.name = Some("nick");
-        source.host = Some("example.com");
+        let mut source = IRCSourceSerializer::default();
+        source.set_name("nick").unwrap();
+        source.set_host("example.com").unwrap();
 
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();
@@ -408,8 +336,8 @@ mod tests {
 
     #[test]
     fn source_server() {
-        let mut source = SourceParts::new();
-        source.name = Some("irc.example.com");
+        let mut source = IRCSourceSerializer::default();
+        source.set_name("irc.example.com").unwrap();
 
         let mut buffer = IRCSerializer::new();
         source.to_message(&mut buffer).unwrap();

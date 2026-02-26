@@ -194,6 +194,8 @@ impl MessageSerializer for IRCSerializer {
             return Err(IRCError::MissingCommand);
         }
 
+        self.source.validate()?;
+
         self.finished = true;
         Ok(())
     }
@@ -351,7 +353,7 @@ impl ToMessage for IRCTagsSerializer {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct IRCSourceSerializer {
     name: Option<String>,
     user: Option<String>,
@@ -359,6 +361,49 @@ pub struct IRCSourceSerializer {
 }
 
 impl IRCSourceSerializer {
+    pub fn set_name(&mut self, name: &str) -> Result<(), SourceError> {
+        if self.name.is_some() {
+            return Err(SourceError::DublicateComponent { component: "name" });
+        }
+
+        if validators::host(name).is_err() {
+            validators::nick(name)?;
+        }
+
+        self.name = Some(name.to_owned());
+        Ok(())
+    }
+
+    pub fn set_user(&mut self, user: &str) -> Result<(), SourceError> {
+        if self.user.is_some() {
+            return Err(SourceError::DublicateComponent { component: "user" });
+        }
+
+        validators::user(user)?;
+
+        self.user = Some(user.to_owned());
+        Ok(())
+    }
+
+    pub fn set_host(&mut self, host: &str) -> Result<(), SourceError> {
+        if self.host.is_some() {
+            return Err(SourceError::DublicateComponent { component: "host" });
+        }
+
+        validators::host(host)?;
+
+        self.host = Some(host.to_owned());
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), SourceError> {
+        if (self.user.is_some() || self.host.is_some()) && self.name.is_none() {
+            Err(SourceError::MissingNick)
+        } else {
+            Ok(())
+        }
+    }
+
     fn write_to(&self, buffer: &mut BytesMut) -> bool {
         if let Some(name) = &self.name {
             buffer.put_u8(COLON);
@@ -383,47 +428,43 @@ impl IRCSourceSerializer {
 
 impl SerializeSource for IRCSourceSerializer {
     fn name(&mut self, name: &str) -> Result<(), IRCError> {
-        if self.name.is_some() {
-            return Err(IRCError::Source(SourceError::DublicateComponent {
-                component: "name",
-            }));
-        }
-
-        if validators::host(name).is_err() {
-            validators::nick(name)?;
-        }
-
-        self.name = Some(name.to_owned());
-        Ok(())
+        self.set_name(name).map_err(IRCError::from)
     }
 
     fn user(&mut self, user: &str) -> Result<(), IRCError> {
-        if self.user.is_some() {
-            return Err(IRCError::Source(SourceError::DublicateComponent {
-                component: "user",
-            }));
-        }
-
-        validators::user(user)?;
-
-        self.user = Some(user.to_owned());
-        Ok(())
+        self.set_user(user).map_err(IRCError::from)
     }
 
     fn host(&mut self, host: &str) -> Result<(), IRCError> {
-        if self.host.is_some() {
-            return Err(IRCError::Source(SourceError::DublicateComponent {
-                component: "host",
-            }));
-        }
-
-        validators::host(host)?;
-
-        self.host = Some(host.to_owned());
-        Ok(())
+        self.set_host(host).map_err(IRCError::from)
     }
 
     fn end(&self) {}
+}
+
+impl ToMessage for IRCSourceSerializer {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+        self.validate()?;
+
+        let source = serialize.source();
+
+        if let Some(name) = &self.name {
+            source.name(name)?;
+        } else {
+            return Err(IRCError::Source(SourceError::MissingNick));
+        }
+
+        if let Some(user) = &self.user {
+            source.user(user)?;
+        }
+
+        if let Some(host) = &self.host {
+            source.host(host)?;
+        }
+
+        source.end();
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default)]

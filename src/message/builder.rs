@@ -172,7 +172,7 @@ impl<'a> Params<'a> {
 
 impl<'a> ToMessage for Params<'a> {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let mut params = serialize.params();
+        let params = serialize.params();
         for p in &self.0 {
             params.push(p)?;
         }
@@ -572,7 +572,7 @@ mod tests {
 
                 serialize.command(Commands::PRIVMSG);
 
-                let mut params = serialize.params();
+                let params = serialize.params();
                 for p in &self.param {
                     params.push(p)?;
                 }

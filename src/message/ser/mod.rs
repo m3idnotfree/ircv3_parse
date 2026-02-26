@@ -35,26 +35,23 @@ mod private {
     impl Sealed for super::IRCSerializer {}
     impl Sealed for super::IRCTagsSerializer {}
     impl Sealed for super::IRCSourceSerializer {}
-    impl<'a> Sealed for super::IRCParamsSerializer<'a> {}
+    impl Sealed for super::IRCParamsSerializer {}
 
     impl Sealed for super::SizeTracker {}
     impl Sealed for super::size_tracker::SizeTagsTracker {}
     impl Sealed for super::size_tracker::SizeSourceTracker {}
-    impl<'a> Sealed for super::size_tracker::SizeParamsTracker<'a> {}
+    impl Sealed for super::size_tracker::SizeParamsTracker {}
 }
 
 pub trait MessageSerializer: private::Sealed + Sized {
     type Tags: SerializeTags;
     type Source: SerializeSource;
-
-    type Params<'a>: SerializeParams
-    where
-        Self: 'a;
+    type Params: SerializeParams;
 
     fn tags(&mut self) -> &mut Self::Tags;
     fn source(&mut self) -> &mut Self::Source;
     fn command(&mut self, command: Commands);
-    fn params(&mut self) -> Self::Params<'_>;
+    fn params(&mut self) -> &mut Self::Params;
     fn trailing(&mut self, value: &str) -> Result<(), IRCError>;
     fn end(&mut self) -> Result<(), IRCError>;
 }
@@ -78,7 +75,7 @@ pub trait SerializeParams: private::Sealed {
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>;
-    fn end(self);
+    fn end(&self);
 }
 
 pub struct IRCSerializer {
@@ -87,6 +84,8 @@ pub struct IRCSerializer {
     source: IRCSourceSerializer,
     source_flushed: bool,
     has_command: bool,
+    params: IRCParamsSerializer,
+    params_flushed: bool,
     has_trailing: bool,
     needs_space: bool,
     buffer: BytesMut,
@@ -101,6 +100,8 @@ impl IRCSerializer {
             source: IRCSourceSerializer::default(),
             source_flushed: false,
             has_command: false,
+            params: IRCParamsSerializer::default(),
+            params_flushed: false,
             has_trailing: false,
             needs_space: false,
             buffer: BytesMut::new(),
@@ -113,6 +114,8 @@ impl IRCSerializer {
             tags_flushed: false,
             source: IRCSourceSerializer::default(),
             source_flushed: false,
+            params: IRCParamsSerializer::default(),
+            params_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
@@ -138,6 +141,13 @@ impl IRCSerializer {
         }
     }
 
+    fn flush_params(&mut self) {
+        if !self.params_flushed {
+            self.params.write_to(&mut self.buffer);
+            self.params_flushed = true;
+        }
+    }
+
     fn add_space_if_needed(&mut self) {
         if self.needs_space {
             self.buffer.put_u8(SPACE);
@@ -148,6 +158,7 @@ impl IRCSerializer {
     pub fn into_bytes(mut self) -> Bytes {
         self.flush_tags();
         self.flush_source();
+        self.flush_params();
         self.buffer.freeze()
     }
 }
@@ -155,11 +166,7 @@ impl IRCSerializer {
 impl MessageSerializer for IRCSerializer {
     type Tags = IRCTagsSerializer;
     type Source = IRCSourceSerializer;
-
-    type Params<'a>
-        = IRCParamsSerializer<'a>
-    where
-        Self: 'a;
+    type Params = IRCParamsSerializer;
 
     fn tags(&mut self) -> &mut Self::Tags {
         &mut self.tags
@@ -180,13 +187,12 @@ impl MessageSerializer for IRCSerializer {
         self.buffer.put_slice(command.as_bytes());
     }
 
-    fn params(&mut self) -> Self::Params<'_> {
-        IRCParamsSerializer {
-            buffer: &mut self.buffer,
-        }
+    fn params(&mut self) -> &mut Self::Params {
+        &mut self.params
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
+        self.flush_params();
         validators::trailing(value)?;
         if !self.has_trailing {
             self.buffer.put_u8(SPACE);
@@ -353,15 +359,24 @@ impl SerializeSource for IRCSourceSerializer {
     fn end(&self) {}
 }
 
-pub struct IRCParamsSerializer<'a> {
-    buffer: &'a mut BytesMut,
+#[derive(Debug, Default)]
+pub struct IRCParamsSerializer {
+    params: Vec<String>,
 }
 
-impl<'a> SerializeParams for IRCParamsSerializer<'a> {
+impl IRCParamsSerializer {
+    fn write_to(&self, buffer: &mut BytesMut) {
+        self.params.iter().for_each(|param| {
+            buffer.put_u8(SPACE);
+            buffer.put_slice(param.as_bytes());
+        });
+    }
+}
+
+impl SerializeParams for IRCParamsSerializer {
     fn push(&mut self, value: &str) -> Result<(), IRCError> {
         validators::param(value)?;
-        self.buffer.put_u8(SPACE);
-        self.buffer.put_slice(value.as_bytes());
+        self.params.push(value.to_owned());
         Ok(())
     }
 
@@ -370,15 +385,20 @@ impl<'a> SerializeParams for IRCParamsSerializer<'a> {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        for param in params {
-            validators::param(param.as_ref())?;
-            self.buffer.put_u8(SPACE);
-            self.buffer.put_slice(param.as_ref().as_bytes());
-        }
+        let validate: Result<Vec<String>, IRCError> = params
+            .into_iter()
+            .map(|param| {
+                let p = param.as_ref();
+                validators::param(p)?;
+                Ok(p.to_owned())
+            })
+            .collect();
+
+        self.params.extend(validate?);
         Ok(())
     }
 
-    fn end(self) {}
+    fn end(&self) {}
 }
 
 #[cfg(test)]
@@ -422,7 +442,7 @@ mod tests {
 
                 serialize.command(Commands::PRIVMSG);
 
-                let mut params = serialize.params();
+                let params = serialize.params();
                 params.push(&self.channel)?;
                 params.end();
 
@@ -638,7 +658,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut params = serialize.params();
+                let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
                 params.end();
@@ -655,7 +675,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut params = serialize.params();
+                let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
                 params.end();
@@ -672,7 +692,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut params = serialize.params();
+                let params = serialize.params();
 
                 let param_refs: Vec<&str> = self.param.iter().map(|p| p.as_ref()).collect();
 

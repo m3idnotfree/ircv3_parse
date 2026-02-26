@@ -9,6 +9,8 @@ pub struct SizeTracker {
     tags_flushed: bool,
     source: SizeSourceTracker,
     source_flushed: bool,
+    params: SizeParamsTracker,
+    params_flushed: bool,
     has_command: bool,
     has_trailing: bool,
     needs_space: bool,
@@ -24,6 +26,8 @@ impl SizeTracker {
             source: SizeSourceTracker::new(),
             source_flushed: false,
             has_command: false,
+            params: SizeParamsTracker::new(),
+            params_flushed: false,
             has_trailing: false,
             needs_space: false,
         }
@@ -32,6 +36,7 @@ impl SizeTracker {
     pub fn total(&mut self) -> usize {
         self.flush_tags();
         self.flush_source();
+        self.flush_params();
         self.count
     }
 
@@ -74,6 +79,14 @@ impl SizeTracker {
     }
 
     #[inline]
+    fn flush_params(&mut self) {
+        if !self.params_flushed {
+            self.count += self.params.byte_len();
+            self.params_flushed = true;
+        }
+    }
+
+    #[inline]
     fn add_space_if_needed(&mut self) {
         if self.needs_space {
             self.put_u8(SPACE);
@@ -85,11 +98,7 @@ impl SizeTracker {
 impl MessageSerializer for SizeTracker {
     type Tags = SizeTagsTracker;
     type Source = SizeSourceTracker;
-
-    type Params<'a>
-        = SizeParamsTracker<'a>
-    where
-        Self: 'a;
+    type Params = SizeParamsTracker;
 
     fn tags(&mut self) -> &mut Self::Tags {
         &mut self.tags
@@ -110,11 +119,12 @@ impl MessageSerializer for SizeTracker {
         self.put_slice(command.as_bytes());
     }
 
-    fn params(&mut self) -> Self::Params<'_> {
-        SizeParamsTracker { tracker: self }
+    fn params(&mut self) -> &mut Self::Params {
+        &mut self.params
     }
 
     fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
+        self.flush_params();
         if !self.has_trailing {
             self.put_u8(SPACE);
             self.put_u8(COLON);
@@ -130,6 +140,7 @@ impl MessageSerializer for SizeTracker {
         self.add_space_if_needed();
         self.flush_source();
         self.add_space_if_needed();
+        self.flush_params();
         self.put_slice(b"\r\n");
         Ok(())
     }
@@ -245,14 +256,24 @@ impl SerializeSource for SizeSourceTracker {
     fn end(&self) {}
 }
 
-pub struct SizeParamsTracker<'a> {
-    tracker: &'a mut SizeTracker,
+pub struct SizeParamsTracker {
+    count: usize,
 }
 
-impl SerializeParams for SizeParamsTracker<'_> {
+impl SizeParamsTracker {
+    pub fn new() -> Self {
+        Self { count: 0 }
+    }
+
+    pub fn byte_len(&self) -> usize {
+        self.count
+    }
+}
+
+impl SerializeParams for SizeParamsTracker {
     fn push(&mut self, value: &str) -> Result<(), IRCError> {
-        self.tracker.put_u8(SPACE);
-        self.tracker.put_slice(value.as_bytes());
+        // ' ' + value
+        self.count += 1 + value.len();
         Ok(())
     }
 
@@ -261,12 +282,12 @@ impl SerializeParams for SizeParamsTracker<'_> {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        for param in params {
-            self.tracker.put_u8(SPACE);
-            self.tracker.put_slice(param.as_ref().as_bytes());
-        }
+        params.into_iter().for_each(|param| {
+            // ' ' + param
+            self.count += 1 + param.as_ref().len();
+        });
         Ok(())
     }
 
-    fn end(self) {}
+    fn end(&self) {}
 }

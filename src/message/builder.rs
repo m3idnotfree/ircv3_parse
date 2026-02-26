@@ -122,7 +122,7 @@ impl<'a> SourceParts<'a> {
 
 impl<'a> ToMessage for SourceParts<'a> {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let mut source = serialize.source();
+        let source = serialize.source();
 
         if let Some(name) = self.name {
             source.name(name)?;
@@ -566,7 +566,7 @@ mod tests {
                 }
                 tags.end();
 
-                let mut source = serialize.source();
+                let source = serialize.source();
                 source.name(&self.source)?;
                 source.end();
 

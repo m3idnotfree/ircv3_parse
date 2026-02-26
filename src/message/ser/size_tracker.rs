@@ -1,11 +1,14 @@
+use crate::error::SourceError;
 use crate::message::ser::{MessageSerializer, SerializeParams, SerializeSource, SerializeTags};
 use crate::{validators, Commands, IRCError};
-use crate::{AT, BANG, COLON, SPACE};
+use crate::{COLON, SPACE};
 
 pub struct SizeTracker {
     count: usize,
     tags: SizeTagsTracker,
     tags_flushed: bool,
+    source: SizeSourceTracker,
+    source_flushed: bool,
     has_command: bool,
     has_trailing: bool,
     needs_space: bool,
@@ -18,6 +21,8 @@ impl SizeTracker {
             count: 0,
             tags: SizeTagsTracker::new(),
             tags_flushed: false,
+            source: SizeSourceTracker::new(),
+            source_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
@@ -26,6 +31,7 @@ impl SizeTracker {
 
     pub fn total(&mut self) -> usize {
         self.flush_tags();
+        self.flush_source();
         self.count
     }
 
@@ -56,6 +62,18 @@ impl SizeTracker {
     }
 
     #[inline]
+    fn flush_source(&mut self) {
+        if !self.source_flushed {
+            let size = self.source.byte_len();
+            if size > 0 {
+                self.count += size;
+                self.needs_space = true;
+            }
+            self.source_flushed = true;
+        }
+    }
+
+    #[inline]
     fn add_space_if_needed(&mut self) {
         if self.needs_space {
             self.put_u8(SPACE);
@@ -66,11 +84,7 @@ impl SizeTracker {
 
 impl MessageSerializer for SizeTracker {
     type Tags = SizeTagsTracker;
-
-    type Source<'a>
-        = SizeSourceTracker<'a>
-    where
-        Self: 'a;
+    type Source = SizeSourceTracker;
 
     type Params<'a>
         = SizeParamsTracker<'a>
@@ -81,18 +95,16 @@ impl MessageSerializer for SizeTracker {
         &mut self.tags
     }
 
-    fn source(&mut self) -> Self::Source<'_> {
+    fn source(&mut self) -> &mut Self::Source {
         self.flush_tags();
         self.add_space_if_needed();
-        SizeSourceTracker {
-            tracker: self,
-            has_name: false,
-            ended: false,
-        }
+        &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
         self.flush_tags();
+        self.add_space_if_needed();
+        self.flush_source();
         self.add_space_if_needed();
         self.has_command = true;
         self.put_slice(command.as_bytes());
@@ -115,6 +127,9 @@ impl MessageSerializer for SizeTracker {
 
     fn end(&mut self) -> Result<(), IRCError> {
         self.flush_tags();
+        self.add_space_if_needed();
+        self.flush_source();
+        self.add_space_if_needed();
         self.put_slice(b"\r\n");
         Ok(())
     }
@@ -183,48 +198,51 @@ impl SerializeTags for SizeTagsTracker {
     fn end(&self) {}
 }
 
-pub struct SizeSourceTracker<'a> {
-    tracker: &'a mut SizeTracker,
+pub struct SizeSourceTracker {
+    count: usize,
     has_name: bool,
-    ended: bool,
 }
 
-impl SerializeSource for SizeSourceTracker<'_> {
-    fn name(&mut self, name: &str) -> Result<(), IRCError> {
-        self.tracker.put_u8(COLON);
-        self.tracker.put_slice(name.as_bytes());
+impl SizeSourceTracker {
+    pub fn new() -> Self {
+        Self {
+            count: 0,
+            has_name: false,
+        }
+    }
 
-        self.has_name = true;
+    fn byte_len(&self) -> usize {
+        self.count
+    }
+}
+
+impl SerializeSource for SizeSourceTracker {
+    fn name(&mut self, name: &str) -> Result<(), IRCError> {
+        if self.has_name {
+            return Err(IRCError::Source(SourceError::DublicateComponent {
+                component: "name",
+            }));
+        }
+
+        // : + name
+        self.count += 1 + name.len();
 
         Ok(())
     }
 
     fn user(&mut self, user: &str) -> Result<(), IRCError> {
-        self.tracker.put_u8(BANG);
-        self.tracker.put_slice(user.as_bytes());
+        // ! + user
+        self.count += 1 + user.len();
         Ok(())
     }
 
     fn host(&mut self, host: &str) -> Result<(), IRCError> {
-        self.tracker.put_u8(AT);
-        self.tracker.put_slice(host.as_bytes());
+        // @ + host
+        self.count += 1 + host.len();
         Ok(())
     }
 
-    fn end(mut self) {
-        if self.has_name && !self.ended {
-            self.tracker.needs_space = true;
-            self.ended = true;
-        }
-    }
-}
-
-impl Drop for SizeSourceTracker<'_> {
-    fn drop(&mut self) {
-        if self.has_name && !self.ended {
-            self.tracker.needs_space = true;
-        }
-    }
+    fn end(&self) {}
 }
 
 pub struct SizeParamsTracker<'a> {

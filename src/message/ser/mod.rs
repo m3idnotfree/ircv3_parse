@@ -34,28 +34,25 @@ mod private {
 
     impl Sealed for super::IRCSerializer {}
     impl Sealed for super::IRCTagsSerializer {}
-    impl<'a> Sealed for super::IRCSourceSerializer<'a> {}
+    impl Sealed for super::IRCSourceSerializer {}
     impl<'a> Sealed for super::IRCParamsSerializer<'a> {}
 
     impl Sealed for super::SizeTracker {}
     impl Sealed for super::size_tracker::SizeTagsTracker {}
-    impl<'a> Sealed for super::size_tracker::SizeSourceTracker<'a> {}
+    impl Sealed for super::size_tracker::SizeSourceTracker {}
     impl<'a> Sealed for super::size_tracker::SizeParamsTracker<'a> {}
 }
 
 pub trait MessageSerializer: private::Sealed + Sized {
     type Tags: SerializeTags;
-
-    type Source<'a>: SerializeSource
-    where
-        Self: 'a;
+    type Source: SerializeSource;
 
     type Params<'a>: SerializeParams
     where
         Self: 'a;
 
     fn tags(&mut self) -> &mut Self::Tags;
-    fn source(&mut self) -> Self::Source<'_>;
+    fn source(&mut self) -> &mut Self::Source;
     fn command(&mut self, command: Commands);
     fn params(&mut self) -> Self::Params<'_>;
     fn trailing(&mut self, value: &str) -> Result<(), IRCError>;
@@ -72,7 +69,7 @@ pub trait SerializeSource: private::Sealed {
     fn name(&mut self, name: &str) -> Result<(), IRCError>;
     fn user(&mut self, user: &str) -> Result<(), IRCError>;
     fn host(&mut self, host: &str) -> Result<(), IRCError>;
-    fn end(self);
+    fn end(&self);
 }
 
 pub trait SerializeParams: private::Sealed {
@@ -87,6 +84,8 @@ pub trait SerializeParams: private::Sealed {
 pub struct IRCSerializer {
     tags: IRCTagsSerializer,
     tags_flushed: bool,
+    source: IRCSourceSerializer,
+    source_flushed: bool,
     has_command: bool,
     has_trailing: bool,
     needs_space: bool,
@@ -99,6 +98,8 @@ impl IRCSerializer {
         Self {
             tags: IRCTagsSerializer::default(),
             tags_flushed: false,
+            source: IRCSourceSerializer::default(),
+            source_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
@@ -110,6 +111,8 @@ impl IRCSerializer {
         Self {
             tags: IRCTagsSerializer::default(),
             tags_flushed: false,
+            source: IRCSourceSerializer::default(),
+            source_flushed: false,
             has_command: false,
             has_trailing: false,
             needs_space: false,
@@ -126,6 +129,15 @@ impl IRCSerializer {
         }
     }
 
+    fn flush_source(&mut self) {
+        if !self.source_flushed {
+            if self.source.write_to(&mut self.buffer) {
+                self.needs_space = true;
+            }
+            self.source_flushed = true;
+        }
+    }
+
     fn add_space_if_needed(&mut self) {
         if self.needs_space {
             self.buffer.put_u8(SPACE);
@@ -135,17 +147,14 @@ impl IRCSerializer {
 
     pub fn into_bytes(mut self) -> Bytes {
         self.flush_tags();
+        self.flush_source();
         self.buffer.freeze()
     }
 }
 
 impl MessageSerializer for IRCSerializer {
     type Tags = IRCTagsSerializer;
-
-    type Source<'a>
-        = IRCSourceSerializer<'a>
-    where
-        Self: 'a;
+    type Source = IRCSourceSerializer;
 
     type Params<'a>
         = IRCParamsSerializer<'a>
@@ -156,20 +165,16 @@ impl MessageSerializer for IRCSerializer {
         &mut self.tags
     }
 
-    fn source(&mut self) -> Self::Source<'_> {
+    fn source(&mut self) -> &mut Self::Source {
         self.flush_tags();
         self.add_space_if_needed();
-        IRCSourceSerializer {
-            buffer: &mut self.buffer,
-            has_name: false,
-            has_user: false,
-            has_host: false,
-            needs_space: &mut self.needs_space,
-        }
+        &mut self.source
     }
 
     fn command(&mut self, command: Commands) {
         self.flush_tags();
+        self.add_space_if_needed();
+        self.flush_source();
         self.add_space_if_needed();
         self.has_command = true;
         self.buffer.put_slice(command.as_bytes());
@@ -273,17 +278,39 @@ impl SerializeTags for IRCTagsSerializer {
     fn end(&self) {}
 }
 
-pub struct IRCSourceSerializer<'a> {
-    buffer: &'a mut BytesMut,
-    has_name: bool,
-    has_user: bool,
-    has_host: bool,
-    needs_space: &'a mut bool,
+#[derive(Debug, Default)]
+pub struct IRCSourceSerializer {
+    name: Option<String>,
+    user: Option<String>,
+    host: Option<String>,
 }
 
-impl<'a> SerializeSource for IRCSourceSerializer<'a> {
+impl IRCSourceSerializer {
+    fn write_to(&self, buffer: &mut BytesMut) -> bool {
+        if let Some(name) = &self.name {
+            buffer.put_u8(COLON);
+            buffer.put_slice(name.as_bytes());
+        } else {
+            return false;
+        }
+
+        if let Some(user) = &self.user {
+            buffer.put_u8(BANG);
+            buffer.put_slice(user.as_bytes());
+        }
+
+        if let Some(host) = &self.host {
+            buffer.put_u8(AT);
+            buffer.put_slice(host.as_bytes());
+        }
+
+        true
+    }
+}
+
+impl SerializeSource for IRCSourceSerializer {
     fn name(&mut self, name: &str) -> Result<(), IRCError> {
-        if self.has_name {
+        if self.name.is_some() {
             return Err(IRCError::Source(SourceError::DublicateComponent {
                 component: "name",
             }));
@@ -293,15 +320,12 @@ impl<'a> SerializeSource for IRCSourceSerializer<'a> {
             validators::nick(name)?;
         }
 
-        self.has_name = true;
-        self.buffer.put_u8(COLON);
-        self.buffer.put_slice(name.as_bytes());
-
+        self.name = Some(name.to_owned());
         Ok(())
     }
 
     fn user(&mut self, user: &str) -> Result<(), IRCError> {
-        if self.has_user {
+        if self.user.is_some() {
             return Err(IRCError::Source(SourceError::DublicateComponent {
                 component: "user",
             }));
@@ -309,15 +333,12 @@ impl<'a> SerializeSource for IRCSourceSerializer<'a> {
 
         validators::user(user)?;
 
-        self.has_user = true;
-        self.buffer.put_u8(BANG);
-        self.buffer.put_slice(user.as_bytes());
-
+        self.user = Some(user.to_owned());
         Ok(())
     }
 
     fn host(&mut self, host: &str) -> Result<(), IRCError> {
-        if self.has_host {
+        if self.host.is_some() {
             return Err(IRCError::Source(SourceError::DublicateComponent {
                 component: "host",
             }));
@@ -325,26 +346,11 @@ impl<'a> SerializeSource for IRCSourceSerializer<'a> {
 
         validators::host(host)?;
 
-        self.has_host = true;
-        self.buffer.put_u8(AT);
-        self.buffer.put_slice(host.as_bytes());
-
+        self.host = Some(host.to_owned());
         Ok(())
     }
 
-    fn end(self) {
-        if self.has_name {
-            *self.needs_space = true;
-        }
-    }
-}
-
-impl Drop for IRCSourceSerializer<'_> {
-    fn drop(&mut self) {
-        if self.has_name {
-            *self.needs_space = true;
-        }
-    }
+    fn end(&self) {}
 }
 
 pub struct IRCParamsSerializer<'a> {
@@ -534,7 +540,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let mut source = serialize.source();
+                let source = serialize.source();
                 source.name("nick")?;
                 source.user("user")
             }

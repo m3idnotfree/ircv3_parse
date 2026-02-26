@@ -205,6 +205,14 @@ enum TagTy {
     Flag(String),
 }
 
+impl TagTy {
+    fn key(&self) -> &str {
+        match self {
+            Self::Value { key, .. } | Self::Flag(key) => key,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct IRCTagsSerializer {
     tags: Vec<TagTy>,
@@ -253,10 +261,15 @@ impl SerializeTags for IRCTagsSerializer {
             })
             .transpose()?;
 
-        self.tags.push(TagTy::Value {
+        let new_tag = TagTy::Value {
             key: key.to_owned(),
             value,
-        });
+        };
+
+        match self.tags.iter_mut().find(|tag| tag.key() == key) {
+            Some(existing) => *existing = new_tag,
+            None => self.tags.push(new_tag),
+        }
         Ok(())
     }
 
@@ -454,23 +467,37 @@ mod tests {
 
     #[test]
     fn tags_drop_guard() {
-        struct Tags;
+        struct Tags1;
 
-        impl ToMessage for Tags {
+        impl ToMessage for Tags1 {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field", Some("value"))?;
+                tags.tag("field1", Some("value"))?;
+
+                Ok(())
+            }
+        }
+
+        struct Tags2;
+
+        impl ToMessage for Tags2 {
+            fn to_message<S: super::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                let tags = serialize.tags();
+                tags.tag("field2", Some("value"))?;
 
                 Ok(())
             }
         }
 
         struct Message {
-            tag1: Tags,
-            tag2: Tags,
+            tag1: Tags1,
+            tag2: Tags2,
         }
 
         impl ToMessage for Message {
@@ -487,14 +514,14 @@ mod tests {
         }
 
         let msg = Message {
-            tag1: Tags,
-            tag2: Tags,
+            tag1: Tags1,
+            tag2: Tags2,
         };
 
         let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
-        assert_eq!("@field=value;field=value PRIVMSG", actual);
-        assert_eq!(32, size);
+        assert_eq!("@field1=value;field2=value PRIVMSG", actual);
+        assert_eq!(34, size);
     }
 
     #[test]
@@ -766,5 +793,69 @@ mod tests {
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!(" :Hello world", actual);
         assert_eq!(13, size);
+    }
+
+    #[test]
+    fn tag_overwrite_value() {
+        struct Tags;
+
+        impl ToMessage for Tags {
+            fn to_message<S: super::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                let tags = serialize.tags();
+                tags.tag("key", Some("old"))?;
+                tags.tag("key", Some("new"))?;
+                tags.end();
+                Ok(())
+            }
+        }
+
+        let actual = crate::to_message(&Tags).unwrap();
+        assert_eq!("@key=new ", actual);
+    }
+
+    #[test]
+    fn tag_overwrite_flag() {
+        struct Tags;
+
+        impl ToMessage for Tags {
+            fn to_message<S: super::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                let tags = serialize.tags();
+                tags.flag("key")?;
+                tags.tag("key", Some("value"))?;
+                tags.end();
+                Ok(())
+            }
+        }
+
+        let actual = crate::to_message(&Tags).unwrap();
+        assert_eq!("@key=value ", actual);
+    }
+
+    #[test]
+    fn tag_overwrite_preserves_order() {
+        struct Tags;
+
+        impl ToMessage for Tags {
+            fn to_message<S: super::MessageSerializer>(
+                &self,
+                serialize: &mut S,
+            ) -> Result<(), crate::IRCError> {
+                let tags = serialize.tags();
+                tags.tag("a", Some("1"))?;
+                tags.tag("b", Some("2"))?;
+                tags.tag("a", Some("new"))?;
+                tags.end();
+                Ok(())
+            }
+        }
+
+        let actual = crate::to_message(&Tags).unwrap();
+        assert_eq!("@a=new;b=2 ", actual);
     }
 }

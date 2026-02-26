@@ -1,61 +1,19 @@
 use bytes::Bytes;
 
-use crate::compat::{Debug, Vec};
+use crate::compat::Debug;
 
-use crate::{
-    error::{IRCError, ParamError},
-    validators, Commands,
-};
+use crate::{error::IRCError, validators, Commands};
 
 use crate::message::ser::{
-    IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer, SerializeParams,
+    IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer,
     SizeTracker, ToMessage,
 };
-
-#[derive(Debug, Default, Clone)]
-struct Params<'a>(Vec<&'a str>);
-
-impl<'a> Params<'a> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn push(&mut self, param: &'a str) {
-        self.0.push(param);
-    }
-
-    pub fn extend<I>(&mut self, params: I)
-    where
-        I: IntoIterator<Item = &'a str>,
-    {
-        self.0.extend(params);
-    }
-
-    pub fn validate(&self) -> Result<(), ParamError> {
-        for param in &self.0 {
-            validators::param(param)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a> ToMessage for Params<'a> {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        let params = serialize.params();
-        for p in &self.0 {
-            params.push(p)?;
-        }
-
-        params.end();
-        Ok(())
-    }
-}
 
 #[derive(Debug, Default, Clone)]
 struct Components<'a> {
     tags: IRCTagsSerializer,
     source: IRCSourceSerializer,
-    params: Params<'a>,
+    params: IRCParamsSerializer,
     trailing: Option<&'a str>,
 }
 
@@ -64,7 +22,7 @@ impl<'a> Components<'a> {
         Self {
             tags: IRCTagsSerializer::default(),
             source: IRCSourceSerializer::default(),
-            params: Params::new(),
+            params: IRCParamsSerializer::default(),
             trailing: None,
         }
     }
@@ -104,7 +62,6 @@ impl<'a> Components<'a> {
     pub fn validate(&self) -> Result<(), IRCError> {
         self.tags.validate()?;
         self.source.validate()?;
-        self.params.validate()?;
 
         if let Some(trailing) = self.trailing {
             validators::trailing(trailing)?;
@@ -207,8 +164,7 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn add_param(&mut self, param: &'a str) -> Result<&mut Self, IRCError> {
-        validators::param(param)?;
-        self.components.params.push(param);
+        self.components.params.push(param)?;
         Ok(self)
     }
 
@@ -216,7 +172,7 @@ impl<'a> MessageBuilder<'a> {
     where
         I: IntoIterator<Item = &'a str>,
     {
-        self.components.params.extend(params);
+        self.components.params.extend(params)?;
         Ok(self)
     }
 
@@ -260,13 +216,11 @@ mod tests {
     use crate::{
         components::Commands,
         message::ser::{
-            self, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, SerializeParams,
-            SerializeSource, SerializeTags, ToMessage,
+            self, IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer,
+            SerializeParams, SerializeSource, SerializeTags, ToMessage,
         },
         MessageBuilder,
     };
-
-    use super::Params;
 
     #[test]
     fn tags_single() {
@@ -348,9 +302,9 @@ mod tests {
 
     #[test]
     fn params() {
-        let mut params = Params::new();
-        params.push("param1");
-        params.extend(["param2", "param3"]);
+        let mut params = IRCParamsSerializer::default();
+        params.push("param1").unwrap();
+        params.extend(["param2", "param3"]).unwrap();
 
         let mut buffer = IRCSerializer::new();
         params.to_message(&mut buffer).unwrap();

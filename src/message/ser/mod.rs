@@ -6,7 +6,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::compat::{String, ToOwned, Vec};
 
-use crate::error::{SourceError, TagError};
+use crate::error::{ParamError, SourceError, TagError};
 use crate::{validators, Commands, IRCError};
 use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
 
@@ -467,12 +467,36 @@ impl ToMessage for IRCSourceSerializer {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct IRCParamsSerializer {
     params: Vec<String>,
 }
 
 impl IRCParamsSerializer {
+    pub fn push(&mut self, param: &str) -> Result<(), ParamError> {
+        validators::param(param)?;
+        self.params.push(param.to_owned());
+        Ok(())
+    }
+
+    pub fn extend<I, S>(&mut self, params: I) -> Result<(), ParamError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let validate: Result<Vec<String>, ParamError> = params
+            .into_iter()
+            .map(|param| {
+                let p = param.as_ref();
+                validators::param(p)?;
+                Ok(p.to_owned())
+            })
+            .collect();
+
+        self.params.extend(validate?);
+        Ok(())
+    }
+
     fn write_to(&self, buffer: &mut BytesMut) {
         self.params.iter().for_each(|param| {
             buffer.put_u8(SPACE);
@@ -507,6 +531,15 @@ impl SerializeParams for IRCParamsSerializer {
     }
 
     fn end(&self) {}
+}
+
+impl ToMessage for IRCParamsSerializer {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+        let params = serialize.params();
+        params.extend(&self.params)?;
+        params.end();
+        Ok(())
+    }
 }
 
 #[cfg(test)]

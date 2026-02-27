@@ -42,8 +42,7 @@ impl<'a> Struct<'a> {
     pub fn expand_de(&self) -> TokenStream {
         match self {
             Struct::Unit(input) => input.expand_de(),
-            Struct::Unnamed(input) => input.expand_de(false),
-            Struct::Named(input) => input.expand_de(true),
+            Struct::Fields(input) => input.expand_de(),
         }
     }
 
@@ -53,11 +52,7 @@ impl<'a> Struct<'a> {
                 input.ident,
                 "ToMessage only supports named structs",
             )),
-            Struct::Unnamed(input) => Err(Error::new_spanned(
-                input.ident,
-                "ToMessage only supports named structs",
-            )),
-            Struct::Named(input) => input.expand_ser(node),
+            Struct::Fields(input) => input.expand_ser(node),
         }
     }
 }
@@ -220,30 +215,14 @@ impl<'a> UnitStruct<'a> {
 }
 
 impl<'a> FieldStruct<'a> {
-    pub fn expand_de(&self, is_named: bool) -> TokenStream {
+    pub fn expand_de(&self) -> TokenStream {
         let name = self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split();
         let msg_lifetime = self.generics.msg_lifetime();
 
         let validation = self.attrs.expand_command_check();
-        let components = self.components();
-        let setup_code = components.expand();
-
-        let fields: Vec<_> = self.fields.iter().map(|f| f.expand_de()).collect();
-
-        let impl_body = if is_named {
-            quote! {
-                Ok(Self {
-                    #(#fields),*
-                })
-            }
-        } else {
-            quote! {
-                Ok(Self (
-                    #(#fields),*
-                ))
-            }
-        };
+        let setup_code = self.components().expand();
+        let impl_body = self.expand_de_body();
 
         quote! {
             impl #impl_generics ircv3_parse::de::FromMessage<#msg_lifetime>
@@ -259,6 +238,19 @@ impl<'a> FieldStruct<'a> {
                 }
             }
         }
+    }
+
+    fn expand_de_body(&self) -> TokenStream {
+        let fields = self.fields.iter().map(|f| f.expand_de());
+        let is_named = self.fields[0].field.ident.is_some();
+
+        let body = if is_named {
+            quote! { {#(#fields),*} }
+        } else {
+            quote! { (#(#fields),*) }
+        };
+
+        quote! { Ok(Self #body) }
     }
 
     pub fn expand_ser(&self, input: &DeriveInput) -> Result<TokenStream> {

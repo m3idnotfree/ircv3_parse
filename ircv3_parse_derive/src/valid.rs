@@ -34,15 +34,14 @@ impl<'a> Struct<'a> {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Unit(unit) => unit.validate(),
-            Self::Unnamed(unnamed) => unnamed.validate(),
-            Self::Named(named) => named.validate(),
+            Self::Fields(named) => named.validate(),
         }
     }
 
     pub fn validate_ser(&self) -> Result<()> {
         match self {
-            Self::Unit(_) | Self::Unnamed(_) => Ok(()),
-            Self::Named(s) => s.validate_ser(),
+            Self::Unit(_) => Ok(()),
+            Self::Fields(s) => s.validate_ser(),
         }
     }
 }

@@ -16,8 +16,7 @@ pub enum Input<'a> {
 
 pub enum Struct<'a> {
     Unit(UnitStruct<'a>),
-    Unnamed(FieldStruct<'a>),
-    Named(FieldStruct<'a>),
+    Fields(FieldStruct<'a>),
 }
 
 pub struct Enum<'a> {
@@ -98,7 +97,7 @@ impl<'a> Struct<'a> {
                     .map(Field::parse)
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Struct::Unnamed(FieldStruct {
+                Ok(Struct::Fields(FieldStruct {
                     ident,
                     generics,
                     attrs,
@@ -113,7 +112,7 @@ impl<'a> Struct<'a> {
                     .map(Field::parse)
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Struct::Named(FieldStruct {
+                Ok(Struct::Fields(FieldStruct {
                     ident,
                     generics,
                     attrs,

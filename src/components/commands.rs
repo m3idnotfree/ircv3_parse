@@ -357,7 +357,7 @@ impl<'a> crate::message::ser::ToMessage for Commands<'a> {
         &self,
         serialize: &mut S,
     ) -> Result<(), crate::IRCError> {
-        serialize.command(*self);
+        serialize.set_command(*self);
         Ok(())
     }
 }
@@ -513,10 +513,8 @@ mod tests {
         let msg = Cmd {
             cmd: Commands::NOTICE,
         };
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
 
         assert_eq!("NOTICE", actual);
-        assert_eq!(6, size);
     }
 }

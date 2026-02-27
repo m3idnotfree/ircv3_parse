@@ -1,7 +1,6 @@
 #[cfg(feature = "derive")]
 #[test]
 fn roundtip() {
-    use ircv3_parse::message::ser::ToMessage;
     use ircv3_parse::{Commands, FromMessage, ToMessage};
 
     #[derive(FromMessage, ToMessage)]
@@ -25,11 +24,9 @@ fn roundtip() {
         message: "hi",
     };
 
-    let size = msg.serialized_size();
     let msg_bytes = ircv3_parse::to_message(&msg).unwrap();
 
     assert_eq!("@subscriper=1;msgid= PRIVMSG :hi\r\n", msg_bytes);
-    assert_eq!(34, size);
 
     let msg_str = String::from_utf8(msg_bytes.to_vec()).unwrap();
     let de: Message = ircv3_parse::from_str(&msg_str).unwrap();

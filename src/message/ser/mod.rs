@@ -1,7 +1,3 @@
-mod size_tracker;
-
-pub use size_tracker::SizeTracker;
-
 use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::compat::{String, ToOwned, Vec};
@@ -14,68 +10,20 @@ use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
 pub trait ToMessage {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError>;
 
-    fn serialized_size(&self) -> usize {
-        let mut tracker = SizeTracker::new();
-        self.to_message(&mut tracker)
-            .expect("size calculation should not fail");
-
-        tracker.total()
-    }
-
     fn to_bytes(&self) -> Result<Bytes, IRCError> {
-        let mut serializer = IRCSerializer::with_capacity(self.serialized_size());
+        let mut serializer = IRCSerializer::new();
         self.to_message(&mut serializer)?;
         Ok(serializer.into_bytes())
     }
 }
 
-mod private {
-    pub trait Sealed {}
-
-    impl Sealed for super::IRCSerializer {}
-    impl Sealed for super::IRCTagsSerializer {}
-    impl Sealed for super::IRCSourceSerializer {}
-    impl Sealed for super::IRCParamsSerializer {}
-
-    impl Sealed for super::SizeTracker {}
-    impl Sealed for super::size_tracker::SizeTagsTracker {}
-    impl Sealed for super::size_tracker::SizeSourceTracker {}
-    impl Sealed for super::size_tracker::SizeParamsTracker {}
-}
-
-pub trait MessageSerializer: private::Sealed + Sized {
-    type Tags: SerializeTags;
-    type Source: SerializeSource;
-    type Params: SerializeParams;
-
-    fn tags(&mut self) -> &mut Self::Tags;
-    fn source(&mut self) -> &mut Self::Source;
-    fn command(&mut self, command: Commands);
-    fn params(&mut self) -> &mut Self::Params;
-    fn trailing(&mut self, value: &str) -> Result<(), IRCError>;
+pub trait MessageSerializer {
+    fn tags(&mut self) -> &mut IRCTagsSerializer;
+    fn source(&mut self) -> &mut IRCSourceSerializer;
+    fn set_command(&mut self, command: Commands);
+    fn params(&mut self) -> &mut IRCParamsSerializer;
+    fn set_trailing(&mut self, value: &str) -> Result<(), IRCError>;
     fn end(&mut self) -> Result<(), IRCError>;
-}
-
-pub trait SerializeTags: private::Sealed {
-    fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError>;
-    fn flag(&mut self, key: &str) -> Result<(), IRCError>;
-    fn end(&self);
-}
-
-pub trait SerializeSource: private::Sealed {
-    fn name(&mut self, name: &str) -> Result<(), IRCError>;
-    fn user(&mut self, user: &str) -> Result<(), IRCError>;
-    fn host(&mut self, host: &str) -> Result<(), IRCError>;
-    fn end(&self);
-}
-
-pub trait SerializeParams: private::Sealed {
-    fn push(&mut self, value: &str) -> Result<(), IRCError>;
-    fn extend<I, S>(&mut self, params: I) -> Result<(), IRCError>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>;
-    fn end(&self);
 }
 
 pub struct IRCSerializer {
@@ -160,27 +108,23 @@ impl IRCSerializer {
 }
 
 impl MessageSerializer for IRCSerializer {
-    type Tags = IRCTagsSerializer;
-    type Source = IRCSourceSerializer;
-    type Params = IRCParamsSerializer;
-
-    fn tags(&mut self) -> &mut Self::Tags {
+    fn tags(&mut self) -> &mut IRCTagsSerializer {
         &mut self.tags
     }
 
-    fn source(&mut self) -> &mut Self::Source {
+    fn source(&mut self) -> &mut IRCSourceSerializer {
         &mut self.source
     }
 
-    fn command(&mut self, command: Commands) {
+    fn set_command(&mut self, command: Commands) {
         self.command = Some(command.as_str().to_owned());
     }
 
-    fn params(&mut self) -> &mut Self::Params {
+    fn params(&mut self) -> &mut IRCParamsSerializer {
         &mut self.params
     }
 
-    fn trailing(&mut self, value: &str) -> Result<(), IRCError> {
+    fn set_trailing(&mut self, value: &str) -> Result<(), IRCError> {
         validators::trailing(value)?;
         match &mut self.trailing {
             Some(t) => t.push_str(value),
@@ -318,18 +262,6 @@ impl IRCTagsSerializer {
     }
 }
 
-impl SerializeTags for IRCTagsSerializer {
-    fn tag(&mut self, key: &str, value: Option<&str>) -> Result<(), IRCError> {
-        self.insert_tag(key, value).map_err(IRCError::from)
-    }
-
-    fn flag(&mut self, key: &str) -> Result<(), IRCError> {
-        self.insert_flag(key).map_err(IRCError::from)
-    }
-
-    fn end(&self) {}
-}
-
 impl ToMessage for IRCTagsSerializer {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
         if self.is_empty() {
@@ -340,15 +272,14 @@ impl ToMessage for IRCTagsSerializer {
         for tag in self.tags.iter() {
             match tag {
                 TagTy::Value { key, value } => {
-                    tags.tag(key, value.as_deref())?;
+                    tags.insert_tag(key, value.as_deref())?;
                 }
                 TagTy::Flag(key) => {
-                    tags.flag(key)?;
+                    tags.insert_flag(key)?;
                 }
             };
         }
 
-        tags.end();
         Ok(())
     }
 }
@@ -426,22 +357,6 @@ impl IRCSourceSerializer {
     }
 }
 
-impl SerializeSource for IRCSourceSerializer {
-    fn name(&mut self, name: &str) -> Result<(), IRCError> {
-        self.set_name(name).map_err(IRCError::from)
-    }
-
-    fn user(&mut self, user: &str) -> Result<(), IRCError> {
-        self.set_user(user).map_err(IRCError::from)
-    }
-
-    fn host(&mut self, host: &str) -> Result<(), IRCError> {
-        self.set_host(host).map_err(IRCError::from)
-    }
-
-    fn end(&self) {}
-}
-
 impl ToMessage for IRCSourceSerializer {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
         self.validate()?;
@@ -449,20 +364,19 @@ impl ToMessage for IRCSourceSerializer {
         let source = serialize.source();
 
         if let Some(name) = &self.name {
-            source.name(name)?;
+            source.set_name(name)?;
         } else {
             return Err(IRCError::Source(SourceError::MissingNick));
         }
 
         if let Some(user) = &self.user {
-            source.user(user)?;
+            source.set_user(user)?;
         }
 
         if let Some(host) = &self.host {
-            source.host(host)?;
+            source.set_host(host)?;
         }
 
-        source.end();
         Ok(())
     }
 }
@@ -505,49 +419,17 @@ impl IRCParamsSerializer {
     }
 }
 
-impl SerializeParams for IRCParamsSerializer {
-    fn push(&mut self, value: &str) -> Result<(), IRCError> {
-        validators::param(value)?;
-        self.params.push(value.to_owned());
-        Ok(())
-    }
-
-    fn extend<I, S>(&mut self, params: I) -> Result<(), IRCError>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        let validate: Result<Vec<String>, IRCError> = params
-            .into_iter()
-            .map(|param| {
-                let p = param.as_ref();
-                validators::param(p)?;
-                Ok(p.to_owned())
-            })
-            .collect();
-
-        self.params.extend(validate?);
-        Ok(())
-    }
-
-    fn end(&self) {}
-}
-
 impl ToMessage for IRCParamsSerializer {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
         let params = serialize.params();
         params.extend(&self.params)?;
-        params.end();
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        message::ser::{SerializeParams, SerializeSource, SerializeTags, ToMessage},
-        Commands,
-    };
+    use crate::{message::ser::ToMessage, Commands};
 
     #[test]
     fn complete_privmsg() {
@@ -561,8 +443,7 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field", Some(&self.field))?;
-                tags.end();
+                tags.insert_tag("field", Some(&self.field))?;
 
                 Ok(())
             }
@@ -581,13 +462,12 @@ mod tests {
             ) -> Result<(), crate::IRCError> {
                 self.tags.to_message(serialize)?;
 
-                serialize.command(Commands::PRIVMSG);
+                serialize.set_command(Commands::PRIVMSG);
 
                 let params = serialize.params();
                 params.push(&self.channel)?;
-                params.end();
 
-                serialize.trailing(&self.message)?;
+                serialize.set_trailing(&self.message)?;
 
                 serialize.end()?;
                 Ok(())
@@ -602,10 +482,8 @@ mod tests {
             message: "Hi".to_string(),
         };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!("@field=value PRIVMSG #channel :Hi\r\n", actual);
-        assert_eq!(35, size);
     }
 
     #[test]
@@ -618,7 +496,7 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field1", Some("value"))?;
+                tags.insert_tag("field1", Some("value"))?;
 
                 Ok(())
             }
@@ -632,7 +510,7 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field2", Some("value"))?;
+                tags.insert_tag("field2", Some("value"))?;
 
                 Ok(())
             }
@@ -651,7 +529,7 @@ mod tests {
                 self.tag1.to_message(serialize)?;
                 self.tag2.to_message(serialize)?;
 
-                serialize.command(Commands::PRIVMSG);
+                serialize.set_command(Commands::PRIVMSG);
                 Ok(())
             }
         }
@@ -661,10 +539,8 @@ mod tests {
             tag2: Tags2,
         };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!("@field1=value;field2=value PRIVMSG", actual);
-        assert_eq!(34, size);
     }
 
     #[test]
@@ -676,8 +552,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                let tags = serialize.tags();
-                tags.end();
+                let _tags = serialize.tags();
 
                 Ok(())
             }
@@ -693,17 +568,15 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 self.tags.to_message(serialize)?;
-                serialize.command(Commands::PRIVMSG);
+                serialize.set_command(Commands::PRIVMSG);
                 Ok(())
             }
         }
 
         let msg = Message { tags: Tags };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!("PRIVMSG", actual);
-        assert_eq!(7, size);
     }
 
     #[test]
@@ -716,8 +589,8 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let source = serialize.source();
-                source.name("nick")?;
-                source.user("user")
+                source.set_name("nick")?;
+                source.set_user("user").map_err(crate::IRCError::from)
             }
         }
 
@@ -731,16 +604,14 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 self.source.to_message(serialize)?;
-                serialize.command(Commands::PRIVMSG);
+                serialize.set_command(Commands::PRIVMSG);
                 Ok(())
             }
         }
 
         let msg = Message { source: Source };
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!(":nick!user PRIVMSG", actual);
-        assert_eq!(18, size);
     }
 
     #[test]
@@ -753,8 +624,7 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field", Some("value1"))?;
-                tags.end();
+                tags.insert_tag("field", Some("value1"))?;
 
                 Ok(())
             }
@@ -768,8 +638,7 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("field2", Some("value2"))?;
-                tags.end();
+                tags.insert_tag("field2", Some("value2"))?;
 
                 Ok(())
             }
@@ -796,10 +665,8 @@ mod tests {
             tags2: Tags2,
         };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!("@field=value1;field2=value2 ", actual);
-        assert_eq!(28, size);
     }
 
     #[test]
@@ -816,7 +683,6 @@ mod tests {
                 let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
-                params.end();
                 Ok(())
             }
         }
@@ -833,7 +699,6 @@ mod tests {
                 let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
-                params.end();
                 Ok(())
             }
         }
@@ -852,7 +717,6 @@ mod tests {
                 let param_refs: Vec<&str> = self.param.iter().map(|p| p.as_ref()).collect();
 
                 params.extend(&param_refs)?;
-                params.end();
                 Ok(())
             }
         }
@@ -887,10 +751,8 @@ mod tests {
             },
         };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!(" param1 param2 param3 param4", actual);
-        assert_eq!(28, size);
     }
 
     #[test]
@@ -904,7 +766,7 @@ mod tests {
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
-                serialize.trailing(self.message.as_ref())
+                serialize.set_trailing(self.message.as_ref())
             }
         }
 
@@ -932,10 +794,8 @@ mod tests {
             },
         };
 
-        let size = msg.serialized_size();
         let actual = crate::to_message(&msg).unwrap();
         assert_eq!(" :Hello world", actual);
-        assert_eq!(13, size);
     }
 
     #[test]
@@ -948,9 +808,8 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("key", Some("old"))?;
-                tags.tag("key", Some("new"))?;
-                tags.end();
+                tags.insert_tag("key", Some("old"))?;
+                tags.insert_tag("key", Some("new"))?;
                 Ok(())
             }
         }
@@ -969,9 +828,8 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.flag("key")?;
-                tags.tag("key", Some("value"))?;
-                tags.end();
+                tags.insert_flag("key")?;
+                tags.insert_tag("key", Some("value"))?;
                 Ok(())
             }
         }
@@ -990,10 +848,9 @@ mod tests {
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
-                tags.tag("a", Some("1"))?;
-                tags.tag("b", Some("2"))?;
-                tags.tag("a", Some("new"))?;
-                tags.end();
+                tags.insert_tag("a", Some("1"))?;
+                tags.insert_tag("b", Some("2"))?;
+                tags.insert_tag("a", Some("new"))?;
                 Ok(())
             }
         }

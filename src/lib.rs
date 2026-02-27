@@ -242,30 +242,18 @@
 //!     ) -> Result<(), ircv3_parse::IRCError> {
 //!         use ircv3_parse::Commands;
 //!
-//!         {
-//!             use ircv3_parse::message::ser::SerializeTags;
-//!
-//!             let mut tags = serialize.tags();
-//!             tags.tag("msgid", Some(self.msgid))?;
-//!             if self.subscriber {
-//!                 tags.flag("subscriber")?;
-//!             }
-//!             // You can skip tags.end() because Drop handles it
-//!             tags.end();
+//!         let tags = serialize.tags();
+//!         tags.insert_tag("msgid", Some(self.msgid))?;
+//!         if self.subscriber {
+//!             tags.insert_flag("subscriber")?;
 //!         }
 //!
 //!         Commands::PRIVMSG.to_message(serialize)?;
 //!
-//!         {
-//!             use ircv3_parse::message::ser::SerializeParams;
+//!         let params = serialize.params();
+//!         params.push(self.channel)?;
 //!
-//!             let mut params = serialize.params();
-//!             params.push(self.channel)?;
-//!             // You can skip params.end() because Drop handles it
-//!             params.end();
-//!         }
-//!
-//!         serialize.trailing(self.message.as_ref())?;
+//!         serialize.set_trailing(self.message.as_ref())?;
 //!
 //!         serialize.end()?;
 //!         Ok(())

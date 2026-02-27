@@ -126,8 +126,7 @@ impl MessageBuilder {
     }
 
     pub fn build(self) -> Result<Bytes, IRCError> {
-        let size = self.serialized_size();
-        let mut buffer = IRCSerializer::with_capacity(size);
+        let mut buffer = IRCSerializer::new();
 
         self.to_message(&mut buffer)?;
 
@@ -154,13 +153,13 @@ impl ToMessage for MessageBuilder {
 
         if let Some(command) = &self.command {
             let command = Commands::from(command.as_str());
-            serialize.command(command);
+            serialize.set_command(command);
         }
 
         self.params.to_message(serialize)?;
 
         if let Some(trailing) = &self.trailing {
-            serialize.trailing(trailing)?;
+            serialize.set_trailing(trailing)?;
         }
 
         serialize.end()?;
@@ -175,7 +174,7 @@ mod tests {
         components::Commands,
         message::ser::{
             self, IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer,
-            SerializeParams, SerializeSource, SerializeTags, ToMessage,
+            ToMessage,
         },
         MessageBuilder,
     };
@@ -189,7 +188,6 @@ mod tests {
         tags.to_message(&mut buffer).unwrap();
 
         assert_eq!("@key=value ", buffer.into_bytes());
-        assert_eq!(11, tags.serialized_size());
     }
 
     #[test]
@@ -203,7 +201,6 @@ mod tests {
         tags.to_message(&mut buffer).unwrap();
 
         assert_eq!("@key=value;key2=;flag ", buffer.into_bytes());
-        assert_eq!(22, tags.serialized_size());
     }
 
     #[test]
@@ -217,7 +214,6 @@ mod tests {
         source.to_message(&mut buffer).unwrap();
 
         assert_eq!(":nick!user@example.com ", buffer.into_bytes());
-        assert_eq!(23, source.serialized_size());
     }
 
     #[test]
@@ -230,7 +226,6 @@ mod tests {
         source.to_message(&mut buffer).unwrap();
 
         assert_eq!(":nick!user ", buffer.into_bytes());
-        assert_eq!(11, source.serialized_size());
     }
 
     #[test]
@@ -243,7 +238,6 @@ mod tests {
         source.to_message(&mut buffer).unwrap();
 
         assert_eq!(":nick@example.com ", buffer.into_bytes());
-        assert_eq!(18, source.serialized_size());
     }
 
     #[test]
@@ -255,7 +249,6 @@ mod tests {
         source.to_message(&mut buffer).unwrap();
 
         assert_eq!(":irc.example.com ", buffer.into_bytes());
-        assert_eq!(17, source.serialized_size());
     }
 
     #[test]
@@ -268,7 +261,6 @@ mod tests {
         params.to_message(&mut buffer).unwrap();
 
         assert_eq!(" param1 param2 param3", buffer.into_bytes());
-        assert_eq!(21, params.serialized_size());
     }
 
     #[test]
@@ -288,13 +280,11 @@ mod tests {
 
         msg.set_trailing("").unwrap();
 
-        let size = msg.serialized_size();
         let actual = msg.build().unwrap();
         assert_eq!(
             "@tag1=value1;tag2=;flag :nick!user@example.com PRIVMSG :\r\n",
             actual
         );
-        assert_eq!(58, size);
     }
 
     #[test]
@@ -313,24 +303,20 @@ mod tests {
             ) -> Result<(), crate::IRCError> {
                 let tags = serialize.tags();
                 for (key, value) in &self.tag {
-                    tags.tag(key, value.as_deref())?;
+                    tags.insert_tag(key, value.as_deref())?;
                 }
-                tags.end();
 
                 let source = serialize.source();
-                source.name(&self.source)?;
-                source.end();
+                source.set_name(&self.source)?;
 
-                serialize.command(Commands::PRIVMSG);
+                serialize.set_command(Commands::PRIVMSG);
 
                 let params = serialize.params();
                 for p in &self.param {
                     params.push(p)?;
                 }
 
-                params.end();
-
-                serialize.trailing(&self.message)?;
+                serialize.set_trailing(&self.message)?;
 
                 serialize.end()?;
                 Ok(())
@@ -344,10 +330,8 @@ mod tests {
             message: "hi".to_string(),
         };
 
-        let size = priv_msg.serialized_size();
         let msg = crate::to_message(&priv_msg).unwrap();
 
         assert_eq!("@key=value :name PRIVMSG param :hi\r\n", msg,);
-        assert_eq!(36, size);
     }
 }

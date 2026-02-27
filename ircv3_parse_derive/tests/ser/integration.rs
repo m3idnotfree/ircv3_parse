@@ -16,10 +16,8 @@ fn struct_level_command() {
         text: "hello".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("PRIVMSG :hello", msg);
-    assert_eq!(14, size);
 }
 
 #[test]
@@ -35,10 +33,8 @@ fn struct_level_command_with_field_command() {
         command: "NOTICE".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("NOTICE", msg);
-    assert_eq!(6, size);
 }
 
 #[test]
@@ -53,10 +49,8 @@ fn field_command() {
         command: "NOTICE".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("NOTICE", msg);
-    assert_eq!(6, size)
 }
 
 #[test]
@@ -71,10 +65,8 @@ fn tag() {
         field: "value".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("@field=value ", msg);
-    assert_eq!(13, size)
 }
 
 #[test]
@@ -87,10 +79,8 @@ fn tag_str() {
 
     let priv_msg = Tag { field: "value" };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("@key=value ", msg);
-    assert_eq!(11, size)
 }
 
 #[test]
@@ -103,10 +93,8 @@ fn tag_opt_none() {
 
     let priv_msg = Tag { field: None };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("@field= ", msg);
-    assert_eq!(8, size)
 }
 
 #[test]
@@ -121,10 +109,8 @@ fn tag_opt_some() {
         field: Some("value".to_string()),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("@field=value ", msg);
-    assert_eq!(13, size)
 }
 
 #[test]
@@ -147,10 +133,8 @@ fn tag_opt_ser() {
 
     let tag = Tag { tag: field };
 
-    let size = tag.serialized_size();
     let msg = tag.to_bytes().unwrap();
     assert_eq!("@field=value ", msg);
-    assert_eq!(13, size)
 }
 
 #[test]
@@ -168,10 +152,8 @@ fn tag_multi() {
         field2: "value2".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!("@field=value;field2=value2 ", msg);
-    assert_eq!(27, size)
 }
 
 #[test]
@@ -186,10 +168,8 @@ fn source() {
         name: "name".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(":name ", msg);
-    assert_eq!(6, size)
 }
 
 #[test]
@@ -207,10 +187,8 @@ fn source_with_user() {
         user: "user".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(":name!user ", msg);
-    assert_eq!(11, size)
 }
 
 #[test]
@@ -228,10 +206,8 @@ fn source_with_host() {
         host: "example.com".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(":name@example.com ", msg);
-    assert_eq!(18, size)
 }
 
 #[test]
@@ -252,10 +228,8 @@ fn source_with_all() {
         host: "example.com".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(":name!user@example.com ", msg);
-    assert_eq!(23, size)
 }
 
 #[test]
@@ -276,10 +250,8 @@ fn source_with_all2() {
         host: "example.com".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(":name!user@example.com ", msg);
-    assert_eq!(23, size)
 }
 
 #[test]
@@ -294,10 +266,8 @@ fn param() {
         param: "param".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(" param", msg);
-    assert_eq!(6, size)
 }
 
 #[test]
@@ -315,10 +285,8 @@ fn param_multi() {
         param2: "param2",
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(" param param2", msg);
-    assert_eq!(13, size)
 }
 
 #[test]
@@ -333,10 +301,8 @@ fn trailing() {
         message: "hi".to_string(),
     };
 
-    let size = priv_msg.serialized_size();
     let msg = priv_msg.to_bytes().unwrap();
     assert_eq!(" :hi", msg);
-    assert_eq!(4, size)
 }
 
 #[test]
@@ -389,12 +355,10 @@ fn full() {
         message: "hi".to_string(),
     };
 
-    let size = msg.serialized_size();
     let actual = msg.to_bytes().unwrap();
 
     assert_eq!(
         "@field=value;key=value2;msgid :nick!user@example.com PRIVMSG param param2 param3 param4 param5 :hi\r\n",
         actual
     );
-    assert_eq!(100, size)
 }

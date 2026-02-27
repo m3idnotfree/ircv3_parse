@@ -20,7 +20,7 @@ impl SerializeCommand {
             field_code
         } else if let Some(cmd) = struct_command {
             quote! {
-                { serialize.command(ircv3_parse::Commands::from(#cmd)); }
+                { serialize.set_command(ircv3_parse::Commands::from(#cmd)); }
             }
         } else {
             quote! {}
@@ -83,12 +83,10 @@ impl Source {
 
         Ok(quote! {
             {
-                use ircv3_parse::message::ser::SerializeSource;
-                let mut source = serialize.source();
+                let  source = serialize.source();
                 #name
                 #user
                 #host
-                source.end();
             }
         })
     }
@@ -171,12 +169,8 @@ impl<'a> SerializationBuilder<'a> {
         let tags_code = if !self.tag_fields.is_empty() {
             let tags = self.tag_fields;
             quote! {
-                {
-                    use ircv3_parse::message::ser::SerializeTags;
-                    let mut tags = serialize.tags();
-                    #(#tags)*
-                    tags.end();
-                }
+                let tags = serialize.tags();
+                #(#tags)*
             }
         } else {
             quote! {}
@@ -187,12 +181,8 @@ impl<'a> SerializationBuilder<'a> {
         let params_code = if !self.params.is_empty() {
             let p = &self.params;
             quote! {
-                {
-                    use ircv3_parse::message::ser::SerializeParams;
-                    let mut params = serialize.params();
-                    #(#p)*
-                    params.end();
-                }
+                let params = serialize.params();
+                #(#p)*
             }
         } else {
             quote! {}

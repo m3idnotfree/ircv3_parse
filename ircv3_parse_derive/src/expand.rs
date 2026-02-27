@@ -634,22 +634,22 @@ impl FieldKind {
             Self::Tag(key) => match TypeKind::classify(&field.ty) {
                 Str => {
                     builder.tag(quote! {
-                        tags.tag(#key, Some(self.#field_name))?;
+                        tags.insert_tag(#key, Some(self.#field_name))?;
                     });
                 }
                 String => {
                     builder.tag(quote! {
-                        tags.tag(#key, Some(self.#field_name.as_ref()))?;
+                        tags.insert_tag(#key, Some(self.#field_name.as_ref()))?;
                     });
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     builder.tag(quote! {
-                        tags.tag(#key, self.#field_name)?;
+                        tags.insert_tag(#key, self.#field_name)?;
                     });
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
                     builder.tag(quote! {
-                        tags.tag(#key, self.#field_name.as_deref())?;
+                        tags.insert_tag(#key, self.#field_name.as_deref())?;
                     });
                 }
                 _ => {
@@ -662,14 +662,14 @@ impl FieldKind {
                 Bool => {
                     builder.tag(quote! {
                         if self.#field_name {
-                            tags.flag(#key)?;
+                            tags.insert_flag(#key)?;
                         }
                     });
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), Bool) => {
                     builder.tag(quote! {
                         if let Some(true) = self.#field_name {
-                            tags.flag(#key)?;
+                            tags.insert_flag(#key)?;
                         }
                     });
                 }
@@ -683,25 +683,25 @@ impl FieldKind {
                 Source::Name => match TypeKind::classify(&field.ty) {
                     Str => {
                         builder.set_source_name(quote! {
-                            source.name(self.#field_name)?;
+                            source.set_name(self.#field_name)?;
                         });
                     }
                     String => {
                         builder.set_source_name(quote! {
-                            source.name(self.#field_name.as_ref())?;
+                            source.set_name(self.#field_name.as_ref())?;
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         builder.set_source_name(quote! {
                             if let Some(field) = self.#field_name {
-                                source.name(field)?;
+                                source.set_name(field)?;
                             }
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         builder.set_source_name(quote! {
                             if let Some(field) = &self.#field_name {
-                                source.name(field.as_ref())?;
+                                source.set_name(field.as_ref())?;
                             }
                         });
                     }
@@ -714,25 +714,25 @@ impl FieldKind {
                 Source::User => match TypeKind::classify(&field.ty) {
                     Str => {
                         builder.set_source_user(quote! {
-                            source.user(self.#field_name)?;
+                            source.set_user(self.#field_name)?;
                         });
                     }
                     String => {
                         builder.set_source_user(quote! {
-                            source.user(self.#field_name.as_ref())?;
+                            source.set_user(self.#field_name.as_ref())?;
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         builder.set_source_user(quote! {
                             if let Some(field) = self.#field_name {
-                                source.user(field)?;
+                                source.set_user(field)?;
                             }
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         builder.set_source_user(quote! {
                             if let Some(field) = &self.#field_name {
-                                source.user(field.as_ref())?;
+                                source.set_user(field.as_ref())?;
                             }
                         });
                     }
@@ -745,25 +745,25 @@ impl FieldKind {
                 Source::Host => match TypeKind::classify(&field.ty) {
                     Str => {
                         builder.set_source_host(quote! {
-                            source.host(self.#field_name)?;
+                            source.set_host(self.#field_name)?;
                         });
                     }
                     String => {
                         builder.set_source_host(quote! {
-                            source.host(self.#field_name.as_ref())?;
+                            source.set_host(self.#field_name.as_ref())?;
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                         builder.set_source_host(quote! {
                             if let Some(field) = self.#field_name {
-                                source.host(field)?;
+                                source.set_host(field)?;
                             }
                         });
                     }
                     Option(inner) if matches!(TypeKind::classify(inner), String) => {
                         builder.set_source_host(quote! {
                             if let Some(field) = &self.#field_name {
-                                source.host(field.as_ref())?;
+                                source.set_host(field.as_ref())?;
                             }
                         });
                     }
@@ -815,25 +815,25 @@ impl FieldKind {
             Self::Trailing => match TypeKind::classify(&field.ty) {
                 Str => {
                     builder.set_trailing(quote! {
-                        serialize.trailing(self.#field_name)?;
+                        serialize.set_trailing(self.#field_name)?;
                     });
                 }
                 String => {
                     builder.set_trailing(quote! {
-                        serialize.trailing(self.#field_name.as_ref())?;
+                        serialize.set_trailing(self.#field_name.as_ref())?;
                     });
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), Str) => {
                     builder.set_trailing(quote! {
                         if let Some(t) = self.#field_name {
-                            serialize.trailing(t)?;
+                            serialize.set_trailing(t)?;
                         }
                     });
                 }
                 Option(inner) if matches!(TypeKind::classify(inner), String) => {
                     builder.set_trailing(quote! {
                         if let Some(t) = &self.#field_name {
-                            serialize.trailing(t.as_ref())?;
+                            serialize.set_trailing(t.as_ref())?;
                         }
                     });
                 }
@@ -846,12 +846,12 @@ impl FieldKind {
             Self::Command => match TypeKind::classify(&field.ty) {
                 Str => {
                     builder.field_command(quote! {
-                        serialize.command(ircv3_parse::Commands::from(self.#field_name));
+                        serialize.set_command(ircv3_parse::Commands::from(self.#field_name));
                     });
                 }
                 String => {
                     builder.field_command(quote! {
-                        serialize.command(ircv3_parse::Commands::from(self.#field_name.as_ref()));
+                        serialize.set_command(ircv3_parse::Commands::from(self.#field_name.as_ref()));
                     });
                 }
                 _ => {

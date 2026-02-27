@@ -6,71 +6,26 @@ use crate::{error::IRCError, validators, Commands};
 
 use crate::message::ser::{
     IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer,
-    SizeTracker, ToMessage,
+    ToMessage,
 };
 
 #[derive(Debug, Default, Clone)]
-struct Components {
+pub struct MessageBuilder {
     tags: IRCTagsSerializer,
     source: IRCSourceSerializer,
+    command: Option<String>,
     params: IRCParamsSerializer,
     trailing: Option<String>,
-}
-
-impl Components {
-    pub fn to_message<T: MessageSerializer>(
-        &self,
-        serialize: &mut T,
-        command: Commands,
-    ) -> Result<(), IRCError> {
-        if !self.tags.is_empty() {
-            self.tags.to_message(serialize)?;
-        }
-
-        self.source.to_message(serialize)?;
-        serialize.command(command);
-        self.params.to_message(serialize)?;
-
-        if let Some(trailing) = &self.trailing {
-            serialize.trailing(trailing)?;
-        }
-
-        serialize.end()?;
-
-        Ok(())
-    }
-
-    pub fn serialized_size(&self, command: Commands) -> usize {
-        let mut tracker = SizeTracker::new();
-        self.to_message(&mut tracker, command)
-            .expect("size calculation shoulld not fail");
-
-        tracker.total()
-    }
-
-    pub fn validate(&self) -> Result<(), IRCError> {
-        self.tags.validate()?;
-        self.source.validate()?;
-
-        if let Some(trailing) = &self.trailing {
-            validators::trailing(trailing)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct MessageBuilder {
-    command: Option<String>,
-    components: Components,
 }
 
 impl MessageBuilder {
     pub fn new() -> Self {
         Self {
+            tags: IRCTagsSerializer::default(),
+            source: IRCSourceSerializer::default(),
             command: None,
-            components: Components::default(),
+            params: IRCParamsSerializer::default(),
+            trailing: None,
         }
     }
 
@@ -84,7 +39,7 @@ impl MessageBuilder {
     }
 
     pub fn add_tag(&mut self, key: &str, value: Option<&str>) -> Result<&mut Self, IRCError> {
-        self.components.tags.insert_tag(key, value)?;
+        self.tags.insert_tag(key, value)?;
 
         Ok(self)
     }
@@ -101,7 +56,7 @@ impl MessageBuilder {
     }
 
     pub fn add_tag_flag(&mut self, key: &str) -> Result<&mut Self, IRCError> {
-        self.components.tags.insert_flag(key)?;
+        self.tags.insert_flag(key)?;
         Ok(self)
     }
 
@@ -118,26 +73,17 @@ impl MessageBuilder {
     }
 
     pub fn set_source_name(&mut self, name: &str) -> Result<&mut Self, IRCError> {
-        self.components
-            .source
-            .set_name(name)
-            .map_err(IRCError::from)?;
+        self.source.set_name(name).map_err(IRCError::from)?;
         Ok(self)
     }
 
     pub fn set_source_user(&mut self, user: &str) -> Result<&mut Self, IRCError> {
-        self.components
-            .source
-            .set_user(user)
-            .map_err(IRCError::from)?;
+        self.source.set_user(user).map_err(IRCError::from)?;
         Ok(self)
     }
 
     pub fn set_source_host(&mut self, host: &str) -> Result<&mut Self, IRCError> {
-        self.components
-            .source
-            .set_host(host)
-            .map_err(IRCError::from)?;
+        self.source.set_host(host).map_err(IRCError::from)?;
         Ok(self)
     }
 
@@ -160,7 +106,7 @@ impl MessageBuilder {
     }
 
     pub fn add_param(&mut self, param: &str) -> Result<&mut Self, IRCError> {
-        self.components.params.push(param)?;
+        self.params.push(param)?;
         Ok(self)
     }
 
@@ -169,44 +115,57 @@ impl MessageBuilder {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        self.components.params.extend(params)?;
+        self.params.extend(params)?;
         Ok(self)
     }
 
     pub fn set_trailing(&mut self, trailing: &str) -> Result<&mut Self, IRCError> {
         validators::trailing(trailing)?;
-        self.components.trailing = Some(trailing.to_owned());
+        self.trailing = Some(trailing.to_owned());
         Ok(self)
     }
 
     pub fn build(self) -> Result<Bytes, IRCError> {
-        if let Some(command) = &self.command {
-            let command = Commands::from(command.as_str());
-            let size = self.components.serialized_size(command);
-            let mut buffer = IRCSerializer::with_capacity(size);
+        let size = self.serialized_size();
+        let mut buffer = IRCSerializer::with_capacity(size);
 
-            self.components.to_message(&mut buffer, command)?;
+        self.to_message(&mut buffer)?;
 
-            Ok(buffer.into_bytes())
-        } else {
-            Err(IRCError::MissingCommand)
-        }
+        Ok(buffer.into_bytes())
     }
 
-    pub fn validator(&self) -> Result<(), IRCError> {
-        self.components.validate()
+    pub fn validate(&self) -> Result<(), IRCError> {
+        if self.command.is_none() {
+            return Err(IRCError::MissingCommand);
+        }
+
+        if let Some(trailing) = &self.trailing {
+            validators::trailing(trailing)?;
+        }
+
+        Ok(())
     }
 }
 
 impl ToMessage for MessageBuilder {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+        self.tags.to_message(serialize)?;
+        self.source.to_message(serialize)?;
+
         if let Some(command) = &self.command {
-            self.components
-                .to_message(serialize, Commands::from(command.as_str()))?;
-            Ok(())
-        } else {
-            Err(IRCError::MissingCommand)
+            let command = Commands::from(command.as_str());
+            serialize.command(command);
         }
+
+        self.params.to_message(serialize)?;
+
+        if let Some(trailing) = &self.trailing {
+            serialize.trailing(trailing)?;
+        }
+
+        serialize.end()?;
+
+        Ok(())
     }
 }
 

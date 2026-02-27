@@ -200,10 +200,10 @@ impl<'a> SerializationBuilder<'a> {
 
         let crlf_expand = self.struct_attrs.expand_crlf();
         Ok(quote! {
-            impl #impl_generics ircv3_parse::message::ser::ToMessage
+            impl #impl_generics ircv3_parse::ser::ToMessage
                 for #struct_name #ty_generics #where_clause
             {
-                fn to_message<S: ircv3_parse::message::ser::MessageSerializer>(
+                fn to_message<S: ircv3_parse::ser::MessageSerializer>(
                     &self,
                     serialize: &mut S
                 ) -> Result<(), ircv3_parse::IRCError> {

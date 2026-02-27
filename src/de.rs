@@ -4,7 +4,7 @@
 /// providing type-safe access to message fields.
 ///
 /// ```rust
-/// use ircv3_parse::{message::de::FromMessage, DeError};
+/// use ircv3_parse::{de::FromMessage, DeError};
 ///
 /// struct BasicMessage<'a> {
 ///     color: Option<&'a str>,
@@ -60,7 +60,7 @@ pub trait FromMessage<'a>: Sized {
 
 #[cfg(test)]
 mod tests {
-    use crate::{message::de::FromMessage, DeError};
+    use crate::{de::FromMessage, DeError};
 
     #[derive(Debug)]
     struct TestMessage<'a> {

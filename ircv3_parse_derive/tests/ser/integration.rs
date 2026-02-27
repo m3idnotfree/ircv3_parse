@@ -1,6 +1,6 @@
 #![allow(unused)]
 #[allow(unused_imports)]
-use ircv3_parse::message::ser::ToMessage as _;
+use ircv3_parse::ser::ToMessage as _;
 use ircv3_parse_derive::ToMessage;
 
 #[test]

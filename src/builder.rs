@@ -4,7 +4,7 @@ use crate::compat::{Debug, String, ToOwned};
 
 use crate::{error::IRCError, validators, Commands};
 
-use crate::message::ser::{
+use crate::ser::{
     IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer,
     ToMessage,
 };
@@ -172,7 +172,7 @@ impl ToMessage for MessageBuilder {
 mod tests {
     use crate::{
         components::Commands,
-        message::ser::{
+        ser::{
             self, IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer,
             ToMessage,
         },

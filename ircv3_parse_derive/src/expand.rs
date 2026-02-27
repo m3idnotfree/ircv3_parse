@@ -81,7 +81,7 @@ impl<'a> Enum<'a> {
         let setup = components.expand();
 
         quote! {
-            impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
+            impl #impl_generics ircv3_parse::de::FromMessage<#msg_lifetime>
                 for #name #ty_generics #where_clause
             {
                 fn from_message(
@@ -206,7 +206,7 @@ impl<'a> UnitStruct<'a> {
         let impl_body = self.attrs.expand_de();
 
         quote! {
-            impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
+            impl #impl_generics ircv3_parse::de::FromMessage<#msg_lifetime>
                 for #name #ty_generics #where_clause
             {
                 fn from_message(
@@ -246,7 +246,7 @@ impl<'a> FieldStruct<'a> {
         };
 
         quote! {
-            impl #impl_generics ircv3_parse::message::de::FromMessage<#msg_lifetime>
+            impl #impl_generics ircv3_parse::de::FromMessage<#msg_lifetime>
                 for #name #ty_generics #where_clause
             {
                 fn from_message(

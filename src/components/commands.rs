@@ -346,14 +346,14 @@ impl PartialEq<Commands<'_>> for String {
 
 impl Eq for Commands<'_> {}
 
-impl<'a> crate::message::de::FromMessage<'a> for Commands<'a> {
+impl<'a> crate::de::FromMessage<'a> for Commands<'a> {
     fn from_message(msg: &crate::Message<'a>) -> Result<Self, crate::DeError> {
         Ok(msg.command())
     }
 }
 
-impl<'a> crate::message::ser::ToMessage for Commands<'a> {
-    fn to_message<S: crate::message::ser::MessageSerializer>(
+impl<'a> crate::ser::ToMessage for Commands<'a> {
+    fn to_message<S: crate::ser::MessageSerializer>(
         &self,
         serialize: &mut S,
     ) -> Result<(), crate::IRCError> {
@@ -449,10 +449,7 @@ impl serde::Serialize for CapSubCommands {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        components::Commands,
-        message::{de::FromMessage, ser::ToMessage},
-    };
+    use crate::{components::Commands, de::FromMessage, ser::ToMessage};
 
     #[test]
     fn from_case_insensitive() {
@@ -502,7 +499,7 @@ mod tests {
         }
 
         impl ToMessage for Cmd<'_> {
-            fn to_message<S: crate::message::ser::MessageSerializer>(
+            fn to_message<S: crate::ser::MessageSerializer>(
                 &self,
                 serialize: &mut S,
             ) -> Result<(), crate::IRCError> {

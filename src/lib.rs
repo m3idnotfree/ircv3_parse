@@ -106,7 +106,7 @@
 //!
 //! - `#[irc(with = "function")]` - Use custom extraction function
 //!
-//! ## Manual [`FromMessage`](message::de::FromMessage) Implementation
+//! ## Manual [`FromMessage`](de::FromMessage) Implementation
 //!
 //! For more complex parsing logic, implement the `FromMessage` trait manually.
 //!
@@ -122,7 +122,7 @@
 //! ### Example Implementation
 //!
 //! ```rust
-//! use ircv3_parse::{message::de::FromMessage, DeError, Message};
+//! use ircv3_parse::{de::FromMessage, DeError, Message};
 //!
 //! struct PrivMsg<'a> {
 //!     color: Option<&'a str>,
@@ -213,20 +213,12 @@
 //!   - If field-level `command` is set, struct-level `command` is ignored
 //!   - If multiple `command` attributes exist, the last one takes precedence
 //!
-//! ## Manual [`ToMessage`](message::ser::ToMessage) Implementation
-//!
-//! **Note**: Component serialization order is important and must follow this sequence:
-//! 1. tags (optional)
-//! 2. source (optional)
-//! 3. command (required)
-//! 4. params (optional)
-//! 5. trailing (optional)
-//! 6. crlf (optional)
+//! ## Manual [`ToMessage`](ser::ToMessage) Implementation
 //!
 //! ### Example Implementation
 //!
 //! ```rust
-//! use ircv3_parse::message::ser::ToMessage;
+//! use ircv3_parse::ser::ToMessage;
 //!
 //! struct PrivMsg<'a> {
 //!     msgid: &'a str,
@@ -236,7 +228,7 @@
 //! }
 //!
 //! impl ToMessage for PrivMsg<'_> {
-//!     fn to_message<S: ircv3_parse::message::ser::MessageSerializer>(
+//!     fn to_message<S: ircv3_parse::ser::MessageSerializer>(
 //!         &self,
 //!         serialize: &mut S,
 //!     ) -> Result<(), ircv3_parse::IRCError> {
@@ -288,7 +280,6 @@
 //!     .add_tag("tag2", None)?
 //!     .add_tag_flag("flag")?;
 //!
-//! // source name must be set before user or host
 //! msg.set_source_name("nick")?;
 //! msg.set_source_user("user")?;
 //! msg.set_source_host("example.com")?;
@@ -403,17 +394,21 @@ pub(crate) mod compat {
 pub use ircv3_parse_derive::{FromMessage, ToMessage};
 
 pub mod components;
+pub mod de;
 pub mod error;
-pub mod message;
+pub mod ser;
 pub mod validators;
 
+mod builder;
+mod message;
 mod rfc1123;
 mod scanner;
 mod unescape;
 
+pub use builder::MessageBuilder;
 pub use components::Commands;
 pub use error::{DeError, IRCError};
-pub use message::{Message, MessageBuilder};
+pub use message::Message;
 pub use unescape::unescape;
 
 use scanner::Scanner;
@@ -457,7 +452,7 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
     Ok(Message::new(input, scanner))
 }
 
-/// Parse an IRC message into a type implementing [`message::de::FromMessage`].
+/// Parse an IRC message into a type implementing [`de::FromMessage`].
 ///
 /// Convenience function for types using `[derive(FromMessage)]` or manually implementing the
 /// trait.
@@ -484,7 +479,7 @@ pub fn parse<'a>(input: &'a str) -> Result<Message<'a>, IRCError> {
 /// # Errors
 ///
 /// Returns [`DeError`]
-pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Result<T, DeError> {
+pub fn from_str<'a, T: crate::de::FromMessage<'a>>(s: &'a str) -> Result<T, DeError> {
     T::from_str(s)
 }
 
@@ -493,6 +488,6 @@ pub fn from_str<'a, T: crate::message::de::FromMessage<'a>>(s: &'a str) -> Resul
 /// # Errors
 ///
 /// Returns [`IRCError`]
-pub fn to_message<T: crate::message::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
+pub fn to_message<T: crate::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
     t.to_bytes()
 }

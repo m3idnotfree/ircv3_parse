@@ -429,7 +429,7 @@ impl ToMessage for IRCParamsSerializer {
 
 #[cfg(test)]
 mod tests {
-    use crate::{message::ser::ToMessage, Commands};
+    use crate::{ser::ToMessage, Commands};
 
     #[test]
     fn complete_privmsg() {

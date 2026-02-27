@@ -89,8 +89,11 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn add_tags(&mut self, tags: &[(&str, Option<&str>)]) -> Result<&mut Self, IRCError> {
-        for &(key, value) in tags {
+    pub fn add_tags<'a, I>(&mut self, tags: I) -> Result<&mut Self, IRCError>
+    where
+        I: IntoIterator<Item = (&'a str, Option<&'a str>)>,
+    {
+        for (key, value) in tags.into_iter() {
             self.add_tag(key, value)?;
         }
 
@@ -102,9 +105,13 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn add_tag_flags(&mut self, keys: &[&str]) -> Result<&mut Self, IRCError> {
-        for key in keys {
-            self.add_tag_flag(key)?;
+    pub fn add_tag_flags<I, S>(&mut self, keys: I) -> Result<&mut Self, IRCError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        for key in keys.into_iter() {
+            self.add_tag_flag(key.as_ref())?;
         }
 
         Ok(self)

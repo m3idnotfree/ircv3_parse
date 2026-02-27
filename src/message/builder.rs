@@ -18,15 +18,6 @@ struct Components {
 }
 
 impl Components {
-    pub fn new() -> Self {
-        Self {
-            tags: IRCTagsSerializer::default(),
-            source: IRCSourceSerializer::default(),
-            params: IRCParamsSerializer::default(),
-            trailing: None,
-        }
-    }
-
     pub fn to_message<T: MessageSerializer>(
         &self,
         serialize: &mut T,
@@ -37,9 +28,7 @@ impl Components {
         }
 
         self.source.to_message(serialize)?;
-
         serialize.command(command);
-
         self.params.to_message(serialize)?;
 
         if let Some(trailing) = &self.trailing {
@@ -71,36 +60,36 @@ impl Components {
     }
 }
 
-#[derive(Default)]
-pub struct MessageBuilder<'a> {
-    command: Option<Commands<'a>>,
+#[derive(Debug, Default, Clone)]
+pub struct MessageBuilder {
+    command: Option<String>,
     components: Components,
 }
 
-impl<'a> MessageBuilder<'a> {
+impl MessageBuilder {
     pub fn new() -> Self {
         Self {
             command: None,
-            components: Components::new(),
+            components: Components::default(),
         }
     }
 
-    pub fn set_command(&mut self, command: Commands<'a>) -> Result<&mut Self, IRCError> {
+    pub fn set_command(&mut self, command: Commands<'_>) -> Result<&mut Self, IRCError> {
         if self.command.is_some() {
             Err(IRCError::DuplicateCommand)
         } else {
-            self.command = Some(command);
+            self.command = Some(command.as_str().to_owned());
             Ok(self)
         }
     }
 
-    pub fn add_tag(&mut self, key: &'a str, value: Option<&'a str>) -> Result<&mut Self, IRCError> {
+    pub fn add_tag(&mut self, key: &str, value: Option<&str>) -> Result<&mut Self, IRCError> {
         self.components.tags.insert_tag(key, value)?;
 
         Ok(self)
     }
 
-    pub fn add_tags(&mut self, tags: &[(&'a str, Option<&'a str>)]) -> Result<&mut Self, IRCError> {
+    pub fn add_tags(&mut self, tags: &[(&str, Option<&str>)]) -> Result<&mut Self, IRCError> {
         for &(key, value) in tags {
             self.add_tag(key, value)?;
         }
@@ -108,12 +97,12 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn add_tag_flag(&mut self, key: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn add_tag_flag(&mut self, key: &str) -> Result<&mut Self, IRCError> {
         self.components.tags.insert_flag(key)?;
         Ok(self)
     }
 
-    pub fn add_tag_flags(&mut self, keys: &[&'a str]) -> Result<&mut Self, IRCError> {
+    pub fn add_tag_flags(&mut self, keys: &[&str]) -> Result<&mut Self, IRCError> {
         for key in keys {
             self.add_tag_flag(key)?;
         }
@@ -121,7 +110,7 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn set_source_name(&mut self, name: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn set_source_name(&mut self, name: &str) -> Result<&mut Self, IRCError> {
         self.components
             .source
             .set_name(name)
@@ -129,7 +118,7 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn set_source_user(&mut self, user: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn set_source_user(&mut self, user: &str) -> Result<&mut Self, IRCError> {
         self.components
             .source
             .set_user(user)
@@ -137,7 +126,7 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn set_source_host(&mut self, host: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn set_source_host(&mut self, host: &str) -> Result<&mut Self, IRCError> {
         self.components
             .source
             .set_host(host)
@@ -147,9 +136,9 @@ impl<'a> MessageBuilder<'a> {
 
     pub fn set_source(
         &mut self,
-        name: &'a str,
-        user: Option<&'a str>,
-        host: Option<&'a str>,
+        name: &str,
+        user: Option<&str>,
+        host: Option<&str>,
     ) -> Result<&mut Self, IRCError> {
         self.set_source_name(name)?;
         if let Some(user) = user {
@@ -163,27 +152,29 @@ impl<'a> MessageBuilder<'a> {
         Ok(self)
     }
 
-    pub fn add_param(&mut self, param: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn add_param(&mut self, param: &str) -> Result<&mut Self, IRCError> {
         self.components.params.push(param)?;
         Ok(self)
     }
 
-    pub fn add_params<I>(&mut self, params: I) -> Result<&mut Self, IRCError>
+    pub fn add_params<I, S>(&mut self, params: I) -> Result<&mut Self, IRCError>
     where
-        I: IntoIterator<Item = &'a str>,
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
     {
         self.components.params.extend(params)?;
         Ok(self)
     }
 
-    pub fn set_trailing(&mut self, trailing: &'a str) -> Result<&mut Self, IRCError> {
+    pub fn set_trailing(&mut self, trailing: &str) -> Result<&mut Self, IRCError> {
         validators::trailing(trailing)?;
         self.components.trailing = Some(trailing.to_owned());
         Ok(self)
     }
 
     pub fn build(self) -> Result<Bytes, IRCError> {
-        if let Some(command) = self.command {
+        if let Some(command) = &self.command {
+            let command = Commands::from(command.as_str());
             let size = self.components.serialized_size(command);
             let mut buffer = IRCSerializer::with_capacity(size);
 
@@ -200,10 +191,11 @@ impl<'a> MessageBuilder<'a> {
     }
 }
 
-impl<'a> ToMessage for MessageBuilder<'a> {
+impl ToMessage for MessageBuilder {
     fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
-        if let Some(command) = self.command {
-            self.components.to_message(serialize, command)?;
+        if let Some(command) = &self.command {
+            self.components
+                .to_message(serialize, Commands::from(command.as_str()))?;
             Ok(())
         } else {
             Err(IRCError::MissingCommand)

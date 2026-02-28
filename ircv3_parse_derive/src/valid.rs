@@ -125,22 +125,7 @@ impl<'a> Field<'a> {
     }
 
     pub fn validate_ser(&self) -> Result<()> {
-        if self.attrs.kind.is_none() && self.attrs.with.is_none() {
-            let msg = match &self.field.ident {
-                Some(ident) => format!(
-                    "field `{}` requires an #[irc(...)] attribute for ToMessage serialization",
-                    ident
-                ),
-                None => {
-                    "unnamed fields require an #[irc(...)] attribute for ToMessage serialization"
-                        .to_string()
-                }
-            };
-
-            Err(Error::new_spanned(self.field, msg))
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 }
 

@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Error, Ident, LitStr, Result};
+use syn::{DeriveInput, Error, Result};
+use syn::{Ident, Index, LitStr, Member};
 
 use crate::{
     ast::{Enum, Field, FieldStruct, Input, Struct, UnitStruct, Variant, VariantFields},
@@ -9,8 +10,7 @@ use crate::{
         UnitStructAttrs,
     },
     component_set::ComponentSet,
-    ser::SerializationBuilder,
-    type_check::TypeKind,
+    type_check::{self, TypeKind},
 };
 
 pub fn derive_from_message(node: &DeriveInput) -> Result<TokenStream> {
@@ -30,7 +30,7 @@ pub fn derive_to_message(node: &DeriveInput) -> Result<TokenStream> {
     input.validate_ser()?;
 
     match input {
-        Input::Struct(input) => input.expand_ser(node),
+        Input::Struct(input) => input.expand_ser(),
         Input::Enum(input) => Err(Error::new_spanned(
             input.ident,
             "ToMessage only supports structs",
@@ -46,13 +46,13 @@ impl<'a> Struct<'a> {
         }
     }
 
-    pub fn expand_ser(&self, node: &DeriveInput) -> Result<TokenStream> {
+    pub fn expand_ser(&self) -> Result<TokenStream> {
         match self {
             Struct::Unit(input) => Err(Error::new_spanned(
                 input.ident,
-                "ToMessage only supports named structs",
+                "ToMessage only supports structs",
             )),
-            Struct::Fields(input) => input.expand_ser(node),
+            Struct::Fields(input) => Ok(input.expand_ser()),
         }
     }
 }
@@ -253,16 +253,34 @@ impl<'a> FieldStruct<'a> {
         quote! { Ok(Self #body) }
     }
 
-    pub fn expand_ser(&self, input: &DeriveInput) -> Result<TokenStream> {
-        self.validate_ser()?;
+    pub fn expand_ser(&self) -> TokenStream {
+        let impl_body = self
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(idx, field)| field.expand_ser(idx))
+            .collect::<Vec<_>>();
 
-        let mut builder = SerializationBuilder::new(&self.attrs);
+        let name = &self.ident;
+        let (impl_generics, ty_generics, where_clause) = self.generics.split();
+        let command_expand = self.attrs.expand_ser();
+        let crlf_expand = self.attrs.expand_crlf();
 
-        for field in &self.fields {
-            field.expand_ser(&mut builder);
+        quote! {
+            impl #impl_generics ircv3_parse::ser::ToMessage
+                for #name #ty_generics #where_clause
+            {
+                fn to_message<S: ircv3_parse::ser::MessageSerializer>(
+                    &self,
+                    serialize: &mut S
+                ) -> Result<(), ircv3_parse::IRCError> {
+                    #command_expand
+                    #(#impl_body)*
+                    #crlf_expand
+                    Ok(())
+                }
+            }
         }
-
-        builder.expand(input)
     }
 }
 
@@ -354,7 +372,17 @@ impl StructAttrs {
         }
     }
 
-    pub fn expand_crlf(&self) -> proc_macro2::TokenStream {
+    pub fn expand_ser(&self) -> TokenStream {
+        if let Some(cmd) = &self.command {
+            quote! {
+                serialize.set_command(ircv3_parse::Commands::from(#cmd));
+            }
+        } else {
+            quote! {}
+        }
+    }
+
+    pub fn expand_crlf(&self) -> TokenStream {
         if self.crlf {
             quote! { serialize.end()?; }
         } else {
@@ -546,9 +574,14 @@ impl<'a> Field<'a> {
         self.attrs.expand_de(self.field)
     }
 
-    pub fn expand_ser(&self, builder: &mut SerializationBuilder) {
-        let field_name = &self.field.ident.clone().unwrap();
-        self.attrs.expand_ser(self.field, field_name, None, builder);
+    pub fn expand_ser(&self, idx: usize) -> TokenStream {
+        let field_member = if let Some(ident) = &self.field.ident {
+            Member::Named(ident.clone())
+        } else {
+            Member::Unnamed(Index::from(idx))
+        };
+
+        self.attrs.expand_ser(&self.field.ty, &field_member)
     }
 
     pub fn expand_field_default(&self) -> TokenStream {
@@ -571,15 +604,21 @@ impl FieldAttrs {
         }
     }
 
-    pub fn expand_ser(
-        &self,
-        field: &syn::Field,
-        field_name: &Ident,
-        with: Option<&LitStr>,
-        builder: &mut SerializationBuilder,
-    ) {
+    pub fn expand_ser(&self, ty: &syn::Type, field_member: &Member) -> TokenStream {
         if let Some(kind) = &self.kind {
-            kind.expand_ser(field, field_name, with, builder)
+            kind.expand_ser(ty, field_member)
+        } else {
+            use TypeKind::*;
+            match TypeKind::classify(ty) {
+                Option(_) => quote! {
+                    if let Some(value) = &self.#field_member {
+                        value.to_message(serialize)?;
+                    }
+                },
+                _ => quote! {
+                    self.#field_member.to_message(serialize)?;
+                },
+            }
         }
     }
 }
@@ -613,243 +652,259 @@ impl FieldKind {
         }
     }
 
-    pub fn expand_ser(
-        &self,
-        field: &syn::Field,
-        field_name: &Ident,
-        _with: Option<&LitStr>,
-        builder: &mut SerializationBuilder,
-    ) {
+    pub fn expand_ser(&self, ty: &syn::Type, field_ident: &Member) -> TokenStream {
         use TypeKind::*;
 
         match self {
-            Self::Tag(key) => match TypeKind::classify(&field.ty) {
-                Str => {
-                    builder.tag(quote! {
-                        tags.insert_tag(#key, Some(self.#field_name))?;
-                    });
-                }
-                String => {
-                    builder.tag(quote! {
-                        tags.insert_tag(#key, Some(self.#field_name.as_ref()))?;
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                    builder.tag(quote! {
-                        tags.insert_tag(#key, self.#field_name)?;
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                    builder.tag(quote! {
-                        tags.insert_tag(#key, self.#field_name.as_deref())?;
-                    });
-                }
+            Self::Tag(key) => match TypeKind::classify(ty) {
+                Str => quote! {
+                    serialize.tags().insert_tag(#key, Some(self.#field_ident))?;
+                },
+                String => quote! {
+                    serialize.tags().insert_tag(#key, Some(self.#field_ident.as_ref()))?;
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                    serialize.tags().insert_tag(#key, self.#field_ident)?;
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                    serialize.tags().insert_tag(#key, self.#field_ident.as_deref())?;
+                },
+                Option(_) => quote! {
+                    if let Some(value) = &self.#field_ident {
+                        value.to_message(serialize)?;
+                    }
+                },
                 _ => {
-                    builder.custom_tag(quote! {
-                        self.#field_name.to_message(serialize)?;
-                    });
+                    if type_check::is_primitive(ty) {
+                        quote! {
+                            serialize.tags().insert_tag(#key, &self.#field_ident.to_string())?;
+                        }
+                    } else {
+                        quote! {
+                            self.#field_ident.to_message(serialize)?;
+                        }
+                    }
                 }
             },
-            Self::TagFlag(key) => match TypeKind::classify(&field.ty) {
-                Bool => {
-                    builder.tag(quote! {
-                        if self.#field_name {
-                            tags.insert_flag(#key)?;
-                        }
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), Bool) => {
-                    builder.tag(quote! {
-                        if let Some(true) = self.#field_name {
-                            tags.insert_flag(#key)?;
-                        }
-                    });
-                }
+            Self::TagFlag(key) => match TypeKind::classify(ty) {
+                Bool => quote! {
+                    if self.#field_ident {
+                        serialize.tags().insert_flag(#key)?;
+                    }
+                },
+                Option(_) => quote! {
+                    if self.#field_ident.is_some() {
+                        serialize.tags().insert_flag(#key)?;
+                    }
+                },
                 _ => {
-                    builder.custom_tag(quote! {
-                        self.#field_name.to_message(serialize)?;
-                    });
+                    if type_check::is_primitive(ty) {
+                        quote! {
+                            serialize.tags().insert_flag(&#key.to_string())?;
+                        }
+                    } else {
+                        quote! {
+                            self.#field_ident.to_message(serialize)?;
+                        }
+                    }
                 }
             },
             Self::Source(component) => match component {
-                Source::Name => match TypeKind::classify(&field.ty) {
-                    Str => {
-                        builder.set_source_name(quote! {
-                            source.set_name(self.#field_name)?;
-                        });
-                    }
-                    String => {
-                        builder.set_source_name(quote! {
-                            source.set_name(self.#field_name.as_ref())?;
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                        builder.set_source_name(quote! {
-                            if let Some(field) = self.#field_name {
-                                source.set_name(field)?;
-                            }
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                        builder.set_source_name(quote! {
-                            if let Some(field) = &self.#field_name {
-                                source.set_name(field.as_ref())?;
-                            }
-                        });
-                    }
+                Source::Name => match TypeKind::classify(ty) {
+                    Str => quote! {
+                        serialize.source().set_name(self.#field_ident)?;
+                    },
+                    String => quote! {
+                        serialize.source().set_name(self.#field_ident.as_ref())?;
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                        if let Some(value) = self.#field_ident {
+                            serialize.source().set_name(value)?;
+                        }
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            serialize.source().set_name(value.as_ref())?;
+                        }
+                    },
+                    Option(_) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            value.to_message(serialize)?;
+                        }
+                    },
                     _ => {
-                        builder.custom_source(quote! {
-                            self.#field_name.to_message(serialize)?;
-                        });
+                        if type_check::is_primitive(ty) {
+                            quote! {
+                                serialize.source().set_name(&self.#field_ident.to_string())?;
+                            }
+                        } else {
+                            quote! {
+                                self.#field_ident.to_message(serialize)?;
+                            }
+                        }
                     }
                 },
-                Source::User => match TypeKind::classify(&field.ty) {
-                    Str => {
-                        builder.set_source_user(quote! {
-                            source.set_user(self.#field_name)?;
-                        });
-                    }
-                    String => {
-                        builder.set_source_user(quote! {
-                            source.set_user(self.#field_name.as_ref())?;
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                        builder.set_source_user(quote! {
-                            if let Some(field) = self.#field_name {
-                                source.set_user(field)?;
-                            }
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                        builder.set_source_user(quote! {
-                            if let Some(field) = &self.#field_name {
-                                source.set_user(field.as_ref())?;
-                            }
-                        });
-                    }
+                Source::User => match TypeKind::classify(ty) {
+                    Str => quote! {
+                        serialize.source().set_user(self.#field_ident)?;
+                    },
+                    String => quote! {
+                        serialize.source().set_user(self.#field_ident.as_ref())?;
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                        if let Some(value) = self.#field_ident {
+                            serialize.source().set_user(value)?;
+                        }
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            serialize.source().set_user(value.as_ref())?;
+                        }
+                    },
+                    Option(_) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            value.to_message(serialize)?;
+                        }
+                    },
                     _ => {
-                        builder.custom_source(quote! {
-                            self.#field_name.to_message(serialize)?;
-                        });
+                        if type_check::is_primitive(ty) {
+                            quote! {
+                                serialize.source().set_user(&self.#field_ident.to_string())?;
+                            }
+                        } else {
+                            quote! {
+                                self.#field_ident.to_message(serialize)?;
+                            }
+                        }
                     }
                 },
-                Source::Host => match TypeKind::classify(&field.ty) {
-                    Str => {
-                        builder.set_source_host(quote! {
-                            source.set_host(self.#field_name)?;
-                        });
-                    }
-                    String => {
-                        builder.set_source_host(quote! {
-                            source.set_host(self.#field_name.as_ref())?;
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                        builder.set_source_host(quote! {
-                            if let Some(field) = self.#field_name {
-                                source.set_host(field)?;
-                            }
-                        });
-                    }
-                    Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                        builder.set_source_host(quote! {
-                            if let Some(field) = &self.#field_name {
-                                source.set_host(field.as_ref())?;
-                            }
-                        });
-                    }
+                Source::Host => match TypeKind::classify(ty) {
+                    Str => quote! {
+                        serialize.source().set_host(self.#field_ident)?;
+                    },
+                    String => quote! {
+                        serialize.source().set_host(self.#field_ident.as_ref())?;
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                        if let Some(value) = self.#field_ident {
+                            serialize.source().set_host(value)?;
+                        }
+                    },
+                    Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            serialize.source().set_host(value.as_ref())?;
+                        }
+                    },
+                    Option(_) => quote! {
+                        if let Some(value) = &self.#field_ident {
+                            value.to_message(serialize)?;
+                        }
+                    },
                     _ => {
-                        builder.custom_source(quote! {
-                            self.#field_name.to_message(serialize)?;
-                        });
+                        if type_check::is_primitive(ty) {
+                            quote! {
+                                serialize.source().set_host(&self.#field_ident.to_string())?;
+                            }
+                        } else {
+                            quote! {
+                                self.#field_ident.to_message(serialize)?;
+                            }
+                        }
                     }
                 },
             },
-            Self::Param(_idx) => match TypeKind::classify(&field.ty) {
-                Str => {
-                    builder.params_push(quote! {
-                        params.push(self.#field_name)?;
-                    });
-                }
-                String => {
-                    builder.params_push(quote! {
-                        params.push(self.#field_name.as_ref())?;
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                    builder.params_push(quote! {
-                        if let Some(p) = self.#field_name {
-                            params.push(p)?;
-                        }
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                    builder.params_push(quote! {
-                        if let Some(p) = &self.#field_name {
-                            params.push(p.as_ref())?;
-                        }
-                    });
-                }
+            Self::Param(_idx) => match TypeKind::classify(ty) {
+                Str => quote! {
+                    serialize.params().push(self.#field_ident)?;
+                },
+                String => quote! {
+                    serialize.params().push(self.#field_ident.as_ref())?;
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                    if let Some(p) = self.#field_ident {
+                        serialize.params().push(p)?;
+                    },
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                    if let Some(p) = &self.#field_ident {
+                        serialize.params().push(p.as_ref())?;
+                    }
+                },
+                Option(_) => quote! {
+                    if let Some(value) = &self.#field_ident {
+                        value.to_message(serialize)?;
+                    }
+                },
                 _ => {
-                    builder.custom_params(quote! {
-                        self.#field_name.to_message(serialize)?;
-                    });
+                    if type_check::is_primitive(ty) {
+                        quote! {
+                            serialize.params().push(&self.#field_ident.to_string())?;
+                        }
+                    } else {
+                        quote! {
+                            self.#field_ident.to_message(serialize)?;
+                        }
+                    }
                 }
             },
             Self::Params => {
-                builder.params_push(quote! {
-                    for p in &self.#field_name {
-                        params.push(p)?;
+                quote! {
+                    for p in &self.#field_ident {
+                        serialize.params().push(p)?;
                     }
-                });
+                }
             }
-            Self::Trailing => match TypeKind::classify(&field.ty) {
-                Str => {
-                    builder.set_trailing(quote! {
-                        serialize.set_trailing(self.#field_name)?;
-                    });
-                }
-                String => {
-                    builder.set_trailing(quote! {
-                        serialize.set_trailing(self.#field_name.as_ref())?;
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), Str) => {
-                    builder.set_trailing(quote! {
-                        if let Some(t) = self.#field_name {
-                            serialize.set_trailing(t)?;
-                        }
-                    });
-                }
-                Option(inner) if matches!(TypeKind::classify(inner), String) => {
-                    builder.set_trailing(quote! {
-                        if let Some(t) = &self.#field_name {
-                            serialize.set_trailing(t.as_ref())?;
-                        }
-                    });
-                }
+            Self::Trailing => match TypeKind::classify(ty) {
+                Str => quote! {
+                    serialize.set_trailing(self.#field_ident)?;
+                },
+                String => quote! {
+                    serialize.set_trailing(self.#field_ident.as_ref())?;
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), Str) => quote! {
+                    if let Some(value) = self.#field_ident {
+                        serialize.set_trailing(value)?;
+                    }
+                },
+                Option(inner) if matches!(TypeKind::classify(inner), String) => quote! {
+                    if let Some(value) = &self.#field_ident {
+                        serialize.set_trailing(value.as_ref())?;
+                    }
+                },
+                Option(_) => quote! {
+                    if let Some(value) = &self.#field_ident {
+                        value.to_message(serialize)?;
+                    }
+                },
                 _ => {
-                    builder.custom_trailing(quote! {
-                        self.#field_name.to_message(serialize)?;
-                    });
+                    if type_check::is_primitive(ty) {
+                        quote! {
+                            serialize.set_trailing(&self.#field_ident.to_string())?;
+                        }
+                    } else {
+                        quote! {
+                            self.#field_ident.to_message(serialize)?;
+                        }
+                    }
                 }
             },
-            Self::Command => match TypeKind::classify(&field.ty) {
-                Str => {
-                    builder.field_command(quote! {
-                        serialize.set_command(ircv3_parse::Commands::from(self.#field_name));
-                    });
-                }
-                String => {
-                    builder.field_command(quote! {
-                        serialize.set_command(ircv3_parse::Commands::from(self.#field_name.as_ref()));
-                    });
-                }
+            Self::Command => match TypeKind::classify(ty) {
+                Str => quote! {
+                    serialize.set_command(ircv3_parse::Commands::from(self.#field_ident));
+                },
+                String => quote! {
+                    serialize.set_command(ircv3_parse::Commands::from(self.#field_ident.as_ref()));
+                },
                 _ => {
-                    builder.field_command(quote! {
-                        self.#field_name.to_message(serialize)?;
-                    });
+                    if type_check::is_primitive(ty) {
+                        quote! {
+                            serialize.set_command(&self.#field_ident.to_string());
+                        }
+                    } else {
+                        quote! {
+                            self.#field_ident.to_message(serialize)?;
+                        }
+                    }
                 }
             },
         }

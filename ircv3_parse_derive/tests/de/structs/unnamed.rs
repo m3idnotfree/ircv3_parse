@@ -1,11 +1,12 @@
 #![allow(unused)]
 #[allow(unused_imports)]
 use ircv3_parse::de::FromMessage as _;
-use ircv3_parse_derive::FromMessage;
+use ircv3_parse::ser::ToMessage as _;
+use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
 fn privmsg() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     #[irc(command = "PRIVMSG")]
     struct PrivMsg<'a>(
         #[irc(source = "name")] &'a str,
@@ -18,11 +19,14 @@ fn privmsg() {
     assert_eq!("nick", msg.0);
     assert_eq!("#channel", msg.1);
     assert_eq!("Hello", msg.2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick PRIVMSG #channel :Hello", output);
 }
 
 #[test]
 fn with_tags() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Tag<'a>(
         #[irc(tag = "msgid")] Option<String>,
         #[irc(tag_flag = "m-1")] bool,
@@ -34,6 +38,9 @@ fn with_tags() {
     assert_eq!(Some("123".to_string()), msg.0);
     assert!(msg.1);
     assert_eq!("Hello", msg.2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@msgid=123;m-1  :Hello", output);
 }
 
 #[test]
@@ -42,7 +49,7 @@ fn with_function() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct WithNum(#[irc(param = 0, with = "parse_num")] u32);
 
     let input = "TEST 42";

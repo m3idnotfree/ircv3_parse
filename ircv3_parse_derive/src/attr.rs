@@ -238,10 +238,6 @@ impl StructAttrs {
             unknown,
         })
     }
-
-    pub fn command(&self) -> Option<&LitStr> {
-        self.command.as_ref()
-    }
 }
 
 impl FieldAttrs {

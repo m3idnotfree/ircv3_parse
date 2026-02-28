@@ -1,8 +1,8 @@
-use ircv3_parse_derive::FromMessage;
+use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
 fn name() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "name")]
         nick: String,
@@ -11,11 +11,14 @@ fn name() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn user() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user")]
         user: Option<String>,
@@ -24,11 +27,14 @@ fn user() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("user".to_string()), msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn user_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user")]
         user: Option<String>,
@@ -37,11 +43,14 @@ fn user_missing() {
     let input = ":nick PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn host() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "host")]
         host: Option<String>,
@@ -50,11 +59,14 @@ fn host() {
     let input = ":nick!user@host PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("host".to_string()), msg.host);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn host_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "host")]
         host: Option<String>,
@@ -63,11 +75,14 @@ fn host_missing() {
     let input = ":nick PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.host);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn default() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source)]
         nick: String,
@@ -76,11 +91,14 @@ fn default() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn all_fields() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "name")]
         nick: String,
@@ -95,71 +113,92 @@ fn all_fields() {
     assert_eq!("nick", msg.nick);
     assert_eq!(Some("user".to_string()), msg.user);
     assert_eq!(Some("example.com".to_string()), msg.host);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick!user@example.com ", output)
 }
 
 #[test]
 fn unnamed_name() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "name")] String);
 
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn unnamed_user() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "user")] Option<String>);
 
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("user".to_string()), msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn unnamed_user_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "user")] Option<String>);
 
     let input = ":nick PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn unnamed_host() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "host")] Option<String>);
 
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("example.com".to_string()), msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn unnamed_host_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "host")] Option<String>);
 
     let input = ":nick PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn unnamed_default() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source)] String);
 
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn unnamed_all_fields() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(
         #[irc(source = "name")] String,
         #[irc(source = "user")] Option<String>,
@@ -171,14 +210,17 @@ fn unnamed_all_fields() {
     assert_eq!("nick", msg.0);
     assert_eq!(Some("user".to_string()), msg.1);
     assert_eq!(Some("example.com".to_string()), msg.2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick!user@example.com ", output)
 }
 
 #[test]
 fn nested_name() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Nick(#[irc(source = "name")] String);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         nick: Nick,
     }
@@ -186,14 +228,17 @@ fn nested_name() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Nick("nick".to_string()), msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn nested_user() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct User(#[irc(source = "user")] Option<String>);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         user: User,
     }
@@ -201,14 +246,17 @@ fn nested_user() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(User(Some("user".to_string())), msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn nested_optional() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Nick(#[irc(source = "name")] String);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         nick: Option<Nick>,
     }
@@ -216,14 +264,17 @@ fn nested_optional() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some(Nick("nick".to_string())), msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn nested_outer_attribute_ignored() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(FromMessage, ToMessage, Debug, PartialEq)]
     struct Nick(#[irc(source = "name")] String);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         #[irc(source = "host")]
         nick: Option<Nick>,
@@ -232,6 +283,9 @@ fn nested_outer_attribute_ignored() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some(Nick("nick".to_string())), msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
@@ -247,7 +301,7 @@ fn unit_struct() {
 
 #[test]
 fn name_default_trait_no_component() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source, default)]
         nick: String,
@@ -256,6 +310,10 @@ fn name_default_trait_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.nick);
+
+    // nickname cannot empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error())
 }
 
 #[test]
@@ -264,7 +322,7 @@ fn name_default_fn_no_component() {
         "anonymous".to_string()
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source, default = "default_nick")]
         nick: String,
@@ -273,11 +331,14 @@ fn name_default_fn_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("anonymous", msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":anonymous ", output)
 }
 
 #[test]
 fn user_default_trait_no_component() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user", default)]
         user: String,
@@ -286,6 +347,10 @@ fn user_default_trait_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.user);
+
+    // username cannot be empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error())
 }
 
 #[test]
@@ -294,7 +359,7 @@ fn user_default_fn_no_component() {
         "anonymous".to_string()
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user", default = "default_user")]
         user: String,
@@ -303,11 +368,14 @@ fn user_default_fn_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("anonymous", msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn name_default_trait_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source, default)]
         nick: String,
@@ -316,11 +384,14 @@ fn name_default_trait_present() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn user_default_trait_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user", default)]
         user: String,
@@ -329,11 +400,14 @@ fn user_default_trait_present() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("user", msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn name_optional_with_default_no_component() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source, default)]
         user: Option<String>,
@@ -342,11 +416,14 @@ fn name_optional_with_default_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn user_optional_with_default_no_component() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user", default)]
         user: Option<String>,
@@ -355,11 +432,14 @@ fn user_optional_with_default_no_component() {
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn name_optional_with_default_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source, default)]
         nick: Option<String>,
@@ -368,11 +448,14 @@ fn name_optional_with_default_present() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("nick".to_string()), msg.nick);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output)
 }
 
 #[test]
 fn user_optional_with_default_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source {
         #[irc(source = "user", default)]
         user: Option<String>,
@@ -381,24 +464,35 @@ fn user_optional_with_default_present() {
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("user".to_string()), msg.user);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
 }
 
 #[test]
 fn unnamed_name_default_trait() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source, default)] String);
 
     let input = "PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.0);
+
+    // nickname cannto be empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error())
 }
 
 #[test]
 fn unnamed_user_default_trait() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source = "user", default)] String);
 
     let input = ":nick PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.0);
+
+    // username cannot be empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error())
 }

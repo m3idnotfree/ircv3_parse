@@ -1,5 +1,10 @@
 use syn::{GenericArgument, PathArguments, Type};
 
+const PRIMITIVES: &[&str] = &[
+    "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize", "f32",
+    "f64", "char", "bool",
+];
+
 pub enum TypeKind<'a> {
     Str,
     String,
@@ -33,6 +38,10 @@ impl<'a> TypeKind<'a> {
 
         Self::Other
     }
+}
+
+pub fn is_primitive(ty: &Type) -> bool {
+    PRIMITIVES.iter().any(|p| is_type(ty, p))
 }
 
 fn is_str(ty: &Type) -> bool {

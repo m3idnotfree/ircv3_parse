@@ -3,7 +3,6 @@ mod attr;
 mod component_set;
 mod error_msg;
 mod expand;
-mod ser;
 mod type_check;
 mod valid;
 

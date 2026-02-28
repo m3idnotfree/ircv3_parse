@@ -35,4 +35,7 @@ fn roundtip() {
     assert_eq!(msg.msgid, de.msgid);
     assert_eq!(msg.command, de.command);
     assert_eq!(msg.message, de.message);
+
+    let output = ircv3_parse::to_message(&de).unwrap();
+    assert_eq!("@subscriper=1;msgid= PRIVMSG :hi\r\n", output);
 }

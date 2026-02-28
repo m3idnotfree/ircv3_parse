@@ -1,8 +1,8 @@
-use ircv3_parse_derive::FromMessage;
+use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
 fn single() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param<'a> {
         #[irc(param = 0)]
         channel: &'a str,
@@ -11,11 +11,14 @@ fn single() {
     let input = "PRIVMSG #channel :hello";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.channel);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn multiple() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Params<'a> {
         #[irc(param = 0)]
         first: &'a str,
@@ -30,11 +33,14 @@ fn multiple() {
     assert_eq!("param1", msg.first);
     assert_eq!("param2", msg.second);
     assert_eq!("param3", msg.third);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param1 param2 param3", output);
 }
 
 #[test]
 fn default() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param)]
         param: String,
@@ -43,11 +49,14 @@ fn default() {
     let input = "PRIVMSG #channel param2 :hi";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.param);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn optional() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 1)]
         param: Option<String>,
@@ -56,11 +65,14 @@ fn optional() {
     let input = "PRIVMSG param1 param2";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("param2".to_string()), msg.param);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param2", output);
 }
 
 #[test]
 fn optional_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 1)]
         param: Option<String>,
@@ -69,6 +81,9 @@ fn optional_missing() {
     let input = "PRIVMSG param";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.param);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output);
 }
 
 #[test]
@@ -77,7 +92,7 @@ fn with_function() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 0, with = "parse_num")]
         count: u32,
@@ -86,6 +101,9 @@ fn with_function() {
     let input = "PRIVMSG 42";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(42, msg.count);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
 }
 
 #[test]
@@ -94,7 +112,7 @@ fn with_function_missing() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 0, with = "parse_num")]
         count: u32,
@@ -103,21 +121,27 @@ fn with_function_missing() {
     let input = "PRIVMSG";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(0, msg.count);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 0", output);
 }
 
 #[test]
 fn unnamed_single() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param<'a>(#[irc(param = 0)] &'a str);
 
     let input = "PRIVMSG #channel :hello";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn unnamed_multiple() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Params<'a>(
         #[irc(param = 0)] &'a str,
         #[irc(param = 1)] &'a str,
@@ -129,36 +153,48 @@ fn unnamed_multiple() {
     assert_eq!("param1", msg.0);
     assert_eq!("param2", msg.1);
     assert_eq!("param3", msg.2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param1 param2 param3", output);
 }
 
 #[test]
 fn unnamed_default() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param)] String);
 
     let input = "PRIVMSG #channel param2 :hi";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn unnamed_optional() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param = 1)] Option<String>);
 
     let input = "PRIVMSG param1 param2";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("param2".to_string()), msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param2", output);
 }
 
 #[test]
 fn unnamed_optional_missing() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param = 1)] Option<String>);
 
     let input = "PRIVMSG param";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output);
 }
 
 #[test]
@@ -167,12 +203,15 @@ fn unnamed_with_function() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param = 0, with = "parse_num")] u32);
 
     let input = "PRIVMSG 42";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(42, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
 }
 
 #[test]
@@ -181,20 +220,23 @@ fn unnamed_with_function_missing() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param = 0, with = "parse_num")] u32);
 
     let input = "PRIVMSG";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(0, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 0", output);
 }
 
 #[test]
 fn nested_param() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Channel<'a>(#[irc(param = 0)] &'a str);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message<'a> {
         ch: Channel<'a>,
     }
@@ -202,14 +244,17 @@ fn nested_param() {
     let input = "PRIVMSG #channel :hello";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Channel("#channel"), msg.ch);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn nested_param_optional() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Channel<'a>(#[irc(param = 0)] &'a str);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message<'a> {
         ch: Option<Channel<'a>>,
     }
@@ -217,6 +262,9 @@ fn nested_param_optional() {
     let input = "PRIVMSG #channel :hello";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some(Channel("#channel")), msg.ch);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
@@ -225,10 +273,10 @@ fn nested_param_with_function() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Count(#[irc(param = 0, with = "parse_num")] u32);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         count: Count,
     }
@@ -236,6 +284,9 @@ fn nested_param_with_function() {
     let input = "PRIVMSG 42";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Count(42), msg.count);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
 }
 
 #[test]
@@ -244,10 +295,10 @@ fn nested_outer_attribute_ignored() {
         s.and_then(|x| x.parse().ok()).unwrap_or(0)
     }
 
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     struct Count(#[irc(param = 0, with = "parse_num")] u32);
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Message {
         #[irc(param = 2)]
         count: Count,
@@ -256,6 +307,9 @@ fn nested_outer_attribute_ignored() {
     let input = "PRIVMSG 42";
     let msg: Message = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Count(42), msg.count);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
 }
 
 #[test]
@@ -271,7 +325,7 @@ fn unit_struct() {
 
 #[test]
 fn default_trait_no_component() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param, default)]
         second: String,
@@ -280,6 +334,10 @@ fn default_trait_no_component() {
     let input = "PRIVMSG";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.second);
+
+    // parameter middle ctannot be empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error());
 }
 
 #[test]
@@ -288,7 +346,7 @@ fn default_fn_no_component() {
         "#official".to_string()
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param, default = "default_channel")]
         channel: String,
@@ -297,11 +355,14 @@ fn default_fn_no_component() {
     let input = "PRIVMSG :hello";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#official", msg.channel);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #official", output);
 }
 
 #[test]
 fn default_trait_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 1, default)]
         second: String,
@@ -310,6 +371,9 @@ fn default_trait_present() {
     let input = "PRIVMSG param1 param2";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("param2", msg.second);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param2", output);
 }
 
 #[test]
@@ -318,7 +382,7 @@ fn default_fn_present() {
         "#official".to_string()
     }
 
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param, default = "default_channel")]
         channel: String,
@@ -327,11 +391,14 @@ fn default_fn_present() {
     let input = "PRIVMSG #channel :hello";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.channel);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }
 
 #[test]
 fn optional_with_default() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 1, default)]
         second: Option<String>,
@@ -341,14 +408,20 @@ fn optional_with_default() {
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.second);
 
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output);
+
     let input = "PRIVMSG";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(None, msg.second);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output);
 }
 
 #[test]
 fn optional_with_default_present() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param {
         #[irc(param = 1, default)]
         second: Option<String>,
@@ -357,14 +430,21 @@ fn optional_with_default_present() {
     let input = "PRIVMSG param1 param2";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Some("param2".to_string()), msg.second);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" param2", output);
 }
 
 #[test]
 fn unnamed_default_trait() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param, default)] String);
 
     let input = "PRIVMSG :hello";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("", msg.0);
+
+    // parameter middle ctannot be empty
+    let err = ircv3_parse::to_message(&msg).unwrap_err();
+    assert!(err.is_validation_error());
 }

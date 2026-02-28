@@ -202,6 +202,14 @@ impl IRCTagsSerializer {
         Ok(())
     }
 
+    pub fn insert_tag_if_some(&mut self, key: &str, value: Option<&str>) -> Result<(), TagError> {
+        if value.is_some() {
+            self.insert_tag(key, value)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn insert_flag(&mut self, key: &str) -> Result<(), TagError> {
         validators::tag_key(key)?;
 

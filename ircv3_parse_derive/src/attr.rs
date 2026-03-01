@@ -25,6 +25,7 @@ const VALUE: &str = "value";
 pub struct UnitStructAttrs {
     pub command: Option<LitStr>,
     pub check: Option<FieldKind>,
+    pub value: Option<LitStr>,
     pub unknown: Vec<Path>,
 }
 
@@ -96,6 +97,8 @@ impl UnitStructAttrs {
         let mut command_span: Option<Span> = None;
         let mut check: Option<FieldKind> = None;
         let mut check_span: Option<Span> = None;
+        let mut value = None;
+        let mut value_span: Option<Span> = None;
         let mut unknown = Vec::new();
 
         for attr in attrs {
@@ -105,26 +108,19 @@ impl UnitStructAttrs {
 
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(COMMAND) {
-                    if meta.input.peek(Eq) {
-                        let lit = parse_lit_str(&meta, COMMAND)?;
+                    let lit = parse_required_lit_str(&meta, COMMAND)?;
 
-                        if command.is_some() {
-                            let mut err = meta.error(error_msg::duplicate_attribute(COMMAND));
-                            if let Some(first) = command_span {
-                                err.combine(Error::new(
-                                    first,
-                                    error_msg::first_defined_here(COMMAND),
-                                ));
-                            }
-
-                            return Err(err);
+                    if command.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(COMMAND));
+                        if let Some(first) = command_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(COMMAND)));
                         }
 
-                        command = Some(lit);
-                        command_span = Some(meta.path.span());
-                    } else {
-                        return Err(meta.error(error_msg::required_value(COMMAND)));
+                        return Err(err);
                     }
+
+                    command = Some(lit);
+                    command_span = Some(meta.path.span());
 
                     return Ok(());
                 }
@@ -152,6 +148,24 @@ impl UnitStructAttrs {
                     return Ok(());
                 }
 
+                if meta.path.is_ident(VALUE) {
+                    let lit = parse_required_lit_str(&meta, VALUE)?;
+
+                    if value.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(VALUE));
+                        if let Some(first) = value_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(VALUE)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    value = Some(lit);
+                    value_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
                 unknown.push(meta.path.clone());
                 if meta.input.peek(Eq) {
                     meta.value()?.parse::<TokenTree>()?;
@@ -164,6 +178,7 @@ impl UnitStructAttrs {
         Ok(Self {
             command,
             check,
+            value,
             unknown,
         })
     }

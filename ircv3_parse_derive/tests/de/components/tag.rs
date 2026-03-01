@@ -263,7 +263,7 @@ fn nested_outer_attribute_ignored() {
 #[test]
 fn unit_struct() {
     #[derive(Debug, PartialEq, FromMessage)]
-    #[irc(tag = "msgid")]
+    #[irc(tag = "msgid", value = "123")]
     struct MsgId;
 
     let input = "@msgid=123 PRIVMSG #channel :hello";

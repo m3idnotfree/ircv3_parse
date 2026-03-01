@@ -13,6 +13,9 @@ mod de_components_param;
 #[path = "de/components/trailing.rs"]
 mod de_components_trailing;
 
+#[path = "de/structs/unit.rs"]
+mod de_structs_unit;
+
 #[path = "de/structs/named.rs"]
 mod de_structs_named;
 

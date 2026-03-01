@@ -315,7 +315,7 @@ fn nested_outer_attribute_ignored() {
 #[test]
 fn unit_struct() {
     #[derive(FromMessage, Debug, PartialEq)]
-    #[irc(param = 0)]
+    #[irc(param, value = "42")]
     struct Count;
 
     let input = "PRIVMSG 42";

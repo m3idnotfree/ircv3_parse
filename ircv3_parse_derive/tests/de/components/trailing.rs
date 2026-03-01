@@ -219,7 +219,7 @@ fn duplication() {
 #[test]
 fn unit_struct() {
     #[derive(Debug, PartialEq, FromMessage)]
-    #[irc(trailing)]
+    #[irc(trailing, value = "hi")]
     struct Content;
 
     let input = "PRIVMSG #channel :hi";

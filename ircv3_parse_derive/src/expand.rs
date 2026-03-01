@@ -198,7 +198,8 @@ impl<'a> UnitStruct<'a> {
         let (impl_generics, ty_generics, where_clause) = self.generics.split();
         let msg_lifetime = self.generics.msg_lifetime();
 
-        let impl_body = self.attrs.expand_de();
+        let expected_value = self.expected_value();
+        let impl_body = self.attrs.expand_de(&expected_value);
 
         quote! {
             impl #impl_generics ircv3_parse::de::FromMessage<#msg_lifetime>
@@ -210,6 +211,16 @@ impl<'a> UnitStruct<'a> {
                     #impl_body
                 }
             }
+        }
+    }
+
+    fn expected_value(&self) -> LitStr {
+        if let Some(lit) = &self.attrs.value {
+            lit.clone()
+        } else {
+            use heck::ToKebabCase;
+            let kebab = self.ident.to_string().to_kebab_case();
+            LitStr::new(&kebab, self.ident.span())
         }
     }
 }
@@ -285,7 +296,7 @@ impl<'a> FieldStruct<'a> {
 }
 
 impl UnitStructAttrs {
-    pub fn expand_de(&self) -> TokenStream {
+    pub fn expand_de(&self, expected_value: &LitStr) -> TokenStream {
         let mut components = ComponentSet::default();
 
         if self.command.is_some() {
@@ -313,7 +324,7 @@ impl UnitStructAttrs {
         let component_check = self
             .check
             .as_ref()
-            .map(FieldKind::expand_component_check)
+            .map(|f| f.expand_unit_de(expected_value))
             .unwrap_or_default();
 
         quote! {
@@ -1217,11 +1228,19 @@ impl FieldKind {
         }
     }
 
-    fn expand_component_check(&self) -> TokenStream {
+    fn expand_unit_de(&self, value: &LitStr) -> TokenStream {
         match self {
             Self::Tag(key) => quote! {
-                if tags.get(#key).is_none() {
-                    return Err(ircv3_parse::DeError::not_found_tag(#key));
+                match tags.get(#key) {
+                    None => return Err(ircv3_parse::DeError::not_found_tag(#key)),
+                    Some(v) if v.as_str() != #value => {
+                        return Err(ircv3_parse::DeError::not_found_with_context(
+                            "tag",
+                            #key,
+                            format!("expected `{}`, got `{}`", #value, v.as_str())
+                        ))
+                    }
+                    _ => {}
                 }
             },
             Self::TagFlag(key) => quote! {
@@ -1230,27 +1249,62 @@ impl FieldKind {
                 }
             },
             Self::Source(component) => match component {
-                Source::Name => quote! {},
+                Source::Name => {
+                    let name = component.name();
+                    quote! {
+                        if source.name != #value {
+                            return Err(ircv3_parse::DeError::not_found_with_context(
+                                "source",
+                                #name,
+                                format!("expected `{}`, got `{}`", #value, source.name)
+                            ))
+                        }
+                    }
+                }
                 Source::User => {
                     let name = component.name();
                     quote! {
-                        if source.user.is_none() {
-                            return Err(ircv3_parse::DeError::not_found_source(#name))
+                        match source.user {
+                            None => return Err(ircv3_parse::DeError::not_found_source(#name)),
+                            Some(v) if v != #value => {
+                                return Err(ircv3_parse::DeError::not_found_with_context(
+                                    "source",
+                                    #name,
+                                    format!("expected `{}`, got `{}`", #value, v)
+                                ))
+                            }
+                            _ => {}
                         }
                     }
                 }
                 Source::Host => {
                     let name = component.name();
                     quote! {
-                        if source.host.is_none() {
-                            return Err(ircv3_parse::DeError::not_found_source(#name))
+                        match source.host {
+                            None => return Err(ircv3_parse::DeError::not_found_source(#name)),
+                            Some(v) if v != #value => {
+                                return Err(ircv3_parse::DeError::not_found_with_context(
+                                    "source",
+                                    #name,
+                                    format!("expected `{}`, got `{}`", #value, v)
+                                ))
+                            }
+                            _ => {}
                         }
                     }
                 }
             },
             Self::Param(idx) => quote! {
-                if params.middles.iter().nth(#idx).is_none() {
-                    return Err(ircv3_parse::DeError::not_found_param(#idx));
+                match params.middles.iter().nth(#idx) {
+                    None => return Err(ircv3_parse::DeError::not_found_param(#idx)),
+                    Some(v) if v != #value => {
+                        return Err(ircv3_parse::DeError::not_found_with_context(
+                            "param",
+                            #idx.to_string(),
+                            format!("expected `{}`, got `{}`", #value, v)
+                        ))
+                    }
+                    _ => {}
                 }
             },
             Self::Params => quote! {
@@ -1259,8 +1313,16 @@ impl FieldKind {
                 }
             },
             Self::Trailing => quote! {
-                if params.trailing.raw().is_none() {
-                    return Err(ircv3_parse::DeError::not_found_trailing());
+                match params.trailing.raw() {
+                    None => return Err(ircv3_parse::DeError::not_found_trailing()),
+                    Some(v) if v != #value => {
+                        return Err(ircv3_parse::DeError::not_found_with_context(
+                            "trailing",
+                            "",
+                            format!("expected `{}`, got `{}`", #value, v)
+                        ))
+                    }
+                    _ => {}
                 }
             },
             Self::Command => {

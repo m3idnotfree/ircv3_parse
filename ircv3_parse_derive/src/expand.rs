@@ -898,13 +898,21 @@ impl FieldKind {
                     }
                 }
             },
-            Self::Params => {
-                quote! {
-                    for p in &self.#field_ident {
-                        serialize.params().push(p)?;
+            Self::Params => match TypeKind::classify(ty) {
+                Vec(inner) if type_check::is_str(inner) => quote! {
+                    for value in &self.#field_ident {
+                        serialize.params().push(value)?;
                     }
-                }
-            }
+                },
+                Vec(inner) if type_check::is_string(inner) => quote! {
+                    for value in &self.#field_ident {
+                        serialize.params().push(value.as_ref())?;
+                    }
+                },
+                _ => quote! {
+                    self.#field_ident.to_message(serialize)?;
+                },
+            },
             Self::Trailing => match TypeKind::classify(ty) {
                 Str => quote! {
                     serialize.set_trailing(self.#field_ident)?;

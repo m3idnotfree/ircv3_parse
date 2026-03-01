@@ -44,11 +44,11 @@ pub fn is_primitive(ty: &Type) -> bool {
     PRIMITIVES.iter().any(|p| is_type(ty, p))
 }
 
-fn is_str(ty: &Type) -> bool {
+pub fn is_str(ty: &Type) -> bool {
     is_borrowed(ty, "str")
 }
 
-fn is_string(ty: &Type) -> bool {
+pub fn is_string(ty: &Type) -> bool {
     is_type(ty, "String")
 }
 

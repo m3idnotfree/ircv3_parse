@@ -30,7 +30,7 @@ pub fn derive_to_message(node: &DeriveInput) -> Result<TokenStream> {
     input.validate_ser()?;
 
     match input {
-        Input::Struct(input) => input.expand_ser(),
+        Input::Struct(input) => Ok(input.expand_ser()),
         Input::Enum(input) => Err(Error::new_spanned(
             input.ident,
             "ToMessage only supports structs",
@@ -46,13 +46,10 @@ impl<'a> Struct<'a> {
         }
     }
 
-    pub fn expand_ser(&self) -> Result<TokenStream> {
+    pub fn expand_ser(&self) -> TokenStream {
         match self {
-            Struct::Unit(input) => Err(Error::new_spanned(
-                input.ident,
-                "ToMessage only supports structs",
-            )),
-            Struct::Fields(input) => Ok(input.expand_ser()),
+            Struct::Unit(input) => input.expand_ser(),
+            Struct::Fields(input) => input.expand_ser(),
         }
     }
 }
@@ -214,6 +211,28 @@ impl<'a> UnitStruct<'a> {
         }
     }
 
+    pub fn expand_ser(&self) -> TokenStream {
+        let name = self.ident;
+        let (impl_generics, ty_generics, where_clause) = self.generics.split();
+
+        let expected_value = self.expected_value();
+        let impl_body = self.attrs.expand_ser(&expected_value);
+
+        quote! {
+            impl #impl_generics ircv3_parse::ser::ToMessage
+                for #name #ty_generics #where_clause
+            {
+                fn to_message<S: ircv3_parse::ser::MessageSerializer>(
+                    &self,
+                    serialize: &mut S
+                ) -> Result<(), ircv3_parse::IRCError> {
+                    #impl_body
+                    Ok(())
+                }
+            }
+        }
+    }
+
     fn expected_value(&self) -> LitStr {
         if let Some(lit) = &self.attrs.value {
             lit.clone()
@@ -332,6 +351,27 @@ impl UnitStructAttrs {
             #command_check
             #component_check
             Ok(Self)
+        }
+    }
+
+    pub fn expand_ser(&self, expected_value: &LitStr) -> TokenStream {
+        let command = if let Some(cmd) = &self.command {
+            quote! {
+                serialize.set_command(ircv3_parse::Commands::from(#cmd));
+            }
+        } else {
+            quote! {}
+        };
+
+        let body = self
+            .check
+            .as_ref()
+            .map(|check| check.expand_unit_ser(expected_value))
+            .unwrap_or_default();
+
+        quote! {
+            #command
+            #body
         }
     }
 }
@@ -1307,11 +1347,6 @@ impl FieldKind {
                     _ => {}
                 }
             },
-            Self::Params => quote! {
-                if params.middles.is_empty() {
-                    return Err(ircv3_parse::DeError::not_found_param(0));
-                }
-            },
             Self::Trailing => quote! {
                 match params.trailing.raw() {
                     None => return Err(ircv3_parse::DeError::not_found_trailing()),
@@ -1328,6 +1363,32 @@ impl FieldKind {
             Self::Command => {
                 unreachable!("Command is handled separately in UnitStructAttrs")
             }
+            Self::Params => {
+                unreachable!("Params is rejected during validation")
+            }
+        }
+    }
+
+    pub fn expand_unit_ser(&self, value: &LitStr) -> TokenStream {
+        match self {
+            Self::Tag(key) => quote! {
+                serialize.tags().insert_tag(#key, Some(#value))?;
+            },
+            Self::TagFlag(key) => quote! {
+                serialize.tags().insert_flag(#key)?;
+            },
+            Self::Source(inner) => match inner {
+                Source::Name => quote! { serialize.source().set_name(#value)?; },
+                Source::User => quote! { serialize.source().set_user(#value)?; },
+                Source::Host => quote! { serialize.source().set_host(#value)?; },
+            },
+            Self::Param(_) => quote! {
+                serialize.params().push(#value)?;
+            },
+            Self::Trailing => quote! {
+                serialize.set_trailing(#value)?;
+            },
+            _ => quote! {},
         }
     }
 }

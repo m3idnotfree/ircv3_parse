@@ -98,3 +98,12 @@ pub fn enum_requires_component() -> &'static str {
     "enum `#[irc(...)]` requires a component attribute \
     (`tag`, `tag_flag`, `source`, `param`, `trailing`, or `command`)"
 }
+
+pub fn value_not_supported_for(kind: &str) -> String {
+    format!("`value` is not supported for `{kind}`")
+}
+
+pub fn value_requires_component() -> &'static str {
+    "`value` requires a component attribute \
+        (`tag`, `tag_flag`, `source`,`param`, or `trailing`)"
+}

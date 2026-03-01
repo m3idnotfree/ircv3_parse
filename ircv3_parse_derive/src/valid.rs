@@ -93,6 +93,25 @@ impl UnitStructAttrs {
             ));
         }
 
+        if let Some(value) = &self.value {
+            match &self.check {
+                None => {
+                    errors.push(Error::new_spanned(
+                        value,
+                        error_msg::value_requires_component(),
+                    ));
+                }
+                Some(check) => {
+                    if let FieldKind::Params = check {
+                        errors.push(Error::new_spanned(
+                            value,
+                            error_msg::value_not_supported_for(check.name()),
+                        ));
+                    }
+                }
+            }
+        }
+
         for path in &self.unknown {
             errors.push(Error::new_spanned(
                 path,

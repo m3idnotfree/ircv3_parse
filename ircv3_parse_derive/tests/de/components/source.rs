@@ -290,13 +290,16 @@ fn nested_outer_attribute_ignored() {
 
 #[test]
 fn unit_struct() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(source = "name")]
     struct Nick;
 
     let input = ":nick!user@example.com PRIVMSG #channel :hi";
     let msg: Nick = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Nick, msg);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output);
 }
 
 #[test]

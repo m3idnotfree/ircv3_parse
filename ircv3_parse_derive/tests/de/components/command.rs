@@ -236,13 +236,16 @@ fn field_attribute_ignored_for_nested_type() {
 
 #[test]
 fn unit_struct() {
-    #[derive(Debug, PartialEq, FromMessage)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(command = "PRIVMSG")]
     struct PrivMsg;
 
     let input = "PRIVMSG";
     let msg: PrivMsg = ircv3_parse::from_str(input).unwrap();
     assert_eq!(PrivMsg, msg);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
 
     assert!(ircv3_parse::from_str::<PrivMsg>("NOTICE").is_err());
 }

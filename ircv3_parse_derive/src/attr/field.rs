@@ -34,6 +34,7 @@ pub enum FieldKind {
     Command,
 }
 
+#[derive(Clone)]
 pub enum Source {
     Name,
     User,

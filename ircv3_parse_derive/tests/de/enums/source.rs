@@ -1,8 +1,8 @@
-use ircv3_parse_derive::FromMessage;
+use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
 fn basic() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(source)]
     enum Server {
         Irc,
@@ -11,9 +11,13 @@ fn basic() {
 
     let msg: Server = ircv3_parse::from_str(":irc PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Irc, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc ", output);
 
     let msg: Server = ircv3_parse::from_str(":local PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Local, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":local ", output);
 
     let err = ircv3_parse::from_str::<Server>(":nick PRIVMSG #channel :hi").unwrap_err();
     assert!(err.is_not_found_source());
@@ -24,7 +28,7 @@ fn basic() {
 
 #[test]
 fn value() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(source)]
     enum Server {
         #[irc(value = "irc.example.com")]
@@ -35,18 +39,22 @@ fn value() {
 
     let msg: Server = ircv3_parse::from_str(":irc.example.com PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Example, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc.example.com ", output);
 
     let msg: Server = ircv3_parse::from_str(":irc.local PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Local, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc.local ", output);
 }
 
 #[test]
 fn multiple_values() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(source)]
     enum Server {
         #[irc(value = "irc.example.com")]
-        #[irc(value = "irc.example.org")]
+        #[irc(value = "irc.example.org", pick)]
         Example,
         #[irc(value = "irc.local")]
         Local,
@@ -54,12 +62,18 @@ fn multiple_values() {
 
     let msg: Server = ircv3_parse::from_str(":irc.example.com PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Example, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc.example.org ", output);
 
     let msg: Server = ircv3_parse::from_str(":irc.example.org PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Example, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc.example.org ", output);
 
     let msg: Server = ircv3_parse::from_str(":irc.local PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Local, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc.local ", output);
 
     let err = ircv3_parse::from_str::<Server>(":irc.other PRIVMSG #channel :hi").unwrap_err();
     assert!(err.is_not_found_source());
@@ -67,7 +81,7 @@ fn multiple_values() {
 
 #[test]
 fn default() {
-    #[derive(FromMessage, Debug, PartialEq)]
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
     #[irc(source, default = "Unknown")]
     enum Server {
         Irc,
@@ -76,10 +90,16 @@ fn default() {
 
     let msg: Server = ircv3_parse::from_str(":irc PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Irc, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":irc ", output);
 
     let msg: Server = ircv3_parse::from_str(":nick!user@example.com PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Unknown, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":unknown ", output);
 
     let msg: Server = ircv3_parse::from_str("PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Unknown, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":unknown ", output);
 }

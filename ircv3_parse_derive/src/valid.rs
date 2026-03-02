@@ -22,10 +22,7 @@ impl<'a> Input<'a> {
     pub fn validate_ser(&self) -> Result<()> {
         match self {
             Self::Struct(strut) => strut.validate_ser(),
-            Self::Enum(e) => Err(Error::new_spanned(
-                e.ident,
-                "ToMessage only supports structs",
-            )),
+            Self::Enum(e) => e.validate_ser(),
         }
     }
 }
@@ -187,6 +184,44 @@ impl FieldKind {
 }
 
 impl<'a> Enum<'a> {
+    pub fn validate_ser(&self) -> Result<()> {
+        let mut errors = Vec::new();
+
+        for variant in &self.variants {
+            match &variant.fields {
+                VariantFields::Unit => match variant.attrs.values.len() {
+                    0 | 1 => {
+                        if let Some(pick) = &variant.attrs.pick {
+                            errors.push(Error::new(
+                                pick.span(),
+                                error_msg::pick_not_needed_for_single_value(),
+                            ));
+                        }
+                    }
+                    _ => {
+                        if variant.attrs.pick.is_none() {
+                            errors.push(Error::new_spanned(
+                                variant.ident,
+                                error_msg::pick_required_for_multiple_values(),
+                            ));
+                        }
+                    }
+                },
+                fields if !fields.has_any_kind() => {
+                    if !matches!(fields, VariantFields::Unnamed(fs) if fs.len() == 1) {
+                        errors.push(Error::new_spanned(
+                            variant.ident,
+                            error_msg::no_field_irc_attrs_requires_single_unnamed(),
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        combine_errors(errors)
+    }
+
     pub fn validate(&self) -> Result<()> {
         let mut errors = Vec::new();
 

@@ -4,7 +4,7 @@ mod field_kind;
 mod unit;
 
 use proc_macro2::TokenStream;
-use syn::{DeriveInput, Error, Result};
+use syn::{DeriveInput, Result};
 
 use crate::ast::{Input, Struct};
 
@@ -26,10 +26,7 @@ pub fn derive_to_message(node: &DeriveInput) -> Result<TokenStream> {
 
     match input {
         Input::Struct(input) => Ok(input.expand_ser()),
-        Input::Enum(input) => Err(Error::new_spanned(
-            input.ident,
-            "ToMessage only supports structs",
-        )),
+        Input::Enum(input) => Ok(input.expand_ser()),
     }
 }
 

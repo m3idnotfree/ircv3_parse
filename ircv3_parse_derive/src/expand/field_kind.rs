@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, LitStr, Member, Type};
+use syn::{Ident, LitStr, Type};
 
 use crate::{
     attr::{FieldDefault, FieldKind, Source},
@@ -36,15 +36,15 @@ impl FieldKind {
         }
     }
 
-    pub fn expand_ser(&self, ty: &Type, field_member: &Member) -> TokenStream {
+    pub fn expand_with_accessor(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
         match self {
-            Self::Tag(key) => expand_tag_ser(key, ty, field_member),
-            Self::TagFlag(key) => expand_tag_flag_ser(key, ty, field_member),
-            Self::Source(inner) => expand_source_ser(inner, ty, field_member),
-            Self::Param(_) => expand_param_ser(ty, field_member),
-            Self::Params => expand_params_ser(ty, field_member),
-            Self::Trailing => expand_trailing_ser(ty, field_member),
-            Self::Command => expand_command_ser(ty, field_member),
+            Self::Tag(key) => expand_tag_ser(key, ty, accessor),
+            Self::TagFlag(key) => expand_tag_flag_ser(key, ty, accessor),
+            Self::Source(inner) => expand_source_ser(inner, ty, accessor),
+            Self::Param(_) => expand_param_ser(ty, accessor),
+            Self::Params => expand_params_ser(ty, accessor),
+            Self::Trailing => expand_trailing_ser(ty, accessor),
+            Self::Command => expand_command_ser(ty, accessor),
         }
     }
 
@@ -519,50 +519,50 @@ fn expand_command_value(ty: &Type, default: Option<&FieldDefault>) -> TokenStrea
     }
 }
 
-fn expand_tag_ser(key: &LitStr, ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_tag_ser(key: &LitStr, ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
         Str => quote! {
-            serialize.tags().insert_tag(#key, Some(self.#field_member))?;
+            serialize.tags().insert_tag(#key, Some(#accessor))?;
         },
         String => quote! {
-            serialize.tags().insert_tag(#key, Some(self.#field_member.as_ref()))?;
+            serialize.tags().insert_tag(#key, Some(#accessor.as_ref()))?;
         },
         Option(inner) if type_check::is_str(inner) => quote! {
-            serialize.tags().insert_tag(#key, self.#field_member)?;
+            serialize.tags().insert_tag(#key, #accessor)?;
         },
         Option(inner) if type_check::is_string(inner) => quote! {
-            serialize.tags().insert_tag(#key, self.#field_member.as_deref())?;
+            serialize.tags().insert_tag(#key, #accessor.as_deref())?;
         },
         Option(_) => quote! {
-            if let Some(value) = &self.#field_member {
+            if let Some(value) = &#accessor {
                 value.to_message(serialize)?;
             }
         },
         _ => {
             if type_check::is_primitive(ty) {
                 quote! {
-                    serialize.tags().insert_tag(#key, &self.#field_member.to_string())?;
+                    serialize.tags().insert_tag(#key, &#accessor.to_string())?;
                 }
             } else {
                 quote! {
-                    self.#field_member.to_message(serialize)?;
+                    #accessor.to_message(serialize)?;
                 }
             }
         }
     }
 }
 
-fn expand_tag_flag_ser(key: &LitStr, ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_tag_flag_ser(key: &LitStr, ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
         Bool => quote! {
-            if self.#field_member {
+            if #accessor {
                 serialize.tags().insert_flag(#key)?;
             }
         },
         Option(_) => quote! {
-            if self.#field_member.is_some() {
+            if #accessor.is_some() {
                 serialize.tags().insert_flag(#key)?;
             }
         },
@@ -573,190 +573,190 @@ fn expand_tag_flag_ser(key: &LitStr, ty: &Type, field_member: &Member) -> TokenS
                 }
             } else {
                 quote! {
-                    self.#field_member.to_message(serialize)?;
+                    #accessor.to_message(serialize)?;
                 }
             }
         }
     }
 }
 
-fn expand_source_ser(source: &Source, ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_source_ser(source: &Source, ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match source {
         Source::Name => match TypeKind::classify(ty) {
-            Str => quote! { serialize.source().set_name(self.#field_member)?; },
-            String => quote! { serialize.source().set_name(self.#field_member.as_ref())?; },
+            Str => quote! { serialize.source().set_name(#accessor)?; },
+            String => quote! { serialize.source().set_name(#accessor.as_ref())?; },
             Option(inner) if type_check::is_str(inner) => quote! {
-                if let Some(value) = self.#field_member {
+                if let Some(value) = #accessor {
                     serialize.source().set_name(value)?;
                 }
             },
             Option(inner) if type_check::is_string(inner) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     serialize.source().set_name(value.as_ref())?;
                 }
             },
             Option(_) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     value.to_message(serialize)?;
                 }
             },
             _ => {
                 if type_check::is_primitive(ty) {
-                    quote! { serialize.source().set_name(&self.#field_member.to_string())?; }
+                    quote! { serialize.source().set_name(&#accessor.to_string())?; }
                 } else {
-                    quote! { self.#field_member.to_message(serialize)?; }
+                    quote! { #accessor.to_message(serialize)?; }
                 }
             }
         },
         Source::User => match TypeKind::classify(ty) {
-            Str => quote! { serialize.source().set_user(self.#field_member)?; },
-            String => quote! { serialize.source().set_user(self.#field_member.as_ref())?; },
+            Str => quote! { serialize.source().set_user(#accessor)?; },
+            String => quote! { serialize.source().set_user(#accessor.as_ref())?; },
             Option(inner) if type_check::is_str(inner) => quote! {
-                if let Some(value) = self.#field_member {
+                if let Some(value) = #accessor {
                     serialize.source().set_user(value)?;
                 }
             },
             Option(inner) if type_check::is_string(inner) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     serialize.source().set_user(value.as_ref())?;
                 }
             },
             Option(_) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     value.to_message(serialize)?;
                 }
             },
             _ => {
                 if type_check::is_primitive(ty) {
-                    quote! { serialize.source().set_user(&self.#field_member.to_string())?; }
+                    quote! { serialize.source().set_user(&#accessor.to_string())?; }
                 } else {
-                    quote! { self.#field_member.to_message(serialize)?; }
+                    quote! { #accessor.to_message(serialize)?; }
                 }
             }
         },
         Source::Host => match TypeKind::classify(ty) {
-            Str => quote! { serialize.source().set_host(self.#field_member)?; },
-            String => quote! { serialize.source().set_host(self.#field_member.as_ref())?; },
+            Str => quote! { serialize.source().set_host(#accessor)?; },
+            String => quote! { serialize.source().set_host(#accessor.as_ref())?; },
             Option(inner) if type_check::is_str(inner) => quote! {
-                if let Some(value) = self.#field_member {
+                if let Some(value) = #accessor {
                     serialize.source().set_host(value)?;
                 }
             },
             Option(inner) if type_check::is_string(inner) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     serialize.source().set_host(value.as_ref())?;
                 }
             },
             Option(_) => quote! {
-                if let Some(value) = &self.#field_member {
+                if let Some(value) = &#accessor {
                     value.to_message(serialize)?;
                 }
             },
             _ => {
                 if type_check::is_primitive(ty) {
-                    quote! { serialize.source().set_host(&self.#field_member.to_string())?; }
+                    quote! { serialize.source().set_host(&#accessor.to_string())?; }
                 } else {
-                    quote! { self.#field_member.to_message(serialize)?; }
+                    quote! { #accessor.to_message(serialize)?; }
                 }
             }
         },
     }
 }
 
-fn expand_param_ser(ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_param_ser(ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
-        Str => quote! { serialize.params().push(self.#field_member)?; },
-        String => quote! { serialize.params().push(self.#field_member.as_ref())?; },
+        Str => quote! { serialize.params().push(#accessor)?; },
+        String => quote! { serialize.params().push(#accessor.as_ref())?; },
         Option(inner) if type_check::is_str(inner) => quote! {
-            if let Some(value) = self.#field_member {
+            if let Some(value) = #accessor {
                 serialize.params().push(value)?;
             },
         },
         Option(inner) if type_check::is_string(inner) => quote! {
-            if let Some(value) = &self.#field_member {
+            if let Some(value) = &#accessor {
                 serialize.params().push(value.as_ref())?;
             }
         },
         Option(_) => quote! {
-            if let Some(value) = &self.#field_member {
+            if let Some(value) = &#accessor {
                 value.to_message(serialize)?;
             }
         },
         _ => {
             if type_check::is_primitive(ty) {
-                quote! { serialize.params().push(&self.#field_member.to_string())?; }
+                quote! { serialize.params().push(&#accessor.to_string())?; }
             } else {
-                quote! { self.#field_member.to_message(serialize)?; }
+                quote! { #accessor.to_message(serialize)?; }
             }
         }
     }
 }
 
-fn expand_params_ser(ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_params_ser(ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
         Vec(inner) if type_check::is_str(inner) => quote! {
-            for value in &self.#field_member {
+            for value in &#accessor {
                 serialize.params().push(value)?;
             }
         },
         Vec(inner) if type_check::is_string(inner) => quote! {
-            for value in &self.#field_member {
+            for value in &#accessor {
                 serialize.params().push(value.as_ref())?;
             }
         },
         _ => quote! {
-            self.#field_member.to_message(serialize)?;
+            #accessor.to_message(serialize)?;
         },
     }
 }
 
-fn expand_trailing_ser(ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_trailing_ser(ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
-        Str => quote! { serialize.set_trailing(self.#field_member)?; },
-        String => quote! { serialize.set_trailing(self.#field_member.as_ref())?; },
+        Str => quote! { serialize.set_trailing(#accessor)?; },
+        String => quote! { serialize.set_trailing(#accessor.as_ref())?; },
         Option(inner) if type_check::is_str(inner) => quote! {
-            if let Some(value) = self.#field_member {
+            if let Some(value) = #accessor {
                 serialize.set_trailing(value)?;
             }
         },
         Option(inner) if type_check::is_string(inner) => quote! {
-            if let Some(value) = &self.#field_member {
+            if let Some(value) = &#accessor {
                 serialize.set_trailing(value.as_ref())?;
             }
         },
         Option(_) => quote! {
-            if let Some(value) = &self.#field_member {
+            if let Some(value) = &#accessor {
                 value.to_message(serialize)?;
             }
         },
         _ => {
             if type_check::is_primitive(ty) {
-                quote! { serialize.set_trailing(&self.#field_member.to_string())?; }
+                quote! { serialize.set_trailing(&#accessor.to_string())?; }
             } else {
-                quote! { self.#field_member.to_message(serialize)?; }
+                quote! { #accessor.to_message(serialize)?; }
             }
         }
     }
 }
 
-fn expand_command_ser(ty: &Type, field_member: &Member) -> TokenStream {
+fn expand_command_ser(ty: &Type, accessor: &TokenStream) -> TokenStream {
     use TypeKind::*;
     match TypeKind::classify(ty) {
         Str => quote! {
-            serialize.set_command(ircv3_parse::Commands::from(self.#field_member));
+            serialize.set_command(ircv3_parse::Commands::from(#accessor));
         },
         String => quote! {
-            serialize.set_command(ircv3_parse::Commands::from(self.#field_member.as_ref()));
+            serialize.set_command(ircv3_parse::Commands::from(#accessor.as_ref()));
         },
         _ => {
             if type_check::is_primitive(ty) {
-                quote! { serialize.set_command(&self.#field_member.to_string()); }
+                quote! { serialize.set_command(&#accessor.to_string()); }
             } else {
-                quote! { self.#field_member.to_message(serialize)?; }
+                quote! { #accessor.to_message(serialize)?; }
             }
         }
     }

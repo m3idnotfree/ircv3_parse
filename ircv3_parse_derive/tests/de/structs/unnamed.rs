@@ -55,11 +55,14 @@ fn with_function() {
     let input = "TEST 42";
     let msg: WithNum = ircv3_parse::from_str(input).unwrap();
     assert_eq!(42, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
 }
 
 #[test]
 fn multiple_params() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Params<'a>(
         #[irc(param = 0)] &'a str,
         #[irc(param = 1)] &'a str,
@@ -71,12 +74,15 @@ fn multiple_params() {
     assert_eq!("arg1", msg.0);
     assert_eq!("arg2", msg.1);
     assert_eq!("arg3", msg.2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" arg1 arg2 arg3", output);
 }
 
 #[test]
 fn command_check() {
     #[allow(unused)]
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     #[irc(command = "PRIVMSG")]
     struct CommandCheck<'a>(#[irc(trailing)] &'a str);
 
@@ -90,13 +96,16 @@ fn command_check() {
 #[test]
 fn command_check_with_extraction() {
     #[allow(unused)]
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     #[irc(command = "PRIVMSG")]
     struct CommandCheck<'a>(#[irc(command)] &'a str);
 
     let input = "PRIVMSG #channel :hello";
-    let result = ircv3_parse::from_str::<CommandCheck>(input).unwrap();
-    assert_eq!("PRIVMSG", result.0);
+    let msg = ircv3_parse::from_str::<CommandCheck>(input).unwrap();
+    assert_eq!("PRIVMSG", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
 
     let input = "NOTICE #channel :hello";
     assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
@@ -104,41 +113,53 @@ fn command_check_with_extraction() {
 
 #[test]
 fn command_string() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Command(#[irc(command)] String);
 
     let input = "PRIVMSG";
     let msg: Command = ircv3_parse::from_str(input).unwrap();
     assert_eq!("PRIVMSG", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
 }
 
 #[test]
 fn command_commands() {
     use ircv3_parse::Commands;
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Command<'a>(#[irc(command)] Commands<'a>);
 
     let input = "PRIVMSG";
     let msg: Command = ircv3_parse::from_str(input).unwrap();
     assert_eq!(Commands::PRIVMSG, msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
 }
 
 #[test]
 fn source_empty_attribute_value_return_name() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Source(#[irc(source)] String);
 
     let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel :hi";
     let msg: Source = ircv3_parse::from_str(input).unwrap();
     assert_eq!("nick", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output);
 }
 
 #[test]
 fn param_empty_attribute_value_return_first() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage)]
     struct Param(#[irc(param)] String);
 
     let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel param2 :hi";
     let msg: Param = ircv3_parse::from_str(input).unwrap();
     assert_eq!("#channel", msg.0);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
 }

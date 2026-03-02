@@ -25,6 +25,7 @@ pub const PRESENT: &str = "present";
 
 const RENAME: &str = "rename";
 const VALUE: &str = "value";
+pub const PICK: &str = "pick";
 
 fn parse_required_lit_str(meta: &ParseNestedMeta, attr: &str) -> Result<LitStr> {
     if meta.input.peek(Eq) {

@@ -7,14 +7,15 @@ use syn::{
 use crate::{component_set::ComponentSet, error_msg};
 
 use super::{
-    parse_lit_str, parse_required_lit_str, Rename, Source, COMMAND, DEFAULT, IRC, PARAM, PRESENT,
-    RENAME, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
+    parse_lit_str, parse_required_lit_str, Rename, Source, COMMAND, CRLF, DEFAULT, IRC, PARAM,
+    PICK, PRESENT, RENAME, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
 };
 
 pub struct EnumAttrs {
     pub kind: EnumKind,
     pub rename: Rename,
     pub default: Option<LitStr>,
+    pub crlf: bool,
     pub unknown: Vec<Path>,
 }
 
@@ -29,6 +30,7 @@ pub enum EnumKind {
 
 pub struct VariantAttrs {
     pub values: Vec<LitStr>,
+    pub pick: Option<LitStr>,
     pub present: Option<Span>,
     pub unknown: Vec<Path>,
 }
@@ -41,6 +43,8 @@ impl EnumAttrs {
         let mut rename_span: Option<Span> = None;
         let mut default: Option<LitStr> = None;
         let mut default_span: Option<Span> = None;
+        let mut crlf = false;
+        let mut crlf_span: Option<Span> = None;
         let mut unknown = Vec::new();
 
         for attr in attrs {
@@ -108,6 +112,22 @@ impl EnumAttrs {
                     return Ok(());
                 }
 
+                if meta.path.is_ident(CRLF) {
+                    if crlf {
+                        let mut err = meta.error(error_msg::duplicate_attribute(CRLF));
+                        if let Some(first) = crlf_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(CRLF)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    crlf = true;
+                    crlf_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
                 unknown.push(meta.path.clone());
                 if meta.input.peek(Eq) {
                     meta.value()?.parse::<TokenTree>()?;
@@ -138,6 +158,7 @@ impl EnumAttrs {
             kind,
             rename,
             default,
+            crlf,
             unknown,
         })
     }
@@ -212,6 +233,7 @@ impl EnumKind {
 impl VariantAttrs {
     pub fn parse(attrs: &[Attribute]) -> Result<Self> {
         let mut values: Vec<LitStr> = Vec::new();
+        let mut pick: Option<LitStr> = None;
         let mut present: Option<Span> = None;
         let mut unknown = Vec::new();
 
@@ -220,11 +242,41 @@ impl VariantAttrs {
                 continue;
             }
 
+            let mut last_value_in_attr: Option<LitStr> = None;
+
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(VALUE) {
                     let lit = parse_required_lit_str(&meta, VALUE)?;
-
+                    last_value_in_attr = Some(lit.clone());
                     values.push(lit);
+                    return Ok(());
+                }
+
+                if meta.path.is_ident(PICK) {
+                    if meta.input.peek(Eq) {
+                        return Err(Error::new(
+                            meta.path.span(),
+                            error_msg::cannot_have_value(PICK),
+                        ));
+                    }
+
+                    if let Some(first) = &pick {
+                        let mut err = meta.error(error_msg::duplicate_attribute(PICK));
+                        err.combine(Error::new(
+                            first.span(),
+                            error_msg::first_defined_here(PICK),
+                        ));
+                        return Err(err);
+                    }
+
+                    let Some(last) = &last_value_in_attr else {
+                        return Err(Error::new(
+                            meta.path.span(),
+                            error_msg::pick_must_follow_value(),
+                        ));
+                    };
+
+                    pick = Some(LitStr::new(&last.value(), meta.path.span()));
                     return Ok(());
                 }
 
@@ -262,6 +314,7 @@ impl VariantAttrs {
 
         Ok(Self {
             values,
+            pick,
             present,
             unknown,
         })

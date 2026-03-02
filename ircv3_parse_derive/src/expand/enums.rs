@@ -1,10 +1,10 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-use syn::LitStr;
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote};
+use syn::{LitStr, Type};
 
 use crate::{
     ast::{Enum, Field, Variant, VariantFields},
-    attr::{EnumAttrs, EnumKind, Rename, Source},
+    attr::{EnumAttrs, EnumKind, FieldKind, Rename, Source},
     component_set::ComponentSet,
     type_check::TypeKind,
 };
@@ -16,9 +16,9 @@ impl<'a> Enum<'a> {
         self.add_to(&mut components);
 
         let body = if let EnumKind::TagFlag(_) = &self.attrs.kind {
-            self.expand_tag_flag_de()
+            self.expand_de_tag_flag()
         } else {
-            self.expand_match_de()
+            self.expand_de_match()
         };
 
         let name = self.ident;
@@ -42,7 +42,64 @@ impl<'a> Enum<'a> {
         }
     }
 
-    fn expand_tag_flag_de(&self) -> TokenStream {
+    pub fn expand_ser(&self) -> TokenStream {
+        let name = self.ident;
+        let (impl_generics, ty_generics, where_clause) = self.generics.split();
+
+        let body = if let EnumKind::TagFlag(_) = &self.attrs.kind {
+            self.expand_ser_tag_flag()
+        } else {
+            self.expand_ser_match()
+        };
+
+        quote! {
+            impl #impl_generics ircv3_parse::ser::ToMessage
+                for #name #ty_generics #where_clause
+            {
+                fn to_message<S: ircv3_parse::ser::MessageSerializer>(
+                    &self,
+                    serialize: &mut S
+                ) -> Result<(), ircv3_parse::IRCError> {
+                    #body
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    fn expand_ser_tag_flag(&self) -> TokenStream {
+        let present = self
+            .variants
+            .iter()
+            .find(|v| v.attrs.present.is_some())
+            .expect("validation ensures exactly one variant has #[irc(present)]");
+        let absent = self
+            .variants
+            .iter()
+            .find(|v| v.attrs.present.is_none())
+            .expect("validation ensures one absent variant");
+
+        let enum_attrs = &self.attrs;
+
+        let present_ident = present.ident;
+        let absent_ident = absent.ident;
+
+        let value = present.variant_value(&enum_attrs.rename);
+        let enum_body = self.attrs.expand_variant(&value);
+        let present_fields = present.fields.expand_body(enum_attrs);
+
+        let crlf = self.attrs.expand_crlf();
+
+        quote! {
+            match self {
+                Self::#present_ident => { #enum_body #present_fields; }
+                Self::#absent_ident => {}
+            }
+            #crlf
+        }
+    }
+
+    fn expand_de_tag_flag(&self) -> TokenStream {
         let present = self
             .variants
             .iter()
@@ -72,10 +129,10 @@ impl<'a> Enum<'a> {
         }
     }
 
-    fn expand_match_de(&self) -> TokenStream {
+    fn expand_de_match(&self) -> TokenStream {
         let default_arm = self.find_default_arm();
         let setup = self.attrs.expand_value_setup(default_arm.as_ref());
-        let arms = self.expand_arms();
+        let arms = self.expand_de_arms();
         let catch_all = self.expand_catch_all(default_arm);
 
         quote! {
@@ -87,9 +144,25 @@ impl<'a> Enum<'a> {
         }
     }
 
-    fn expand_arms(&self) -> Vec<TokenStream> {
+    fn expand_ser_match(&self) -> TokenStream {
+        let enum_attrs = &self.attrs;
+        let arms = self.variants.iter().map(|v| v.expand_ser_arm(enum_attrs));
+        let crlf_expand = self.attrs.expand_crlf();
+
+        quote! {
+            match self {
+                #(#arms),*
+            }
+            #crlf_expand
+        }
+    }
+
+    fn expand_de_arms(&self) -> Vec<TokenStream> {
         let rename = &self.attrs.rename;
-        self.variants.iter().map(|v| v.expand_arm(rename)).collect()
+        self.variants
+            .iter()
+            .map(|v| v.expand_de_arm(rename))
+            .collect()
     }
 
     fn add_to(&self, components: &mut ComponentSet) {
@@ -145,7 +218,7 @@ impl<'a> Enum<'a> {
 }
 
 impl<'a> Variant<'a> {
-    pub fn expand_arm(&self, rename: &Rename) -> TokenStream {
+    pub fn expand_de_arm(&self, rename: &Rename) -> TokenStream {
         let ident = &self.ident;
         let fields = self.fields.expand_fields();
 
@@ -158,12 +231,36 @@ impl<'a> Variant<'a> {
         }
     }
 
+    pub fn expand_ser_arm(&self, enum_attrs: &EnumAttrs) -> TokenStream {
+        let ident = &self.ident;
+        let bindings = self.fields.expand_bindings();
+        let body = self.expand_ser_arm_body(enum_attrs);
+        quote! { Self::#ident #bindings => { #body } }
+    }
+
+    fn expand_ser_arm_body(&self, enum_attrs: &EnumAttrs) -> TokenStream {
+        let value = self.variant_value(&enum_attrs.rename);
+        let field_body = self.fields.expand_body(enum_attrs);
+        let enum_body = enum_attrs.expand_variant(&value);
+        quote! { #enum_body #field_body }
+    }
+
+    fn variant_value(&self, rename: &Rename) -> LitStr {
+        if let Some(pick) = &self.attrs.pick {
+            pick.clone()
+        } else if let Some(first) = self.attrs.values.first() {
+            first.clone()
+        } else {
+            LitStr::new(&rename.apply(&self.ident.to_string()), Span::call_site())
+        }
+    }
+
     pub fn expand_default_arm(&self, default: Option<&LitStr>) -> Option<TokenStream> {
         let is_default = default.is_some_and(|d| d.value() == *self.ident.to_string());
 
         let ident = &self.ident;
         if is_default {
-            let body = self.fields.expand_field_default();
+            let body = self.fields.expand_default();
             Some(quote! { Ok(Self::#ident #body )})
         } else {
             None
@@ -306,6 +403,39 @@ impl EnumAttrs {
 
         self.kind.add_to(components);
     }
+
+    pub fn expand_variant(&self, value: &LitStr) -> TokenStream {
+        if let EnumKind::Command = &self.kind {
+            return quote! { serialize.set_command(ircv3_parse::Commands::from(#value)); };
+        }
+        let kind = self.kind.to_field_kind();
+        kind.expand_unit_ser(value)
+    }
+
+    pub fn expand_crlf(&self) -> TokenStream {
+        if self.crlf {
+            quote! { serialize.end()?; }
+        } else {
+            quote! {}
+        }
+    }
+}
+
+impl EnumKind {
+    pub fn expand_field_ser(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
+        self.to_field_kind().expand_with_accessor(ty, accessor)
+    }
+
+    fn to_field_kind(&self) -> FieldKind {
+        match self {
+            EnumKind::Tag(key) => FieldKind::Tag(key.clone()),
+            EnumKind::TagFlag(key) => FieldKind::TagFlag(key.clone()),
+            EnumKind::Source(s) => FieldKind::Source(s.clone()),
+            EnumKind::Param(_) => FieldKind::Param(0),
+            EnumKind::Trailing => FieldKind::Trailing,
+            EnumKind::Command => FieldKind::Command,
+        }
+    }
 }
 
 impl<'a> VariantFields<'a> {
@@ -317,7 +447,7 @@ impl<'a> VariantFields<'a> {
                 quote! { {#(#body),*} }
             }
             Self::Unnamed(fields) => {
-                if fields.len() == 1 {
+                if fields.len() == 1 && !self.has_any_kind() {
                     let field = &fields[0];
                     use TypeKind::*;
                     match TypeKind::classify(&field.field.ty) {
@@ -338,18 +468,63 @@ impl<'a> VariantFields<'a> {
         }
     }
 
-    pub fn expand_field_default(&self) -> TokenStream {
+    pub fn expand_body(&self, attrs: &EnumAttrs) -> TokenStream {
         match self {
             Self::Unit => quote! {},
             Self::Named(fields) => {
-                let body = fields.iter().map(|f| f.expand_field_default());
+                let body = fields.iter().map(|field| {
+                    let binding = field.field.ident.as_ref().unwrap();
+                    field.expand_with_accessor(&quote! { #binding })
+                });
+                quote! { #(#body)* }
+            }
+            Self::Unnamed(fields) => {
+                if fields.len() == 1 && !self.has_any_kind() {
+                    let field = &fields[0];
+                    return attrs
+                        .kind
+                        .expand_field_ser(&field.field.ty, &quote! { __field_0 });
+                }
+
+                let body = fields.iter().enumerate().map(|(idx, field)| {
+                    let binding = format_ident!("__field_{}", idx);
+                    field.expand_with_accessor(&quote! { #binding })
+                });
+                quote! { #(#body)* }
+            }
+        }
+    }
+
+    pub fn expand_bindings(&self) -> TokenStream {
+        match self {
+            Self::Unit => quote! {},
+            Self::Named(fields) => {
+                let idents = fields.iter().map(|f| f.field.ident.as_ref().unwrap());
+                quote! { { #(#idents),* } }
+            }
+            Self::Unnamed(fields) => {
+                let idents = (0..fields.len()).map(|i| format_ident!("__field_{}", i));
+                quote! { (#(#idents),*) }
+            }
+        }
+    }
+
+    pub fn expand_default(&self) -> TokenStream {
+        match self {
+            Self::Unit => quote! {},
+            Self::Named(fields) => {
+                let body = fields.iter().map(|f| f.expand_default());
                 quote! { {#(#body),*} }
             }
             Self::Unnamed(fields) => {
-                let body = fields.iter().map(|f| f.expand_field_default());
+                let body = fields.iter().map(|f| f.expand_default());
                 quote! { (#(#body),*) }
             }
         }
+    }
+
+    pub fn has_any_kind(&self) -> bool {
+        self.fields().iter().any(|f| f.attrs.kind.is_some())
     }
 
     pub fn add_to(&self, components: &mut ComponentSet) {

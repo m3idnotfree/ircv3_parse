@@ -107,3 +107,19 @@ pub fn value_requires_component() -> &'static str {
     "`value` requires a component attribute \
         (`tag`, `tag_flag`, `source`,`param`, or `trailing`)"
 }
+
+pub fn pick_must_follow_value() -> &'static str {
+    "`pick` must immediately follow a `value` in the same `#[irc(...)]` attribute"
+}
+
+pub fn pick_required_for_multiple_values() -> &'static str {
+    "variant with multiple `#[irc(value)]` attributes requires exactly one `#[irc(value = \"...\", pick)]`"
+}
+
+pub fn pick_not_needed_for_single_value() -> &'static str {
+    "`pick` is not needed when there is only one `#[irc(value)]`"
+}
+
+pub fn no_field_irc_attrs_requires_single_unnamed() -> &'static str {
+    "a variant with no field-level `#[irc(...)]` attributes must have exactly one unnamed field"
+}

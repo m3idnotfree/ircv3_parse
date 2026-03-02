@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, Index, LitStr, Member};
+use syn::{Ident, Index, LitStr, Member, Type};
 
 use crate::{
     ast::{Field, FieldStruct},
@@ -48,11 +48,14 @@ impl<'a> FieldStruct<'a> {
     }
 
     pub fn expand_ser(&self) -> TokenStream {
-        let impl_body = self
-            .fields
-            .iter()
-            .enumerate()
-            .map(|(idx, field)| field.expand_ser(idx));
+        let impl_body = self.fields.iter().enumerate().map(|(idx, field)| {
+            let member = if let Some(ident) = &field.field.ident {
+                Member::Named(ident.clone())
+            } else {
+                Member::Unnamed(Index::from(idx))
+            };
+            field.expand_with_accessor(&quote! { self.#member })
+        });
 
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split();
@@ -117,17 +120,11 @@ impl<'a> Field<'a> {
         self.attrs.expand_de(self.field)
     }
 
-    pub fn expand_ser(&self, idx: usize) -> TokenStream {
-        let field_member = if let Some(ident) = &self.field.ident {
-            Member::Named(ident.clone())
-        } else {
-            Member::Unnamed(Index::from(idx))
-        };
-
-        self.attrs.expand_ser(&self.field.ty, &field_member)
+    pub fn expand_with_accessor(&self, accessor: &TokenStream) -> TokenStream {
+        self.attrs.expand_with_accessor(&self.field.ty, accessor)
     }
 
-    pub fn expand_field_default(&self) -> TokenStream {
+    pub fn expand_default(&self) -> TokenStream {
         if let Some(field_name) = &self.field.ident {
             quote! { #field_name: Default::default() }
         } else {
@@ -147,19 +144,19 @@ impl FieldAttrs {
         }
     }
 
-    pub fn expand_ser(&self, ty: &syn::Type, field_member: &Member) -> TokenStream {
+    pub fn expand_with_accessor(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
         if let Some(kind) = &self.kind {
-            kind.expand_ser(ty, field_member)
+            kind.expand_with_accessor(ty, accessor)
         } else {
             use TypeKind::*;
             match TypeKind::classify(ty) {
                 Option(_) => quote! {
-                    if let Some(value) = &self.#field_member {
+                    if let Some(value) = &#accessor {
                         value.to_message(serialize)?;
                     }
                 },
                 _ => quote! {
-                    self.#field_member.to_message(serialize)?;
+                    #accessor.to_message(serialize)?;
                 },
             }
         }

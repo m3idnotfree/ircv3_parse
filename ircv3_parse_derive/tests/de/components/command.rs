@@ -127,12 +127,16 @@ fn unnamed_commands_enum() {
 
 #[test]
 fn unnamed_validation() {
-    #[derive(FromMessage)]
+    #[derive(FromMessage, ToMessage, Debug, PartialEq)]
     #[irc(command = "PRIVMSG")]
     struct Message<'a>(#[irc(trailing)] &'a str);
 
     let input = "PRIVMSG #channel :hello";
-    assert!(ircv3_parse::from_str::<Message>(input).is_ok());
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Message("hello"), msg);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG :hello", output);
 
     let input = "NOTICE #channel :hello";
     assert!(ircv3_parse::from_str::<Message>(input).is_err());

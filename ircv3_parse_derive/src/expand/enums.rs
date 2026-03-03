@@ -239,6 +239,10 @@ impl<'a> Variant<'a> {
     }
 
     fn expand_ser_arm_body(&self, enum_attrs: &EnumAttrs) -> TokenStream {
+        if self.attrs.skip {
+            return quote! {};
+        }
+
         let value = self.variant_value(&enum_attrs.rename);
         let field_body = self.fields.expand_body(enum_attrs);
         let enum_body = enum_attrs.expand_variant(&value);
@@ -423,7 +427,8 @@ impl EnumAttrs {
 
 impl EnumKind {
     pub fn expand_field_ser(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
-        self.to_field_kind().expand_with_accessor(ty, accessor)
+        self.to_field_kind()
+            .expand_with_accessor(ty, accessor, false)
     }
 
     fn to_field_kind(&self) -> FieldKind {

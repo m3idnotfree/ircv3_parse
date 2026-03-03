@@ -8,7 +8,7 @@ use crate::{
         PRESENT,
     },
     error_msg,
-    type_check::TypeKind,
+    type_check::{self, TypeKind},
 };
 
 impl<'a> Input<'a> {
@@ -148,6 +148,22 @@ impl<'a> Field<'a> {
 impl FieldAttrs {
     pub fn validate(&self, field: &syn::Field) -> Result<()> {
         let mut errors = Vec::new();
+
+        if self.skip_none {
+            let is_tag = matches!(self.kind, Some(FieldKind::Tag(_)));
+
+            let is_option_str = matches!(
+                TypeKind::classify(&field.ty),
+                TypeKind::Option(inner) if type_check::is_str(inner)|| type_check::is_string(inner)
+            );
+
+            if !is_tag || !is_option_str {
+                errors.push(Error::new_spanned(
+                    field,
+                    error_msg::skip_none_requires_tag_option(),
+                ));
+            }
+        }
 
         for path in &self.unknown {
             errors.push(Error::new_spanned(

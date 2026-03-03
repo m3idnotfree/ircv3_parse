@@ -112,6 +112,7 @@ fn default() {
     #[irc(param, default = "Unknown")]
     enum Target {
         Channel,
+        #[irc(skip)]
         Unknown,
     }
 
@@ -123,10 +124,10 @@ fn default() {
     let msg: Target = ircv3_parse::from_str("PRIVMSG other :hi").unwrap();
     assert_eq!(Target::Unknown, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!(" unknown", output);
+    assert_eq!("", output);
 
     let msg: Target = ircv3_parse::from_str("PRIVMSG :hi").unwrap();
     assert_eq!(Target::Unknown, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!(" unknown", output);
+    assert_eq!("", output);
 }

@@ -455,3 +455,34 @@ fn unnamed_default_fn() {
     let output = ircv3_parse::to_message(&msg).unwrap();
     assert_eq!("@msgid=0 ", output)
 }
+
+#[test]
+fn skip() {
+    #[derive(FromMessage, ToMessage)]
+    struct Tag {
+        #[irc(tag, skip)]
+        msg_id: String,
+    }
+
+    let input = "@msg_id=456 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("456", msg.msg_id);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
+}
+#[test]
+fn skip_none() {
+    #[derive(FromMessage, ToMessage)]
+    struct Tag {
+        #[irc(tag = "msgid", skip_none)]
+        msg_id: Option<String>,
+    }
+
+    let input = "@other=456 PRIVMSG #channel :hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(None, msg.msg_id);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("", output)
+}

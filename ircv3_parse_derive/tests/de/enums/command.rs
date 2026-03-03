@@ -102,6 +102,7 @@ fn default() {
     enum Command {
         #[irc(value = "PRIVMSG")]
         PrivMsg,
+        #[irc(skip)]
         Unknown,
     }
 
@@ -113,7 +114,7 @@ fn default() {
     let msg: Command = ircv3_parse::from_str("NOTICE").unwrap();
     assert_eq!(Command::Unknown, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!("UNKNOWN", output);
+    assert_eq!("", output);
 }
 
 #[test]

@@ -8,7 +8,7 @@ use crate::{component_set::ComponentSet, error_msg};
 
 use super::{
     parse_lit_str, parse_required_lit_str, Rename, Source, COMMAND, CRLF, DEFAULT, IRC, PARAM,
-    PICK, PRESENT, RENAME, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
+    PICK, PRESENT, RENAME, SKIP, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
 };
 
 pub struct EnumAttrs {
@@ -32,6 +32,7 @@ pub struct VariantAttrs {
     pub values: Vec<LitStr>,
     pub pick: Option<LitStr>,
     pub present: Option<Span>,
+    pub skip: bool,
     pub unknown: Vec<Path>,
 }
 
@@ -235,6 +236,8 @@ impl VariantAttrs {
         let mut values: Vec<LitStr> = Vec::new();
         let mut pick: Option<LitStr> = None;
         let mut present: Option<Span> = None;
+        let mut skip: bool = false;
+        let mut skip_span: Option<Span> = None;
         let mut unknown = Vec::new();
 
         for attr in attrs {
@@ -303,6 +306,22 @@ impl VariantAttrs {
                     return Ok(());
                 }
 
+                if meta.path.is_ident(SKIP) {
+                    if skip {
+                        let mut err = meta.error(error_msg::duplicate_attribute(SKIP));
+                        if let Some(first) = skip_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(SKIP)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    skip = true;
+                    skip_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
                 unknown.push(meta.path.clone());
                 if meta.input.peek(Eq) {
                     meta.value()?.parse::<TokenTree>()?;
@@ -316,6 +335,7 @@ impl VariantAttrs {
             values,
             pick,
             present,
+            skip,
             unknown,
         })
     }

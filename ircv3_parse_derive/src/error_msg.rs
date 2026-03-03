@@ -123,3 +123,8 @@ pub fn pick_not_needed_for_single_value() -> &'static str {
 pub fn no_field_irc_attrs_requires_single_unnamed() -> &'static str {
     "a variant with no field-level `#[irc(...)]` attributes must have exactly one unnamed field"
 }
+
+pub fn skip_none_requires_tag_option() -> &'static str {
+    "`skip_none` is only allowed on `#[irc(tag = \"...\")]` fields \
+        with `Option<String>` or `Option<&str>` type"
+}

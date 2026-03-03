@@ -85,6 +85,7 @@ fn default() {
     #[irc(source, default = "Unknown")]
     enum Server {
         Irc,
+        #[irc(skip)]
         Unknown,
     }
 
@@ -96,10 +97,10 @@ fn default() {
     let msg: Server = ircv3_parse::from_str(":nick!user@example.com PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Unknown, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!(":unknown ", output);
+    assert_eq!("", output);
 
     let msg: Server = ircv3_parse::from_str("PRIVMSG #channel :hi").unwrap();
     assert_eq!(Server::Unknown, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!(":unknown ", output);
+    assert_eq!("", output);
 }

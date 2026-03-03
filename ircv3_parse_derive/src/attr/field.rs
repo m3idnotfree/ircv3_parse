@@ -7,8 +7,8 @@ use syn::{
 use crate::{component_set::ComponentSet, error_msg};
 
 use super::{
-    parse_lit_str, parse_required_lit_str, COMMAND, CRLF, DEFAULT, IRC, PARAM, PARAMS, SOURCE, TAG,
-    TAG_FLAG, TRAILING, WITH,
+    parse_lit_str, parse_required_lit_str, COMMAND, CRLF, DEFAULT, IRC, PARAM, PARAMS, SKIP,
+    SKIP_NONE, SOURCE, TAG, TAG_FLAG, TRAILING, WITH,
 };
 
 pub struct StructAttrs {
@@ -21,6 +21,8 @@ pub struct FieldAttrs {
     pub kind: Option<FieldKind>,
     pub with: Option<LitStr>,
     pub default: Option<FieldDefault>,
+    pub skip: bool,
+    pub skip_none: bool,
     pub unknown: Vec<Path>,
 }
 
@@ -124,6 +126,10 @@ impl FieldAttrs {
         let mut with_span: Option<Span> = None;
         let mut default: Option<FieldDefault> = None;
         let mut default_span: Option<Span> = None;
+        let mut skip: bool = false;
+        let mut skip_span: Option<Span> = None;
+        let mut skip_none: bool = false;
+        let mut skip_none_span: Option<Span> = None;
         let mut unknown = Vec::new();
 
         let field_name = field.ident.as_ref();
@@ -176,6 +182,41 @@ impl FieldAttrs {
                     return Ok(());
                 }
 
+                if meta.path.is_ident(SKIP) {
+                    if skip {
+                        let mut err = meta.error(error_msg::duplicate_attribute(SKIP));
+                        if let Some(first) = skip_span {
+                            err.combine(Error::new(first, error_msg::first_defined_here(SKIP)));
+                        }
+
+                        return Err(err);
+                    }
+
+                    skip = true;
+                    skip_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
+                if meta.path.is_ident(SKIP_NONE) {
+                    if skip_none {
+                        let mut err = meta.error(error_msg::duplicate_attribute(SKIP_NONE));
+                        if let Some(first) = skip_span {
+                            err.combine(Error::new(
+                                first,
+                                error_msg::first_defined_here(SKIP_NONE),
+                            ));
+                        }
+
+                        return Err(err);
+                    }
+
+                    skip_none = true;
+                    skip_none_span = Some(meta.path.span());
+
+                    return Ok(());
+                }
+
                 if let Some(field_kind) = FieldKind::try_parse(&meta, field_name)? {
                     if let Some(existing) = &kind {
                         let mut err = meta.error(error_msg::multiple_extraction_attributes(
@@ -218,6 +259,8 @@ impl FieldAttrs {
             kind,
             with,
             default,
+            skip,
+            skip_none,
             unknown,
         })
     }

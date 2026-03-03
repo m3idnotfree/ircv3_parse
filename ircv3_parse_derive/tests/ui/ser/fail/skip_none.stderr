@@ -1,0 +1,20 @@
+error: `skip_none` is only allowed on `#[irc(tag = "...")]` fields with `Option<String>` or `Option<&str>` type
+ --> tests/ui/ser/fail/skip_none.rs:5:5
+  |
+5 | /     #[irc(param, skip_none)]
+6 | |     channel: Option<String>,
+  | |___________________________^
+
+error: `skip_none` is only allowed on `#[irc(tag = "...")]` fields with `Option<String>` or `Option<&str>` type
+  --> tests/ui/ser/fail/skip_none.rs:11:5
+   |
+11 | /     #[irc(tag = "key", skip_none)]
+12 | |     value: String,
+   | |_________________^
+
+error: `skip_none` is only allowed on `#[irc(tag = "...")]` fields with `Option<String>` or `Option<&str>` type
+  --> tests/ui/ser/fail/skip_none.rs:17:5
+   |
+17 | /     #[irc(trailing, skip_none)]
+18 | |     message: Option<String>,
+   | |___________________________^

@@ -22,6 +22,8 @@ pub const WITH: &str = "with";
 pub const CRLF: &str = "crlf";
 pub const DEFAULT: &str = "default";
 pub const PRESENT: &str = "present";
+pub const SKIP: &str = "skip";
+pub const SKIP_NONE: &str = "skip_none";
 
 const RENAME: &str = "rename";
 const VALUE: &str = "value";

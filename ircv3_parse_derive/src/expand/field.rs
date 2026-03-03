@@ -145,8 +145,12 @@ impl FieldAttrs {
     }
 
     pub fn expand_with_accessor(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
+        if self.skip {
+            return quote! {};
+        }
+
         if let Some(kind) = &self.kind {
-            kind.expand_with_accessor(ty, accessor)
+            kind.expand_with_accessor(ty, accessor, self.skip_none)
         } else {
             use TypeKind::*;
             match TypeKind::classify(ty) {

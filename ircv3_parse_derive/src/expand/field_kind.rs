@@ -36,9 +36,14 @@ impl FieldKind {
         }
     }
 
-    pub fn expand_with_accessor(&self, ty: &Type, accessor: &TokenStream) -> TokenStream {
+    pub fn expand_with_accessor(
+        &self,
+        ty: &Type,
+        accessor: &TokenStream,
+        skip_none: bool,
+    ) -> TokenStream {
         match self {
-            Self::Tag(key) => expand_tag_ser(key, ty, accessor),
+            Self::Tag(key) => expand_tag_ser(key, ty, accessor, skip_none),
             Self::TagFlag(key) => expand_tag_flag_ser(key, ty, accessor),
             Self::Source(inner) => expand_source_ser(inner, ty, accessor),
             Self::Param(_) => expand_param_ser(ty, accessor),
@@ -519,20 +524,26 @@ fn expand_command_value(ty: &Type, default: Option<&FieldDefault>) -> TokenStrea
     }
 }
 
-fn expand_tag_ser(key: &LitStr, ty: &Type, accessor: &TokenStream) -> TokenStream {
+fn expand_tag_ser(key: &LitStr, ty: &Type, accessor: &TokenStream, skip_none: bool) -> TokenStream {
+    let insert_tag = if skip_none {
+        quote! { insert_tag_if_some }
+    } else {
+        quote! { insert_tag }
+    };
+
     use TypeKind::*;
     match TypeKind::classify(ty) {
         Str => quote! {
-            serialize.tags().insert_tag(#key, Some(#accessor))?;
+            serialize.tags().#insert_tag(#key, Some(#accessor))?;
         },
         String => quote! {
-            serialize.tags().insert_tag(#key, Some(#accessor.as_ref()))?;
+            serialize.tags().#insert_tag(#key, Some(#accessor.as_ref()))?;
         },
         Option(inner) if type_check::is_str(inner) => quote! {
-            serialize.tags().insert_tag(#key, #accessor)?;
+            serialize.tags().#insert_tag(#key, #accessor)?;
         },
         Option(inner) if type_check::is_string(inner) => quote! {
-            serialize.tags().insert_tag(#key, #accessor.as_deref())?;
+            serialize.tags().#insert_tag(#key, #accessor.as_deref())?;
         },
         Option(_) => quote! {
             if let Some(value) = &#accessor {
@@ -542,7 +553,7 @@ fn expand_tag_ser(key: &LitStr, ty: &Type, accessor: &TokenStream) -> TokenStrea
         _ => {
             if type_check::is_primitive(ty) {
                 quote! {
-                    serialize.tags().insert_tag(#key, &#accessor.to_string())?;
+                    serialize.tags().#insert_tag(#key, &#accessor.to_string())?;
                 }
             } else {
                 quote! {

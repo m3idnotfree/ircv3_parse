@@ -50,11 +50,13 @@
 ### Documentation
 
 - improve derive documentation ([1737b73](https://github.com/m3idnotfree/ircv3_parse/commit/1737b7365184a3eb247fd5f247b255d71d044bbd))
+- update version to 4.0.0 ([0e2d0ab](https://github.com/m3idnotfree/ircv3_parse/commit/0e2d0ab66a4d95e02453e8f210cef8fae9c36378))
 
 ### Tests
 
 - **(derive)** reorganize ui fail tests ([86b9fbe](https://github.com/m3idnotfree/ircv3_parse/commit/86b9fbe956ed2bfa4656bfb0a390a7bbf87d7f61))
 - reorganize test into de/ser structure with clear naming ([55b9bed](https://github.com/m3idnotfree/ircv3_parse/commit/55b9bed2612ab65aa3d98c6193a3863f02b3b340))
+- move derive tests to ircv3_parse ([cce95a8](https://github.com/m3idnotfree/ircv3_parse/commit/cce95a827386f1703e5e803a032e978300d94695))
 
 ### Miscellaneous
 

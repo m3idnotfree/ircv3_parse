@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenTree};
 use syn::{
-    meta::ParseNestedMeta, spanned::Spanned, token::Eq, Attribute, Error, LitInt, LitStr, Path,
-    Result,
+    meta::ParseNestedMeta, spanned::Spanned, token::Eq, Attribute, Error, Ident, LitInt, LitStr,
+    Path, Result,
 };
 
 use crate::{component_set::ComponentSet, error_msg};
@@ -37,7 +37,7 @@ pub struct VariantAttrs {
 }
 
 impl EnumAttrs {
-    pub fn parse(attrs: &[Attribute]) -> Result<Self> {
+    pub fn parse(attrs: &[Attribute], ident: &Ident) -> Result<Self> {
         let mut kind: Option<EnumKind> = None;
         let mut kind_span: Option<Span> = None;
         let mut rename_all: Option<Rename> = None;
@@ -93,7 +93,7 @@ impl EnumAttrs {
                     return Ok(());
                 }
 
-                if let Some(enum_kind) = EnumKind::try_parse(&meta)? {
+                if let Some(enum_kind) = EnumKind::try_parse(&meta, ident)? {
                     if let Some(existing) = &kind {
                         let mut err = meta.error(error_msg::multiple_extraction_attributes(
                             existing.name(),
@@ -169,14 +169,24 @@ impl EnumAttrs {
 }
 
 impl EnumKind {
-    pub fn try_parse(meta: &ParseNestedMeta) -> Result<Option<Self>> {
+    pub fn try_parse(meta: &ParseNestedMeta, ident: &Ident) -> Result<Option<Self>> {
         if meta.path.is_ident(TAG) {
-            let key = parse_required_lit_str(meta, TAG)?;
+            let key = if meta.input.peek(Eq) {
+                parse_lit_str(meta, TAG)?
+            } else {
+                use heck::ToKebabCase;
+                LitStr::new(&ident.to_string().to_kebab_case(), ident.span())
+            };
             return Ok(Some(Self::Tag(key)));
         }
 
         if meta.path.is_ident(TAG_FLAG) {
-            let key = parse_required_lit_str(meta, TAG_FLAG)?;
+            let key = if meta.input.peek(Eq) {
+                parse_lit_str(meta, TAG_FLAG)?
+            } else {
+                use heck::ToKebabCase;
+                LitStr::new(&ident.to_string().to_kebab_case(), ident.span())
+            };
             return Ok(Some(Self::TagFlag(key)));
         }
 

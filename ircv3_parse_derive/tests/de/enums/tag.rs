@@ -235,3 +235,26 @@ fn single_unnamed_field() {
     let err = ircv3_parse::from_str::<Level>("PRIVMSG").unwrap_err();
     assert!(err.is_tags_component_not_found());
 }
+
+#[test]
+fn no_key_enum() {
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
+    #[irc(tag)]
+    enum BadgeInfo {
+        Subscriber,
+        Moderator,
+    }
+
+    let msg: BadgeInfo = ircv3_parse::from_str("@badge-info=subscriber PRIVMSG").unwrap();
+    assert_eq!(BadgeInfo::Subscriber, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@badge-info=subscriber ", output);
+
+    let msg: BadgeInfo = ircv3_parse::from_str("@badge-info=moderator PRIVMSG").unwrap();
+    assert_eq!(BadgeInfo::Moderator, msg);
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@badge-info=moderator ", output);
+
+    let err = ircv3_parse::from_str::<BadgeInfo>("PRIVMSG").unwrap_err();
+    assert!(err.is_tags_component_not_found());
+}

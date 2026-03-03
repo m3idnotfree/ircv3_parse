@@ -127,7 +127,7 @@ impl<'a> Enum<'a> {
     pub fn from_syn(input: &'a DeriveInput, data_enum: &'a DataEnum) -> Result<Self> {
         let ident = &input.ident;
 
-        let attrs = EnumAttrs::parse(&input.attrs)?;
+        let attrs = EnumAttrs::parse(&input.attrs, ident)?;
 
         let variants = data_enum
             .variants

@@ -8,12 +8,12 @@ use crate::{component_set::ComponentSet, error_msg};
 
 use super::{
     parse_lit_str, parse_required_lit_str, Rename, Source, COMMAND, CRLF, DEFAULT, IRC, PARAM,
-    PICK, PRESENT, RENAME, SKIP, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
+    PICK, PRESENT, RENAME_ALL, SKIP, SOURCE, TAG, TAG_FLAG, TRAILING, VALUE,
 };
 
 pub struct EnumAttrs {
     pub kind: EnumKind,
-    pub rename: Rename,
+    pub rename_all: Rename,
     pub default: Option<LitStr>,
     pub crlf: bool,
     pub unknown: Vec<Path>,
@@ -40,8 +40,8 @@ impl EnumAttrs {
     pub fn parse(attrs: &[Attribute]) -> Result<Self> {
         let mut kind: Option<EnumKind> = None;
         let mut kind_span: Option<Span> = None;
-        let mut rename: Option<Rename> = None;
-        let mut rename_span: Option<Span> = None;
+        let mut rename_all: Option<Rename> = None;
+        let mut rename_all_span: Option<Span> = None;
         let mut default: Option<LitStr> = None;
         let mut default_span: Option<Span> = None;
         let mut crlf = false;
@@ -54,20 +54,23 @@ impl EnumAttrs {
             }
 
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident(RENAME) {
-                    let key = parse_required_lit_str(&meta, RENAME)?;
+                if meta.path.is_ident(RENAME_ALL) {
+                    let key = parse_required_lit_str(&meta, RENAME_ALL)?;
 
-                    if rename.is_some() {
-                        let mut err = meta.error(error_msg::duplicate_attribute(RENAME));
-                        if let Some(first) = rename_span {
-                            err.combine(Error::new(first, error_msg::first_defined_here(RENAME)));
+                    if rename_all.is_some() {
+                        let mut err = meta.error(error_msg::duplicate_attribute(RENAME_ALL));
+                        if let Some(first) = rename_all_span {
+                            err.combine(Error::new(
+                                first,
+                                error_msg::first_defined_here(RENAME_ALL),
+                            ));
                         }
 
                         return Err(err);
                     }
 
-                    rename = Some(Rename::parse(&key)?);
-                    rename_span = Some(meta.path.span());
+                    rename_all = Some(Rename::parse(&key)?);
+                    rename_all_span = Some(meta.path.span());
 
                     return Ok(());
                 }
@@ -142,7 +145,7 @@ impl EnumAttrs {
             .ok_or_else(|| Error::new(Span::call_site(), error_msg::enum_requires_component()))?;
 
         if matches!(kind, EnumKind::Command) {
-            if let Some(span) = rename_span {
+            if let Some(span) = rename_all_span {
                 return Err(Error::new(
                     span,
                     error_msg::rename_not_allowed_with_command(),
@@ -150,14 +153,14 @@ impl EnumAttrs {
             }
         }
 
-        let rename = rename.unwrap_or(match kind {
+        let rename = rename_all.unwrap_or(match kind {
             EnumKind::Command => Rename::Uppercase,
             _ => Rename::KebabCase,
         });
 
         Ok(Self {
             kind,
-            rename,
+            rename_all: rename,
             default,
             crlf,
             unknown,

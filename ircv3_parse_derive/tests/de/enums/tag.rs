@@ -72,7 +72,7 @@ fn value() {
 #[test]
 fn rename_kebab_case() {
     #[derive(Debug, PartialEq, FromMessage, ToMessage)]
-    #[irc(tag = "color", rename = "kebab-case")]
+    #[irc(tag = "color", rename_all = "kebab-case")]
     enum Color {
         LightRed,
         DarkGreen,
@@ -95,7 +95,7 @@ fn rename_kebab_case() {
 #[test]
 fn value_overrides_rename() {
     #[derive(Debug, PartialEq, FromMessage, ToMessage)]
-    #[irc(tag = "color", rename = "kebab-case")]
+    #[irc(tag = "color", rename_all = "kebab-case")]
     enum Color {
         #[irc(value = "crimson")]
         Red,

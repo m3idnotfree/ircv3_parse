@@ -94,7 +94,7 @@ fn multiple_values() {
 #[test]
 fn rename_uppercase() {
     #[derive(Debug, PartialEq, FromMessage, ToMessage)]
-    #[irc(param = 1, rename = "UPPERCASE")]
+    #[irc(param = 1, rename_all = "UPPERCASE")]
     enum Command {
         Join,
         Part,

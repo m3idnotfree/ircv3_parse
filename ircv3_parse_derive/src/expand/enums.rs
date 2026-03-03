@@ -84,7 +84,7 @@ impl<'a> Enum<'a> {
         let present_ident = present.ident;
         let absent_ident = absent.ident;
 
-        let value = present.variant_value(&enum_attrs.rename);
+        let value = present.variant_value(&enum_attrs.rename_all);
         let enum_body = self.attrs.expand_variant(&value);
         let present_fields = present.fields.expand_body(enum_attrs);
 
@@ -158,7 +158,7 @@ impl<'a> Enum<'a> {
     }
 
     fn expand_de_arms(&self) -> Vec<TokenStream> {
-        let rename = &self.attrs.rename;
+        let rename = &self.attrs.rename_all;
         self.variants
             .iter()
             .map(|v| v.expand_de_arm(rename))
@@ -171,7 +171,7 @@ impl<'a> Enum<'a> {
     }
 
     fn expected_values(&self) -> String {
-        let rename = &self.attrs.rename;
+        let rename = &self.attrs.rename_all;
 
         self.variants
             .iter()
@@ -243,7 +243,7 @@ impl<'a> Variant<'a> {
             return quote! {};
         }
 
-        let value = self.variant_value(&enum_attrs.rename);
+        let value = self.variant_value(&enum_attrs.rename_all);
         let field_body = self.fields.expand_body(enum_attrs);
         let enum_body = enum_attrs.expand_variant(&value);
         quote! { #enum_body #field_body }

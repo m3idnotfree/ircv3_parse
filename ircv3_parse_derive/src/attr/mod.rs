@@ -25,7 +25,7 @@ pub const PRESENT: &str = "present";
 pub const SKIP: &str = "skip";
 pub const SKIP_NONE: &str = "skip_none";
 
-const RENAME: &str = "rename";
+const RENAME_ALL: &str = "rename_all";
 const VALUE: &str = "value";
 pub const PICK: &str = "pick";
 

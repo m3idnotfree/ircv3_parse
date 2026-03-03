@@ -19,7 +19,7 @@ struct C<'a> {
 }
 
 #[derive(FromMessage)]
-#[irc(command, rename = "lowercase")]
+#[irc(command, rename_all = "lowercase")]
 enum D {
     PrivMsg,
     Join,

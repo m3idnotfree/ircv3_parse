@@ -1,7 +1,5 @@
-use crate::{
-    error::{CommandError, IRCError, ParamError},
-    AT, COLON, CR, LF, SPACE,
-};
+use crate::IRCError;
+use crate::{AT, COLON, CR, LF, SPACE};
 
 const MEMCHR_THRESHOLD: usize = 12;
 
@@ -63,8 +61,7 @@ impl Scanner {
         *pos += 1; // skip '@'
         let start = *pos;
 
-        *pos +=
-            find_byte(SPACE, &bytes[*pos..]).ok_or(IRCError::MissingSpace { component: "TAG" })?;
+        *pos += find_byte(SPACE, &bytes[*pos..]).ok_or(IRCError::missing_space("TAG"))?;
 
         self.tags_span = ByteSpan::new(start, *pos);
         self.has_tags = true;
@@ -81,9 +78,7 @@ impl Scanner {
         *pos += 1; // skip ':'
         let start = *pos;
 
-        *pos += find_byte(SPACE, &bytes[*pos..]).ok_or(IRCError::MissingSpace {
-            component: "SOURCE",
-        })?;
+        *pos += find_byte(SPACE, &bytes[*pos..]).ok_or(IRCError::missing_space("SOURCE"))?;
 
         self.source_span = ByteSpan::new(start, *pos);
         self.has_source = true;
@@ -95,16 +90,14 @@ impl Scanner {
     #[inline]
     fn scan_command(&mut self, bytes: &[u8], pos: &mut usize) -> Result<(), IRCError> {
         if *pos >= bytes.len() {
-            return Err(IRCError::Command(CommandError::Empty));
+            return Err(IRCError::empty_command());
         }
 
         let start = *pos;
         let first_byte = bytes[*pos];
 
         if !first_byte.is_ascii_alphanumeric() {
-            return Err(IRCError::Command(CommandError::InvalidFirstChar {
-                char: first_byte as char,
-            }));
+            return Err(IRCError::invalid_first_char_command(first_byte as char));
         }
 
         if first_byte.is_ascii_digit() {
@@ -116,9 +109,7 @@ impl Scanner {
                 *pos += 1;
             }
             if digit_count != 3 {
-                return Err(IRCError::Command(CommandError::WrongDigitCount {
-                    actual: digit_count,
-                }));
+                return Err(IRCError::wrong_digit_count_command(digit_count));
             }
         } else {
             while *pos < bytes.len() && bytes[*pos].is_ascii_alphabetic() {
@@ -134,7 +125,7 @@ impl Scanner {
     #[inline]
     fn scan_parameters(&mut self, bytes: &[u8], mut pos: usize) -> Result<(), IRCError> {
         if bytes[pos] != SPACE {
-            return Err(IRCError::MissingSpace { component: "PARAM" });
+            return Err(IRCError::missing_space("PARAM"));
         }
 
         pos += 1; // skip space
@@ -147,7 +138,7 @@ impl Scanner {
             let start = pos + space_colon_pos;
 
             if start == pos {
-                return Err(IRCError::Param(ParamError::EmptyMiddle));
+                return Err(IRCError::empty_middle_param());
             }
 
             self.params_span = ByteSpan::new(pos, start);
@@ -159,7 +150,7 @@ impl Scanner {
             let end_pos = pos + find_line_ending(&bytes[pos..]).unwrap_or(bytes[pos..].len());
 
             if end_pos == pos {
-                return Err(IRCError::Param(ParamError::EmptyMiddle));
+                return Err(IRCError::empty_middle_param());
             }
 
             self.params_span = ByteSpan::new(pos, end_pos);

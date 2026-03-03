@@ -40,7 +40,7 @@ impl<'a> UnitStruct<'a> {
                 fn to_message<S: ircv3_parse::ser::MessageSerializer>(
                     &self,
                     serialize: &mut S
-                ) -> Result<(), ircv3_parse::IRCError> {
+                ) -> Result<(), ircv3_parse::SerError> {
                     #impl_body
                     Ok(())
                 }

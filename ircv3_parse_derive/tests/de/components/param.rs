@@ -1,3 +1,4 @@
+use ircv3_parse::{error::ParamError, SerError};
 use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
@@ -340,7 +341,7 @@ fn default_trait_no_component() {
 
     // parameter middle ctannot be empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error());
+    assert_eq!(SerError::Param(ParamError::EmptyMiddle), err);
 }
 
 #[test]
@@ -449,5 +450,5 @@ fn unnamed_default_trait() {
 
     // parameter middle ctannot be empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error());
+    assert_eq!(SerError::Param(ParamError::EmptyMiddle), err);
 }

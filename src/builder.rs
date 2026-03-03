@@ -2,12 +2,11 @@ use bytes::Bytes;
 
 use crate::compat::{Debug, String, ToOwned};
 
-use crate::{error::IRCError, validators, Commands};
-
 use crate::ser::{
     IRCParamsSerializer, IRCSerializer, IRCSourceSerializer, IRCTagsSerializer, MessageSerializer,
     ToMessage,
 };
+use crate::{validators, Commands, SerError};
 
 #[derive(Debug, Default, Clone)]
 pub struct MessageBuilder {
@@ -29,22 +28,22 @@ impl MessageBuilder {
         }
     }
 
-    pub fn set_command(&mut self, command: Commands<'_>) -> Result<&mut Self, IRCError> {
+    pub fn set_command(&mut self, command: Commands<'_>) -> Result<&mut Self, SerError> {
         if self.command.is_some() {
-            Err(IRCError::DuplicateCommand)
+            Err(SerError::DuplicateCommand)
         } else {
             self.command = Some(command.as_str().to_owned());
             Ok(self)
         }
     }
 
-    pub fn add_tag(&mut self, key: &str, value: Option<&str>) -> Result<&mut Self, IRCError> {
+    pub fn add_tag(&mut self, key: &str, value: Option<&str>) -> Result<&mut Self, SerError> {
         self.tags.insert_tag(key, value)?;
 
         Ok(self)
     }
 
-    pub fn add_tags<'a, I>(&mut self, tags: I) -> Result<&mut Self, IRCError>
+    pub fn add_tags<'a, I>(&mut self, tags: I) -> Result<&mut Self, SerError>
     where
         I: IntoIterator<Item = (&'a str, Option<&'a str>)>,
     {
@@ -55,12 +54,12 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn add_tag_flag(&mut self, key: &str) -> Result<&mut Self, IRCError> {
+    pub fn add_tag_flag(&mut self, key: &str) -> Result<&mut Self, SerError> {
         self.tags.insert_flag(key)?;
         Ok(self)
     }
 
-    pub fn add_tag_flags<I, S>(&mut self, keys: I) -> Result<&mut Self, IRCError>
+    pub fn add_tag_flags<I, S>(&mut self, keys: I) -> Result<&mut Self, SerError>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -72,18 +71,18 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn set_source_name(&mut self, name: &str) -> Result<&mut Self, IRCError> {
-        self.source.set_name(name).map_err(IRCError::from)?;
+    pub fn set_source_name(&mut self, name: &str) -> Result<&mut Self, SerError> {
+        self.source.set_name(name).map_err(SerError::from)?;
         Ok(self)
     }
 
-    pub fn set_source_user(&mut self, user: &str) -> Result<&mut Self, IRCError> {
-        self.source.set_user(user).map_err(IRCError::from)?;
+    pub fn set_source_user(&mut self, user: &str) -> Result<&mut Self, SerError> {
+        self.source.set_user(user).map_err(SerError::from)?;
         Ok(self)
     }
 
-    pub fn set_source_host(&mut self, host: &str) -> Result<&mut Self, IRCError> {
-        self.source.set_host(host).map_err(IRCError::from)?;
+    pub fn set_source_host(&mut self, host: &str) -> Result<&mut Self, SerError> {
+        self.source.set_host(host).map_err(SerError::from)?;
         Ok(self)
     }
 
@@ -92,7 +91,7 @@ impl MessageBuilder {
         name: &str,
         user: Option<&str>,
         host: Option<&str>,
-    ) -> Result<&mut Self, IRCError> {
+    ) -> Result<&mut Self, SerError> {
         self.set_source_name(name)?;
         if let Some(user) = user {
             self.set_source_user(user)?;
@@ -105,12 +104,12 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn add_param(&mut self, param: &str) -> Result<&mut Self, IRCError> {
+    pub fn add_param(&mut self, param: &str) -> Result<&mut Self, SerError> {
         self.params.push(param)?;
         Ok(self)
     }
 
-    pub fn add_params<I, S>(&mut self, params: I) -> Result<&mut Self, IRCError>
+    pub fn add_params<I, S>(&mut self, params: I) -> Result<&mut Self, SerError>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -119,13 +118,13 @@ impl MessageBuilder {
         Ok(self)
     }
 
-    pub fn set_trailing(&mut self, trailing: &str) -> Result<&mut Self, IRCError> {
+    pub fn set_trailing(&mut self, trailing: &str) -> Result<&mut Self, SerError> {
         validators::trailing(trailing)?;
         self.trailing = Some(trailing.to_owned());
         Ok(self)
     }
 
-    pub fn build(self) -> Result<Bytes, IRCError> {
+    pub fn build(self) -> Result<Bytes, SerError> {
         let mut buffer = IRCSerializer::new();
 
         self.to_message(&mut buffer)?;
@@ -133,9 +132,9 @@ impl MessageBuilder {
         Ok(buffer.into_bytes())
     }
 
-    pub fn validate(&self) -> Result<(), IRCError> {
+    pub fn validate(&self) -> Result<(), SerError> {
         if self.command.is_none() {
-            return Err(IRCError::MissingCommand);
+            return Err(SerError::MissingCommand);
         }
 
         if let Some(trailing) = &self.trailing {
@@ -147,7 +146,7 @@ impl MessageBuilder {
 }
 
 impl ToMessage for MessageBuilder {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), SerError> {
         self.tags.to_message(serialize)?;
         self.source.to_message(serialize)?;
 
@@ -300,7 +299,7 @@ mod tests {
             fn to_message<S: ser::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 for (key, value) in &self.tag {
                     tags.insert_tag(key, value.as_deref())?;

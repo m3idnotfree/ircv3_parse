@@ -356,7 +356,7 @@ impl<'a> crate::ser::ToMessage for Commands<'a> {
     fn to_message<S: crate::ser::MessageSerializer>(
         &self,
         serialize: &mut S,
-    ) -> Result<(), crate::IRCError> {
+    ) -> Result<(), crate::SerError> {
         serialize.set_command(*self);
         Ok(())
     }
@@ -502,7 +502,7 @@ mod tests {
             fn to_message<S: crate::ser::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.cmd.to_message(serialize)
             }
         }

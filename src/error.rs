@@ -7,24 +7,10 @@ pub enum IRCError {
     #[error("{component} must be followed by a space")]
     MissingSpace { component: &'static str },
 
-    #[error("source name must be set before {component}")]
-    SourceNotSet { component: &'static str },
-    #[error("command is required")]
-    MissingCommand,
-    #[error("command already set")]
-    DuplicateCommand,
-
-    #[error(transparent)]
-    Tag(#[from] TagError),
-    #[error(transparent)]
-    Source(#[from] SourceError),
     #[error(transparent)]
     Command(#[from] CommandError),
     #[error(transparent)]
     Param(#[from] ParamError),
-
-    #[error(transparent)]
-    Hostname(#[from] HostnameError),
 }
 
 impl Debug for IRCError {
@@ -38,31 +24,73 @@ impl IRCError {
         match self {
             Self::EmptyInput => "SCAN",
             Self::MissingSpace { component } => component,
-
-            Self::SourceNotSet { .. } => "BUILD_SOURCE",
-            Self::MissingCommand | Self::DuplicateCommand => "BUILD_COMMAND",
-
-            Self::Tag(tag) => tag.code(),
-            Self::Source(src) => src.code(),
             Self::Command(cmd) => cmd.code(),
             Self::Param(param) => param.code(),
-            Self::Hostname(host) => host.code(),
         }
     }
 
-    pub fn is_builder_error(&self) -> bool {
-        matches!(self, Self::SourceNotSet { .. } | Self::MissingCommand)
+    pub(crate) fn missing_space(component: &'static str) -> Self {
+        Self::MissingSpace { component }
     }
 
-    pub fn is_parser_error(&self) -> bool {
-        matches!(self, Self::EmptyInput | Self::MissingSpace { .. })
+    pub(crate) fn empty_command() -> Self {
+        Self::Command(CommandError::Empty)
     }
 
-    pub fn is_validation_error(&self) -> bool {
-        matches!(
-            self,
-            Self::Tag(_) | Self::Source(_) | Self::Command(_) | Self::Param(_) | Self::Hostname(_)
-        )
+    pub(crate) fn invalid_first_char_command(c: char) -> Self {
+        Self::Command(CommandError::InvalidFirstChar { char: c })
+    }
+
+    pub(crate) fn wrong_digit_count_command(actual: usize) -> Self {
+        Self::Command(CommandError::WrongDigitCount { actual })
+    }
+
+    pub(crate) fn empty_middle_param() -> Self {
+        Self::Param(ParamError::EmptyMiddle)
+    }
+}
+
+#[derive(Clone, PartialEq, thiserror::Error)]
+pub enum SerError {
+    #[error("command is required")]
+    MissingCommand,
+    #[error("command already set")]
+    DuplicateCommand,
+
+    #[error(transparent)]
+    Tag(#[from] TagError),
+    #[error(transparent)]
+    Source(#[from] SourceError),
+    #[error(transparent)]
+    Param(#[from] ParamError),
+}
+
+impl Debug for SerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "IRC-SERIALIZER[{}]: {}", self.code(), self)
+    }
+}
+
+impl SerError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::MissingCommand | Self::DuplicateCommand => "COMMAND",
+            Self::Tag(tag) => tag.code(),
+            Self::Source(src) => src.code(),
+            Self::Param(param) => param.code(),
+        }
+    }
+
+    pub fn is_missing_command(&self) -> bool {
+        matches!(self, Self::MissingCommand)
+    }
+
+    pub fn is_duplicate_command(&self) -> bool {
+        matches!(self, Self::DuplicateCommand)
+    }
+
+    pub(crate) fn missing_nick() -> Self {
+        Self::Source(SourceError::MissingNick)
     }
 }
 
@@ -117,6 +145,10 @@ pub enum SourceError {
 impl SourceError {
     pub fn code(&self) -> &'static str {
         "SOURCE"
+    }
+
+    pub(crate) fn duplicate_component(component: &'static str) -> Self {
+        Self::DublicateComponent { component }
     }
 }
 
@@ -203,7 +235,7 @@ pub enum DeError {
 
 impl Debug for DeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "EXTRACT[{}]: {}", self.code(), self)
+        write!(f, "IRC-DESERIALIZER[{}]: {}", self.code(), self)
     }
 }
 

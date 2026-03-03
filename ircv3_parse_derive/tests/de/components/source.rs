@@ -1,3 +1,4 @@
+use ircv3_parse::{error::SourceError, SerError};
 use ircv3_parse_derive::{FromMessage, ToMessage};
 
 #[test]
@@ -316,7 +317,7 @@ fn name_default_trait_no_component() {
 
     // nickname cannot empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error())
+    assert_eq!(SerError::Source(SourceError::EmptyNick), err);
 }
 
 #[test]
@@ -353,7 +354,7 @@ fn user_default_trait_no_component() {
 
     // username cannot be empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error())
+    assert_eq!(SerError::Source(SourceError::EmptyUser), err);
 }
 
 #[test]
@@ -483,7 +484,7 @@ fn unnamed_name_default_trait() {
 
     // nickname cannto be empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error())
+    assert_eq!(SerError::Source(SourceError::EmptyNick), err);
 }
 
 #[test]
@@ -497,5 +498,5 @@ fn unnamed_user_default_trait() {
 
     // username cannot be empty
     let err = ircv3_parse::to_message(&msg).unwrap_err();
-    assert!(err.is_validation_error())
+    assert_eq!(SerError::Source(SourceError::EmptyUser), err);
 }

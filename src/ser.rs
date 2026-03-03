@@ -3,14 +3,14 @@ use bytes::{BufMut, Bytes, BytesMut};
 use crate::compat::{String, ToOwned, Vec};
 
 use crate::error::{ParamError, SourceError, TagError};
-use crate::{validators, Commands, IRCError};
+use crate::{validators, Commands, SerError};
 use crate::{AT, BANG, COLON, EQ, SEMICOLON, SPACE};
 
 /// Serialize the IRC message from custom data structure.
 pub trait ToMessage {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError>;
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), SerError>;
 
-    fn to_bytes(&self) -> Result<Bytes, IRCError> {
+    fn to_bytes(&self) -> Result<Bytes, SerError> {
         let mut serializer = IRCSerializer::new();
         self.to_message(&mut serializer)?;
         Ok(serializer.into_bytes())
@@ -22,8 +22,8 @@ pub trait MessageSerializer {
     fn source(&mut self) -> &mut IRCSourceSerializer;
     fn set_command(&mut self, command: Commands);
     fn params(&mut self) -> &mut IRCParamsSerializer;
-    fn set_trailing(&mut self, value: &str) -> Result<(), IRCError>;
-    fn end(&mut self) -> Result<(), IRCError>;
+    fn set_trailing(&mut self, value: &str) -> Result<(), SerError>;
+    fn end(&mut self) -> Result<(), SerError>;
 }
 
 pub struct IRCSerializer {
@@ -124,7 +124,7 @@ impl MessageSerializer for IRCSerializer {
         &mut self.params
     }
 
-    fn set_trailing(&mut self, value: &str) -> Result<(), IRCError> {
+    fn set_trailing(&mut self, value: &str) -> Result<(), SerError> {
         validators::trailing(value)?;
         match &mut self.trailing {
             Some(t) => t.push_str(value),
@@ -133,9 +133,9 @@ impl MessageSerializer for IRCSerializer {
         Ok(())
     }
 
-    fn end(&mut self) -> Result<(), IRCError> {
+    fn end(&mut self) -> Result<(), SerError> {
         if self.command.is_none() {
-            return Err(IRCError::MissingCommand);
+            return Err(SerError::MissingCommand);
         }
 
         self.source.validate()?;
@@ -271,7 +271,7 @@ impl IRCTagsSerializer {
 }
 
 impl ToMessage for IRCTagsSerializer {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), SerError> {
         if self.is_empty() {
             return Ok(());
         }
@@ -302,7 +302,7 @@ pub struct IRCSourceSerializer {
 impl IRCSourceSerializer {
     pub fn set_name(&mut self, name: &str) -> Result<(), SourceError> {
         if self.name.is_some() {
-            return Err(SourceError::DublicateComponent { component: "name" });
+            return Err(SourceError::duplicate_component("name"));
         }
 
         if validators::host(name).is_err() {
@@ -315,7 +315,7 @@ impl IRCSourceSerializer {
 
     pub fn set_user(&mut self, user: &str) -> Result<(), SourceError> {
         if self.user.is_some() {
-            return Err(SourceError::DublicateComponent { component: "user" });
+            return Err(SourceError::duplicate_component("user"));
         }
 
         validators::user(user)?;
@@ -326,7 +326,7 @@ impl IRCSourceSerializer {
 
     pub fn set_host(&mut self, host: &str) -> Result<(), SourceError> {
         if self.host.is_some() {
-            return Err(SourceError::DublicateComponent { component: "host" });
+            return Err(SourceError::duplicate_component("host"));
         }
 
         validators::host(host)?;
@@ -366,7 +366,7 @@ impl IRCSourceSerializer {
 }
 
 impl ToMessage for IRCSourceSerializer {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), SerError> {
         self.validate()?;
 
         let source = serialize.source();
@@ -374,7 +374,7 @@ impl ToMessage for IRCSourceSerializer {
         if let Some(name) = &self.name {
             source.set_name(name)?;
         } else {
-            return Err(IRCError::Source(SourceError::MissingNick));
+            return Err(SerError::missing_nick());
         }
 
         if let Some(user) = &self.user {
@@ -428,7 +428,7 @@ impl IRCParamsSerializer {
 }
 
 impl ToMessage for IRCParamsSerializer {
-    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), IRCError> {
+    fn to_message<S: MessageSerializer>(&self, serialize: &mut S) -> Result<(), SerError> {
         let params = serialize.params();
         params.extend(&self.params)?;
         Ok(())
@@ -449,7 +449,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("field", Some(&self.field))?;
 
@@ -467,7 +467,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.tags.to_message(serialize)?;
 
                 serialize.set_command(Commands::PRIVMSG);
@@ -502,7 +502,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("field1", Some("value"))?;
 
@@ -516,7 +516,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("field2", Some("value"))?;
 
@@ -533,7 +533,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.tag1.to_message(serialize)?;
                 self.tag2.to_message(serialize)?;
 
@@ -559,7 +559,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let _tags = serialize.tags();
 
                 Ok(())
@@ -574,7 +574,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.tags.to_message(serialize)?;
                 serialize.set_command(Commands::PRIVMSG);
                 Ok(())
@@ -595,10 +595,10 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let source = serialize.source();
                 source.set_name("nick")?;
-                source.set_user("user").map_err(crate::IRCError::from)
+                source.set_user("user").map_err(crate::SerError::from)
             }
         }
 
@@ -610,7 +610,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.source.to_message(serialize)?;
                 serialize.set_command(Commands::PRIVMSG);
                 Ok(())
@@ -630,7 +630,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("field", Some("value1"))?;
 
@@ -644,7 +644,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("field2", Some("value2"))?;
 
@@ -661,7 +661,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.tags1.to_message(serialize)?;
                 self.tags2.to_message(serialize)?;
                 Ok(())
@@ -687,7 +687,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
@@ -703,7 +703,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let params = serialize.params();
 
                 params.push(self.param.as_ref())?;
@@ -719,7 +719,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let params = serialize.params();
 
                 let param_refs: Vec<&str> = self.param.iter().map(|p| p.as_ref()).collect();
@@ -739,7 +739,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.param1.to_message(serialize)?;
                 self.param2.to_message(serialize)?;
                 self.param3.to_message(serialize)?;
@@ -773,7 +773,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 serialize.set_trailing(self.message.as_ref())
             }
         }
@@ -787,7 +787,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 self.message1.to_message(serialize)?;
                 self.message2.to_message(serialize)
             }
@@ -814,7 +814,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("key", Some("old"))?;
                 tags.insert_tag("key", Some("new"))?;
@@ -834,7 +834,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_flag("key")?;
                 tags.insert_tag("key", Some("value"))?;
@@ -854,7 +854,7 @@ mod tests {
             fn to_message<S: super::MessageSerializer>(
                 &self,
                 serialize: &mut S,
-            ) -> Result<(), crate::IRCError> {
+            ) -> Result<(), crate::SerError> {
                 let tags = serialize.tags();
                 tags.insert_tag("a", Some("1"))?;
                 tags.insert_tag("b", Some("2"))?;

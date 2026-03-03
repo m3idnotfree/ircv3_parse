@@ -69,7 +69,7 @@ impl<'a> FieldStruct<'a> {
                 fn to_message<S: ircv3_parse::ser::MessageSerializer>(
                     &self,
                     serialize: &mut S
-                ) -> Result<(), ircv3_parse::IRCError> {
+                ) -> Result<(), ircv3_parse::SerError> {
                     #command_expand
                     #(#impl_body)*
                     #crlf_expand

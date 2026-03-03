@@ -231,7 +231,7 @@
 //!     fn to_message<S: ircv3_parse::ser::MessageSerializer>(
 //!         &self,
 //!         serialize: &mut S,
-//!     ) -> Result<(), ircv3_parse::IRCError> {
+//!     ) -> Result<(), ircv3_parse::SerError> {
 //!         use ircv3_parse::Commands;
 //!
 //!         let tags = serialize.tags();
@@ -343,7 +343,7 @@
 //!
 //! ### ToMessage
 //!
-//! Returns [`IRCError`] for serialization failures.
+//! Returns [`SerError`] for serialization failures.
 //!
 //! ## Feature Flags
 //!
@@ -407,7 +407,7 @@ mod unescape;
 
 pub use builder::MessageBuilder;
 pub use components::Commands;
-pub use error::{DeError, IRCError};
+pub use error::{DeError, IRCError, SerError};
 pub use message::Message;
 pub use unescape::unescape;
 
@@ -487,7 +487,7 @@ pub fn from_str<'a, T: crate::de::FromMessage<'a>>(s: &'a str) -> Result<T, DeEr
 ///
 /// # Errors
 ///
-/// Returns [`IRCError`]
-pub fn to_message<T: crate::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, IRCError> {
+/// Returns [`SerError`]
+pub fn to_message<T: crate::ser::ToMessage>(t: &T) -> Result<bytes::Bytes, SerError> {
     t.to_bytes()
 }

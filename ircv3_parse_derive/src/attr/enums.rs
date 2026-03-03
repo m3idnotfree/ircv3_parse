@@ -152,7 +152,7 @@ impl EnumAttrs {
 
         let rename = rename.unwrap_or(match kind {
             EnumKind::Command => Rename::Uppercase,
-            _ => Rename::Lowercase,
+            _ => Rename::KebabCase,
         });
 
         Ok(Self {

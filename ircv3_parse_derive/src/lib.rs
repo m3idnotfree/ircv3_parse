@@ -80,7 +80,7 @@ use syn::{parse_macro_input, DeriveInput, Error};
 /// - `#[irc(rename = "lowercase|UPPERCASE|kebab-case")]` - controls how
 ///   variant names are converted to match strings.
 ///
-/// **Note**: The default is `lowercase` for all components except `command`, which defaults to `UPPERCASE`.
+/// **Note**: The default is `kebab-case` for all components except `command`, which defaults to `UPPERCASE`.
 ///
 /// `rename` is not allowed on `command` enums. Use `#[irc(value = "...")]` on
 /// individual variants instead.

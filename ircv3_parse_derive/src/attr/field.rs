@@ -286,7 +286,8 @@ impl FieldKind {
             let key = if meta.input.peek(Eq) {
                 parse_lit_str(meta, TAG)?
             } else if let Some(name) = field_name {
-                LitStr::new(&name.to_string(), name.span())
+                use heck::ToKebabCase;
+                LitStr::new(&name.to_string().to_kebab_case(), name.span())
             } else {
                 return Err(meta.error(error_msg::required_value(TAG)));
             };
@@ -298,7 +299,8 @@ impl FieldKind {
             let key = if meta.input.peek(Eq) {
                 parse_lit_str(meta, TAG_FLAG)?
             } else if let Some(name) = field_name {
-                LitStr::new(&name.to_string(), name.span())
+                use heck::ToKebabCase;
+                LitStr::new(&name.to_string().to_kebab_case(), name.span())
             } else {
                 return Err(meta.error(error_msg::required_value(TAG_FLAG)));
             };

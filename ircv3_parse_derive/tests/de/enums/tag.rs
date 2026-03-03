@@ -26,12 +26,12 @@ fn basic() {
     let output = ircv3_parse::to_message(&msg).unwrap();
     assert_eq!("@color=blue ", output);
 
-    let msg: Color = ircv3_parse::from_str("@color=darkgreen PRIVMSG").unwrap();
+    let msg: Color = ircv3_parse::from_str("@color=dark-green PRIVMSG").unwrap();
     assert_eq!(Color::DarkGreen, msg);
     let output = ircv3_parse::to_message(&msg).unwrap();
-    assert_eq!("@color=darkgreen ", output);
+    assert_eq!("@color=dark-green ", output);
 
-    let err = ircv3_parse::from_str::<Color>("@color=dark-green PRIVMSG").unwrap_err();
+    let err = ircv3_parse::from_str::<Color>("@color=darkgreen PRIVMSG").unwrap_err();
     assert!(err.is_not_found_tag());
 
     let err = ircv3_parse::from_str::<Color>("@color=purple PRIVMSG").unwrap_err();

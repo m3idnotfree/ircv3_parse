@@ -464,7 +464,7 @@ fn skip() {
         msg_id: String,
     }
 
-    let input = "@msg_id=456 PRIVMSG #channel :hello";
+    let input = "@msg-id=456 PRIVMSG #channel :hello";
     let msg: Tag = ircv3_parse::from_str(input).unwrap();
     assert_eq!("456", msg.msg_id);
 

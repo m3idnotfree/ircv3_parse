@@ -8,13 +8,11 @@
 
 A **zero-copy** IRC message parser with **IRCv3** support
 
-[Documentation](https://docs.rs/ircv3_parse)
-
 ## Features
 
 - Zero-copy parsing for performance
 - IRCv3 message tags support
-- **Derive macros** (`FromMessage`, `ToMessage`) for easy message extraction and generation
+- [**Derive macros**](ircv3_parse_derive/README.md) (`FromMessage`, `ToMessage`) for easy message extraction and generation
 - `no_std` compatible (with `alloc`)
 
 ## Quick Start
@@ -85,6 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+For all available attributes and options, see the **[Derive Macro Reference](ircv3_parse_derive/README.md)**.
 
 ## Feature Flags
 

@@ -60,51 +60,10 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! ## FromMessage Derive Attributes
+//! ## Derive Attributes
 //!
-//! The `FromMessage` derive macro supports both `&str` and `String` field types.
-//!
-//! ### Struct-Level Attributes
-//!
-//! - `#[irc(command = "COMMAND")]` - Validates that the command matches (case-insensitive)
-//!
-//! ### Field-Level Attributes
-//!
-//! #### Tag
-//!
-//! - `#[irc(tag)]` - Extract tag value using field name as key
-//! - `#[irc(tag = "key")]` - Extract tag value with custom key
-//!
-//! #### Tag Flag
-//!
-//! - `#[irc(tag_flag)]` - Extract tag flag using field name as key (returns `bool`)
-//! - `#[irc(tag_flag = "key")]` - Extract tag flag with custom key (returns `bool`)
-//!
-//! #### Source
-//!
-//! - `#[irc(source)]` - Extract source `name` component
-//! - `#[irc(source = "component")]` - Extract source component (`name`, `user`, or `host`)
-//!
-//! #### Parameter
-//!
-//! - `#[irc(param)]` - Extract first parameter (index 0)
-//! - `#[irc(param = N)]` - Extract parameter at index N
-//! - `#[irc(params)]` - Extract all parameters into a `Vec`
-//!
-//! #### Trailing Parameter
-//!
-//! - `#[irc(trailing)]` - Extract trailing parameter
-//!
-//! #### Command
-//!
-//! - `#[irc(command)]` - Extract command value
-//! - `#[irc(command = "COMMAND")]` - Extract and validate command matches "COMMAND"
-//!     - If field-level `command` is set, struct-level `command` is ignored
-//!     - If multiple `command` attributes exist, the last one is used
-//!
-//! #### Custom Extraction
-//!
-//! - `#[irc(with = "function")]` - Use custom extraction function
+//! See the **[Derive Macro Reference](https://docs.rs/ircv3_parse_derive)** for the full
+//! attribute reference.
 //!
 //! ## Manual [`FromMessage`](de::FromMessage) Implementation
 //!
@@ -165,53 +124,6 @@
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-//!
-//! ## ToMessage Derive Attributes
-//!
-//! The `ToMessage` derive macro supports both `&str` and `String` field types.
-//!
-//! ### Struct-Level Attributes
-//!
-//! - `#[irc(command = "COMMAND")]` - Sets the default command for this message type
-//! - `#[irc(crlf)]` - Explicitly appends `\r\n` at the end of the message
-//!
-//! ### Field-Level Attributes
-//!
-//! #### Tag
-//!
-//! - `#[irc(tag)]` - Serializes field as tag using the field name as key
-//! - `#[irc(tag = "key")]` - Serializes field as tag with custom key
-//!
-//! #### Tag Flag
-//!
-//! - `#[irc(tag_flag)]` - Serializes boolean field as tag flag using field name as key
-//! - `#[irc(tag_flag = "key")]` - Serializes boolean field as tag flag with custom key
-//!
-//! #### Source
-//!
-//! - `#[irc(source)]` - Serializes field as source name component (`source = "name"`)
-//! - `#[irc(source = "name|user|host")]` - Serializes field as source component
-//!     - **Note**: `name` is **required** when using `user` or `host`
-//!
-//! #### Parameter
-//!
-//! - `#[irc(param)]` - Serializes field as a middle parameter
-//! - `#[irc(params)]` - Serializes field as multiple middle parameters
-//! - `#[irc(param = N)]` - Serializes field as a middle parameter
-//!     - **Note**: The index `N` is ignored during serialization
-//!     - `FromMessage` uses the index to extract the Nth parameter
-//!     - `ToMessage` always serializes fields in declaration order
-//!
-//! #### Trailing Parameter
-//!
-//! - `#[irc(trailing)]` - Serializes field as the trailing parameter
-//!
-//! #### Command
-//!
-//! - `#[irc(command)]` - Serializes field as the IRC command
-//! - `#[irc(command = "COMMAND")]` - Uses the specified command string
-//!   - If field-level `command` is set, struct-level `command` is ignored
-//!   - If multiple `command` attributes exist, the last one takes precedence
 //!
 //! ## Manual [`ToMessage`](ser::ToMessage) Implementation
 //!

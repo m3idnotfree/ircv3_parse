@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Zero-copy parser for IRCv3 messages"
 documentation = "https://docs.rs/ircv3_parse"
 readme = "README.md"
-repository = "https://github.com/m3idnotfree/ircv3_parse.git"
+repository = "https://github.com/m3idnotfree/ircv3_parse"
 license.workspace = true
 keywords = ["chat", "irc", "ircv3", "parser", "twitch"]
 categories = ["network-programming", "parser-implementations"]
@@ -21,14 +21,14 @@ resolver = "2"
 members = [".", "ircv3_parse_derive"]
 
 [workspace.package]
-version = "3.2.0"
+version = "4.0.0"
 authors = ["m3id"]
 edition = "2021"
 rust-version = "1.78"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=3.2.0" }
+ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=4.0.0" }
 
 [dependencies]
 bytes = { version = "1.11.1", default-features = false }

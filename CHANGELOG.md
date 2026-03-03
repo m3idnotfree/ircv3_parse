@@ -1,9 +1,66 @@
-## [unreleased]
+## [4.0.0](https://github.com/m3idnotfree/ircv3_parse/compare/v3.2.0..v4.0.0) - 2026-03-03
+
+### Features
+
+- **(derive)** support tuple structs in FromMessage ([2340d17](https://github.com/m3idnotfree/ircv3_parse/commit/2340d172d4b8623f285e9885cd3957f0182c48d7))
+- **(derive)** support fields without IRC attributes in FromMessage ([9017f7f](https://github.com/m3idnotfree/ircv3_parse/commit/9017f7ff54339933cba432c277efd979abc6dc69))
+- **(derive)** support nested types ([8c2129b](https://github.com/m3idnotfree/ircv3_parse/commit/8c2129b4e9ec26f0dfacd7c820a5ddebeae2f0ea))
+- **(derive)** support unit struct in FromMessage ([a80d12f](https://github.com/m3idnotfree/ircv3_parse/commit/a80d12f8be380b2d5f74f68e1388a1a5e8c9ca9d))
+- **(derive)** support default attribute in FromMessage ([56003d0](https://github.com/m3idnotfree/ircv3_parse/commit/56003d0769c9fa28f3187dcc889b30a895471678))
+- **(derive)** support enum in FromMessage ([edd7084](https://github.com/m3idnotfree/ircv3_parse/commit/edd708463ea56ab9fd584902cde03c816843b9e7))
+- **(ser)** overwrite tag on duplicate key ([5d8bac3](https://github.com/m3idnotfree/ircv3_parse/commit/5d8bac3ceb3378830b9daf93c43b5e690549ed6c))
+- **(ser)** add insert_tag_if_some ([a50e540](https://github.com/m3idnotfree/ircv3_parse/commit/a50e5406db3dc2a4f55a26d35be6c0a24609723b))
+- **(derive)** support unnamed structs in ToMessage ([503d965](https://github.com/m3idnotfree/ircv3_parse/commit/503d965b9bb42621047c982e271ca2b8ffe56de9))
+- **(derive)** [**breaking**] unit struct strict value matching ([6a181b5](https://github.com/m3idnotfree/ircv3_parse/commit/6a181b564112a0622b316cacb47e319905426fdb))
+- **(derive)** support unit struct in ToMessage ([868f1dc](https://github.com/m3idnotfree/ircv3_parse/commit/868f1dc5eb49efa42abee1f21f41f33f4bc276b3))
+- **(derive)** support str, String, Option, and nested in params serialization ([2d8862f](https://github.com/m3idnotfree/ircv3_parse/commit/2d8862f4d01b2f5cd4b2cb72a937ad8f024207fd))
+- **(derive)** support enums in ToMessage ([3059641](https://github.com/m3idnotfree/ircv3_parse/commit/30596419722e46671c242cf7a242139ac0aae202))
+- **(derive)** suport skip, skip_none in ToMessage ([bc3d69f](https://github.com/m3idnotfree/ircv3_parse/commit/bc3d69f73829ea735c8244abf625fcd6f442f8f1))
+- **(error)** [**breaking**] restrict IRCError to parse errors and add SerError ([fbfbd2a](https://github.com/m3idnotfree/ircv3_parse/commit/fbfbd2af5dfec74cadd2c97ee57ee0fe4d9647cf))
+- **(derive)** use enum name as default key for tag and tag_flag ([39e8db3](https://github.com/m3idnotfree/ircv3_parse/commit/39e8db30cab6c2a5a93989b2e3e224147448fe95))
+
+### Refactoring
+
+- **(error)** [**breaking**] simplify DeError variants and improve error messages ([a0b4ab2](https://github.com/m3idnotfree/ircv3_parse/commit/a0b4ab205688d7e4ddbe2dd11583cf12c8b129cb))
+- **(derive)** [**breaking**] restructure attribute parsing using IR pattern ([e5228d6](https://github.com/m3idnotfree/ircv3_parse/commit/e5228d6540e94bcd5055178b60ea5f41395b45a3))
+- **(attr)** extract parse_lit_str helper to remove duplicate LitStr parsing ([f477e96](https://github.com/m3idnotfree/ircv3_parse/commit/f477e96efdcde48a8b45420e80ad730de831acc2))
+- **(ser)** [**breaking**] move source name from source() to SerializeSource::name() ([7dd65b7](https://github.com/m3idnotfree/ircv3_parse/commit/7dd65b7bce0e1b8e7328533c51e175342c851515))
+- **(builder)** [**breaking**] move command from new() to MessageBuilder::set_command() ([73d70c6](https://github.com/m3idnotfree/ircv3_parse/commit/73d70c69c0b7b11320b387452aeb7f8ad7e9ef9e))
+- **(ser)** [**breaking**] change tag serialization from streaming to collecting ([d34bdca](https://github.com/m3idnotfree/ircv3_parse/commit/d34bdcaf453703a3ef886d0b801da0a5392a04f5))
+- **(ser)** [**breaking**] change source serialization from streaming to collecting ([5ba0164](https://github.com/m3idnotfree/ircv3_parse/commit/5ba01649bd2362efa29350c9d8b11ab508a7eb43))
+- **(ser)** [**breaking**] change params serialization from streaming to collecting ([527c102](https://github.com/m3idnotfree/ircv3_parse/commit/527c102c4a7b36f14b27027cd94387719a9993cd))
+- **(ser)** [**breaking**] include space in tag,source components ([cc89b35](https://github.com/m3idnotfree/ircv3_parse/commit/cc89b35242528a31043ead37a6a2a1ffa0b131da))
+- **(ser)** [**breaking**] change command,trailing serialization from streaming to collecting ([523a130](https://github.com/m3idnotfree/ircv3_parse/commit/523a1304d03b8a9591ce47ae21ee162c873d6dc9))
+- **(size_tracker)** remove validation ([b3451d0](https://github.com/m3idnotfree/ircv3_parse/commit/b3451d09cc4b9df5ae16c98e61e601076c58e8d4))
+- **(builder)** share IRCTagsSerializer with MessageBuilder ([a4de077](https://github.com/m3idnotfree/ircv3_parse/commit/a4de0770c16b838f103fb344cb77d62ce89df297))
+- **(builder)** share IRCSourceSerializer with MessageBuilder ([c36c6c6](https://github.com/m3idnotfree/ircv3_parse/commit/c36c6c67e297916e5ee04722481fd865adc057b1))
+- **(builder)** share IRCParamsSerializer with MessageBuilder ([affe759](https://github.com/m3idnotfree/ircv3_parse/commit/affe75956aa9c21229bde45e2090910b10f367c3))
+- **(builder)** own trailing, remove Components lifetime ([b5ac871](https://github.com/m3idnotfree/ircv3_parse/commit/b5ac871765b15383287edb861a1bcc010ea59e12))
+- **(builder)** own command, remove MessageBuilder lifetime ([0d4825b](https://github.com/m3idnotfree/ircv3_parse/commit/0d4825bcf5a70983fd4e277827e1d6fcb4def81f))
+- **(builder)** accept IntoIterator in add_tags, add_tag_flags ([7de0700](https://github.com/m3idnotfree/ircv3_parse/commit/7de0700cf2672aadb0593389af2a9753b9ca5632))
+- **(builder)** flatten Components into MessageBuilder ([a9c24f8](https://github.com/m3idnotfree/ircv3_parse/commit/a9c24f8738bb49b79a9334864bd417578ff50f6a))
+- **(ser)** [**breaking**] remove associated types, Sealed traits from MessageSerializer ([60d90c2](https://github.com/m3idnotfree/ircv3_parse/commit/60d90c2149eca9b3253efca6c5b6e73387dd7a3e))
+- **(derive)** merge Struct::Unnamed and Named into Fields ([f7a0d41](https://github.com/m3idnotfree/ircv3_parse/commit/f7a0d419c9c2bd0b8fee8a1dd3f1888fcd021f92))
+- **(derive)** split attr and expand into submodules ([4db8a5c](https://github.com/m3idnotfree/ircv3_parse/commit/4db8a5c344dc2eddc3f39e289449d9375cc8dcac))
+- **(derive)** [**breaking**] change default rename from lowercase to kebab-case ([4ef2aa1](https://github.com/m3idnotfree/ircv3_parse/commit/4ef2aa1f166626c4d6e9f390eaa13dd385ccbe16))
+- **(derive)** rename attribute `rename` to `rename_all` ([9060314](https://github.com/m3idnotfree/ircv3_parse/commit/9060314f82962a5b6d1e267de718e56a9bc5040a))
+- [**breaking**] remove legacy bulider ([576b5b8](https://github.com/m3idnotfree/ircv3_parse/commit/576b5b830d7576384b9276959593a37735355d27))
+- [**breaking**] reorganize builder, de, ser to crate root ([82b14d3](https://github.com/m3idnotfree/ircv3_parse/commit/82b14d3947d67a598f24d8fac95f6a9cc4a803ff))
+
+### Documentation
+
+- improve derive documentation ([1737b73](https://github.com/m3idnotfree/ircv3_parse/commit/1737b7365184a3eb247fd5f247b255d71d044bbd))
+
+### Tests
+
+- **(derive)** reorganize ui fail tests ([86b9fbe](https://github.com/m3idnotfree/ircv3_parse/commit/86b9fbe956ed2bfa4656bfb0a390a7bbf87d7f61))
+- reorganize test into de/ser structure with clear naming ([55b9bed](https://github.com/m3idnotfree/ircv3_parse/commit/55b9bed2612ab65aa3d98c6193a3863f02b3b340))
 
 ### Miscellaneous
 
 - **(msrv)** remove tests because proptest@1.9.0 requires rustc 1.82 ([8be02a1](https://github.com/m3idnotfree/ircv3_parse/commit/8be02a1b46ac687a9540ed0d7417d2e13fb47dc4))
-- add CHANGELOG.md and cliff.toml ([9670339](https://github.com/m3idnotfree/ircv3_parse/commit/9670339c9f2fae62a9ee9d6a22e6dd24bb300721))
+- add CHANGELOG.md and cliff.toml ([cf12129](https://github.com/m3idnotfree/ircv3_parse/commit/cf12129961285a6ceb1c4598c625ef2a64cb03b6))
+- update dependencies ([7005485](https://github.com/m3idnotfree/ircv3_parse/commit/7005485d460092844ba9d9837ead5b576bc27bda))
 
 ## [3.2.0](https://github.com/m3idnotfree/ircv3_parse/compare/v3.1.1..v3.2.0) - 2026-01-12
 

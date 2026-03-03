@@ -1,7 +1,0 @@
-error[E0599]: no function or associated item named `from_message` found for type `u16` in the current scope
- --> tests/ui/de/fail/type_mismatch.rs:3:10
-  |
-3 | #[derive(FromMessage)]
-  |          ^^^^^^^^^^^ function or associated item not found in `u16`
-  |
-  = note: this error originates in the derive macro `FromMessage` (in Nightly builds, run with -Z macro-backtrace for more info)

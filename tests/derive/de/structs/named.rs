@@ -1,0 +1,239 @@
+#![allow(unused)]
+#[allow(unused_imports)]
+use ircv3_parse::de::FromMessage as _;
+use ircv3_parse::{FromMessage, ToMessage};
+
+#[test]
+fn privmsg() {
+    #[derive(FromMessage, ToMessage)]
+    #[irc(command = "PRIVMSG")]
+    struct PrivMsg<'a> {
+        #[irc(source = "name")]
+        nick: &'a str,
+        #[irc(param = 0)]
+        channel: &'a str,
+        #[irc(trailing)]
+        message: &'a str,
+    }
+
+    let input = ":nick!user@host PRIVMSG #channel :Hello";
+    let msg: PrivMsg = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("nick", msg.nick);
+    assert_eq!("#channel", msg.channel);
+    assert_eq!("Hello", msg.message);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick PRIVMSG #channel :Hello", output);
+}
+
+#[test]
+fn with_tags() {
+    #[derive(FromMessage, ToMessage)]
+    struct Tag<'a> {
+        #[irc(tag = "msgid")]
+        msg_id: Option<String>,
+        #[irc(tag_flag = "m-1")]
+        m_1: bool,
+        #[irc(trailing)]
+        content: &'a str,
+    }
+
+    let input = "@msgid=123;m-1 :nick!user@host PRIVMSG #channel :Hello";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Some("123".to_string()), msg.msg_id);
+    assert!(msg.m_1);
+    assert_eq!("Hello", msg.content);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@msgid=123;m-1  :Hello", output);
+}
+
+#[test]
+fn with_function() {
+    fn parse_num(s: Option<&str>) -> u32 {
+        s.and_then(|x| x.parse().ok()).unwrap_or(0)
+    }
+
+    #[derive(FromMessage, ToMessage)]
+    struct WithNum {
+        #[irc(param = 0, with = "parse_num")]
+        count: u32,
+    }
+
+    let input = "TEST 42";
+    let msg: WithNum = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(42, msg.count);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" 42", output);
+}
+
+#[test]
+fn multiple_params() {
+    #[derive(FromMessage, ToMessage)]
+    struct Params<'a> {
+        #[irc(param = 0)]
+        first: &'a str,
+        #[irc(param = 1)]
+        second: &'a str,
+        #[irc(param = 2)]
+        third: &'a str,
+    }
+
+    let input = "CMD arg1 arg2 arg3";
+    let msg: Params = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("arg1", msg.first);
+    assert_eq!("arg2", msg.second);
+    assert_eq!("arg3", msg.third);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" arg1 arg2 arg3", output);
+}
+
+#[test]
+fn command_check() {
+    #[allow(unused)]
+    #[derive(FromMessage)]
+    #[irc(command = "PRIVMSG")]
+    struct CommandCheck<'a> {
+        #[irc(trailing)]
+        content: &'a str,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    assert!(ircv3_parse::from_str::<CommandCheck>(input).is_ok());
+
+    let input = "NOTICE #channel :hello";
+    assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
+}
+
+#[test]
+fn command_check_with_extraction() {
+    #[allow(unused)]
+    #[derive(FromMessage, ToMessage)]
+    #[irc(command = "PRIVMSG")]
+    struct CommandCheck<'a> {
+        #[irc(command)]
+        comand: &'a str,
+    }
+
+    let input = "PRIVMSG #channel :hello";
+    let result = ircv3_parse::from_str::<CommandCheck>(input).unwrap();
+    assert_eq!("PRIVMSG", result.comand);
+
+    let output = ircv3_parse::to_message(&result).unwrap();
+    assert_eq!("PRIVMSG", output);
+
+    let input = "NOTICE #channel :hello";
+    assert!(ircv3_parse::from_str::<CommandCheck>(input).is_err());
+}
+
+#[test]
+fn command_string() {
+    #[derive(FromMessage, ToMessage)]
+    struct Command {
+        #[irc(command)]
+        command: String,
+    }
+
+    let input = "PRIVMSG";
+    let msg: Command = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("PRIVMSG", msg.command);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
+}
+
+#[test]
+fn command_commands() {
+    use ircv3_parse::Commands;
+    #[derive(FromMessage, ToMessage)]
+    struct Command<'a> {
+        #[irc(command)]
+        command: Commands<'a>,
+    }
+
+    let input = "PRIVMSG";
+    let msg: Command = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(Commands::PRIVMSG, msg.command);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("PRIVMSG", output);
+}
+
+#[test]
+fn tag_empty_attribute_value() {
+    #[derive(FromMessage, ToMessage)]
+    struct Tag {
+        #[irc(tag)]
+        msgid: String,
+        #[irc(tag_flag)]
+        field: bool,
+        #[irc(tag_flag)]
+        field2: bool,
+    }
+
+    let input = "@msgid=1;field2 PRIVMSG #channel :hi";
+    let msg: Tag = ircv3_parse::from_str(input).unwrap();
+
+    assert_eq!("1", msg.msgid);
+    assert!(!msg.field);
+    assert!(msg.field2);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@msgid=1;field2 ", output);
+}
+
+#[test]
+fn source_empty_attribute_value_return_name() {
+    #[derive(FromMessage, ToMessage)]
+    struct Source {
+        #[irc(source)]
+        yfs: String,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel :hi";
+    let msg: Source = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("nick", msg.yfs);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(":nick ", output);
+}
+
+#[test]
+fn param_empty_attribute_value_return_first() {
+    #[derive(FromMessage, ToMessage)]
+    struct Param {
+        #[irc(param)]
+        param: String,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel param2 :hi";
+    let msg: Param = ircv3_parse::from_str(input).unwrap();
+    assert_eq!("#channel", msg.param);
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!(" #channel", output);
+}
+
+#[test]
+fn nested_attribute() {
+    #[derive(Debug, PartialEq, FromMessage, ToMessage)]
+    struct MsgId(#[irc(tag = "msgid")] String);
+
+    #[derive(Debug, FromMessage, ToMessage)]
+    struct Message {
+        #[irc(source)]
+        nick: String,
+        msg_id: MsgId,
+    }
+
+    let input = "@msgid=1;field2 :nick!user@example.com PRIVMSG #channel param2 :hi";
+    let msg: Message = ircv3_parse::from_str(input).unwrap();
+    assert_eq!(msg.nick, "nick");
+    assert_eq!(msg.msg_id, MsgId("1".to_string()));
+
+    let output = ircv3_parse::to_message(&msg).unwrap();
+    assert_eq!("@msgid=1 :nick ", output);
+}

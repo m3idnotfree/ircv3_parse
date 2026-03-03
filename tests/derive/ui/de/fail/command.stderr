@@ -1,0 +1,25 @@
+error: field-level `#[irc(command)]` cannot have a value (use struct-level `#[irc(command = "CMD")]` for validation instead)
+ --> tests/derive/ui/de/fail/command.rs:5:11
+  |
+5 |     #[irc(command = "PRIVMSG")]
+  |           ^^^^^^^
+
+error: command field cannot be Option<&str> or Option<String> (use &str or String instead)
+  --> tests/derive/ui/de/fail/command.rs:11:5
+   |
+11 | /     #[irc(command)]
+12 | |     cmd: Option<String>,
+   | |_______________________^
+
+error: command field cannot be Option<&str> or Option<String> (use &str or String instead)
+  --> tests/derive/ui/de/fail/command.rs:17:5
+   |
+17 | /     #[irc(command)]
+18 | |     cmd: Option<&'a str>,
+   | |________________________^
+
+error: `rename` is not allowed with `command` (commands are always matched as uppercase)
+  --> tests/derive/ui/de/fail/command.rs:22:16
+   |
+22 | #[irc(command, rename_all = "lowercase")]
+   |                ^^^^^^^^^^

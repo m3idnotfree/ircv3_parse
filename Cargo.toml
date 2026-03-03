@@ -30,6 +30,16 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 ircv3_parse_derive = { path = "ircv3_parse_derive", version = "=4.0.0" }
 
+[[test]]
+name = "serde"
+path = "tests/serde.rs"
+required-features = ["serde"]
+
+[[test]]
+name = "derive"
+path = "tests/derive_tests.rs"
+required-features = ["derive"]
+
 [dependencies]
 bytes = { version = "1.11.1", default-features = false }
 ircv3_parse_derive = { workspace = true, optional = true }
@@ -40,6 +50,7 @@ thiserror = { version = "2.0.18", default-features = false }
 [dev-dependencies]
 proptest = "1.10.0"
 serde_json = "1.0.149"
+trybuild = "1.0.116"
 
 [features]
 default = ["std"]

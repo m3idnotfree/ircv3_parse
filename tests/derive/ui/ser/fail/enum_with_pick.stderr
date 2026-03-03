@@ -1,0 +1,35 @@
+error: `pick` is not needed when there is only one `#[irc(value)]`
+ --> tests/derive/ui/ser/fail/enum_with_pick.rs:6:28
+  |
+6 |     #[irc(value = "hello", pick)]
+  |                            ^^^^
+
+error: `pick` is not needed when there is only one `#[irc(value)]`
+ --> tests/derive/ui/ser/fail/enum_with_pick.rs:8:26
+  |
+8 |     #[irc(value = "bye", pick)]
+  |                          ^^^^
+
+error: duplicate `pick`
+  --> tests/derive/ui/ser/fail/enum_with_pick.rs:16:25
+   |
+16 |     #[irc(value = "hi", pick)]
+   |                         ^^^^
+
+error: first `pick` defined here
+  --> tests/derive/ui/ser/fail/enum_with_pick.rs:15:28
+   |
+15 |     #[irc(value = "hello", pick)]
+   |                            ^^^^
+
+error: variant with multiple `#[irc(value)]` attributes requires exactly one `#[irc(value = "...", pick)]`
+  --> tests/derive/ui/ser/fail/enum_with_pick.rs:25:5
+   |
+25 |     Hello,
+   |     ^^^^^
+
+error: `pick` is not needed when there is only one `#[irc(value)]`
+  --> tests/derive/ui/ser/fail/enum_with_pick.rs:31:28
+   |
+31 |     #[irc(value = "hello", pick)]
+   |                            ^^^^

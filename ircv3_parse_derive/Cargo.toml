@@ -18,7 +18,3 @@ heck = "0.5.0"
 proc-macro2 = "1.0.106"
 quote = "1.0.44"
 syn = "2.0.117"
-
-[dev-dependencies]
-ircv3_parse = { path = "../", version = "^4" }
-trybuild = "1.0.116"

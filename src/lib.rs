@@ -269,7 +269,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! ircv3_parse = { version = "3", default-features = false, features = ["derive"] }
+//! ircv3_parse = { version = "4", default-features = false, features = ["derive"] }
 //! ```
 //!
 #![cfg_attr(docsrs, feature(doc_cfg))]

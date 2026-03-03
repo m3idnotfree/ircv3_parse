@@ -19,7 +19,7 @@ A **zero-copy** IRC message parser with **IRCv3** support
 
 ```toml
 [dependencies]
-ircv3_parse = { version = "3", features = ["derive"] }
+ircv3_parse = { version = "4", features = ["derive"] }
 ```
 
 ### Parsing Messages (FromMessage)
@@ -96,7 +96,7 @@ For all available attributes and options, see the **[Derive Macro Reference](irc
 
 ```toml
 [dependencies]
-ircv3_parse = { version = "3", default-features = false, features = ["derive"] }
+ircv3_parse = { version = "4", default-features = false, features = ["derive"] }
 ```
 
 ## Minimum Supported Rust Version (MSRV)
